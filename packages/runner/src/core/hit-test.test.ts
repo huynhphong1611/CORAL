@@ -26,7 +26,9 @@ describe('hit-test', () => {
     const checkout = byId(tree, 'cartBt')
     const result = checkHit(tree, checkout, center(checkout.bounds))
     expect(result.ok).toBe(false)
-    expect(result.ok ? undefined : result.covering?.platform_id).toBe(`${APP}:id/design_bottom_sheet`)
+    expect(result.ok ? undefined : result.covering?.platform_id).toBe(
+      `${APP}:id/design_bottom_sheet`,
+    )
   })
 
   it('detects the keyboard window over the bottom navigation', () => {

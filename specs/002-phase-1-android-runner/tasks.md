@@ -90,7 +90,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/runn
 ### Lõi runner (không thiết bị)
 
 - [x] T025 [P] [US2] Resolver `packages/runner/src/core/locator/` (`resolve.ts`, `class-match.ts`, `rel.ts`) theo research R4: bỏ locator nền tảng khác, chỉ node `visible` giao màn hình, `android_id` chấp nhận `id/foo`, so khớp `class` tên ngắn (D14), `rel` chọn ứng viên gần anchor nhất có chồng lấn trục còn lại, `class_index` trong `within`, tie-break clickable → sâu nhất → thứ tự duyệt, trả `{ node?, point?, index, degraded }`; test `resolve.test.ts` trên `fixtures/android/*.xml` — mỗi loại locator một ca khớp + một ca rơi xuống dự phòng (SC-004)
-- [ ] T026 [P] [US2] `packages/runner/src/core/stability.ts`: băm `(class, platform_id, bounds làm tròn 4 px)` bỏ text, hai lần cách 300 ms, tối đa `stable_timeout_ms` 3000 rồi trả `unstable: true`; test với `FakeDriver` + fake timers
+- [x] T026 [P] [US2] `packages/runner/src/core/stability.ts`: băm `(class, platform_id, bounds làm tròn 4 px)` bỏ text, hai lần cách 300 ms, tối đa `stable_timeout_ms` 3000 rồi trả `unstable: true`; test với `FakeDriver` + fake timers
 - [x] T027 [P] [US2] `packages/runner/src/core/hit-test.ts`: node trên cùng tại điểm = cửa sổ sau cùng → `drawing_order` lớn nhất → sâu nhất; hợp lệ khi thuộc subtree của target; test với `overlay-bottom-sheet.xml`, `keyboard-open.xml`
 - [ ] T028 [P] [US2] `packages/runner/src/core/expect.ts`: `visible_text`, `visible`, `not_visible` (locator hoặc danh sách), danh sách điều kiện cùng đúng, thăm dò 250 ms tới `timeout_ms` (mặc định 5000); test với `FakeDriver`
 - [ ] T029 [P] [US2] `packages/runner/src/core/interpolate.ts`: `${var:name}`, `${secret:NAME}`; liệt kê secret thiếu **trước** khi chạy; test `interpolate.test.ts`
