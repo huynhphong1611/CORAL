@@ -41,4 +41,4 @@ MinIO console: http://localhost:9001 (user/pass trong `.env`, mặc định `cor
 - [x] `pnpm install && pnpm dev` khởi động server, web, agent
 - [x] `pnpm test` xanh
 - [x] `docker compose up -d` chạy đủ 3 dịch vụ
-- [ ] CI xanh (job `checks` và `infra`)
+- [x] CI xanh (job `checks` và `infra`)

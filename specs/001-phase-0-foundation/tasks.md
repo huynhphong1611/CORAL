@@ -55,8 +55,8 @@
 ## Phase 9: Polish & DoD
 
 - [x] T022 Chạy `quickstart.md`: `pnpm install && pnpm dev` (3 service), toàn bộ cổng chất lượng
-- [ ] T023 Push, xác nhận CI xanh (cả `infra`)
-- [ ] T024 Đánh dấu `[x]` trong ROADMAP Phase 0, cập nhật "Phase hiện tại" → Phase 1
+- [x] T023 Push, xác nhận CI xanh (cả `infra`)
+- [x] T024 Đánh dấu `[x]` trong ROADMAP Phase 0, cập nhật "Phase hiện tại" → Phase 1
 
 ## Dependencies & Execution Order
 

@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-phase-0-foundation` (làm trên nhánh `claude/phase-0-planning-tech-stack-6m4j5c`; đặt `SPECIFY_FEATURE=001-phase-0-foundation`)
 **Created**: 2026-09-28
-**Status**: Implemented — chờ CI xác nhận DoD
+**Status**: Done — DoD đạt 2026-09-28 (CI run #1 xanh)
 **Input**: `docs/ROADMAP.md` — Phase 0; `docs/SPEC.md` §2, §4.2, §19, §21
 
 ## User Scenarios & Testing *(mandatory)*

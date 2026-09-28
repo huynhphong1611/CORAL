@@ -8,7 +8,7 @@
 | Phiên bản | 0.2 (draft) |
 | Ngày | 2026-09-28 |
 | Chủ dự án | Huynh |
-| Trạng thái | Phase 0 — đã chốt tech stack (§19) và làm rõ SPEC (§21, D07–D27) |
+| Trạng thái | Phase 0 xong; chuẩn bị Phase 1. Đã chốt tech stack (§19) và làm rõ SPEC (§21, D07–D27) |
 
 Tài liệu này là **nguồn sự thật** về kiến trúc và hành vi của coral. Kế hoạch triển khai theo giai đoạn nằm ở `docs/ROADMAP.md`. Quy ước code và cách làm việc nằm ở `CLAUDE.md`. Khi có quyết định lệch khỏi tài liệu này, cập nhật mục liên quan và ghi vào §21 Decision log. Ký hiệu `(Dxx)` trỏ tới dòng tương ứng trong Decision log.
 

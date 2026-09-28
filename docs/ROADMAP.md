@@ -2,7 +2,7 @@
 
 Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definition of Done (DoD)** đã đạt. Chi tiết kỹ thuật tham chiếu `docs/SPEC.md` (ký hiệu §, quyết định ký hiệu D). Mỗi phase là một feature Spec Kit trong `specs/` (D22).
 
-**Phase hiện tại:** Phase 0
+**Phase hiện tại:** Phase 1 (Phase 0 đạt DoD ngày 2026-09-28)
 
 ---
 
@@ -33,7 +33,7 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 - [x] TypeScript strict, ESLint, Prettier, Vitest.
 - [x] Luật ranh giới phụ thuộc: `apps/agent` **không** được import `packages/brain` hay bất kỳ LLM SDK nào (SPEC P1, D08).
 - [x] Docker Compose: postgres, redis, minio.
-- [ ] GitHub Actions: lint + typecheck + test.
+- [x] GitHub Actions: lint + typecheck + test.
 - [x] Điền mục "Lệnh thường dùng" trong `CLAUDE.md`.
 
 **DoD:** `pnpm install && pnpm dev` khởi động server, web, agent (khung rỗng); `pnpm test` xanh; `docker compose up -d` chạy đủ 3 dịch vụ; CI xanh.
