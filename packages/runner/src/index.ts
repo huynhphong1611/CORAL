@@ -31,3 +31,4 @@ export {
   type RunOptions,
 } from './core/run-testcase'
 export { LocalDirSink } from './sinks/local-dir'
+export * as android from './drivers/android'
