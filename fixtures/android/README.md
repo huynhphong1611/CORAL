@@ -18,7 +18,7 @@ confirmed on a real emulator by `android-driver.device.test.ts`; if it differs, 
 | `crash-dialog.xml` | System dialog (package `android`) "keeps stopping", `aerr_close` | `APP_CRASHED`, never dismissed |
 | `anr-dialog.xml` | System dialog "isn't responding", `aerr_wait` | `APP_NOT_RESPONDING`, never dismissed |
 | `overlay-bottom-sheet.xml` | "Proceed To Checkout" button covered by a bottom sheet (higher `drawing-order`) | hit-test: target covered |
-| `keyboard-open.xml` | Login form with the IME window over the bottom half; `nameET` focused | hit-test: `loginBtn` under the keyboard |
+| `keyboard-open.xml` | Login form with the IME window over the bottom (y ≥ 1500); `nameET` focused | hit-test: bottom-nav tabs under the keyboard, `loginBtn` still tappable |
 
 The files are hand-maintained. Once the device tests run on a real emulator, replace them with real
 dumps of Sauce Labs My Demo App where the structure differs.
