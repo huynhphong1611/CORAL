@@ -27,3 +27,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# coral run output
+coral-results/

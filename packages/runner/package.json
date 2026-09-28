@@ -5,7 +5,8 @@
   "description": "Deterministic test runner (no AI, SPEC P1): platform-neutral core + device drivers (D09, D28).",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -17,6 +17,10 @@
     "@coral/runner": "workspace:*",
     "@coral/shared": "workspace:*",
     "commander": "^15.0.0",
+    "fast-xml-parser": "^5.11.1",
+    "fflate": "^0.8.3",
+    "uuidv7": "^1.2.1",
+    "yaml": "^2.9.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
