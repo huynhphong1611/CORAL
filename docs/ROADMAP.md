@@ -86,6 +86,7 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 
 - [ ] `packages/brain`: interface (§14.1), adapter `claude`, `gemini`, `copilot` (§14.2; Copilot làm sau cùng, sau cờ — D20), Zod validate output, retry khi JSON sai.
 - [ ] Router theo `brains.yaml` (§14.3), fallback, giới hạn chi phí, ghi `brain_calls`.
+- [ ] MCP client (§14.5, D29): nạp `mcp.yaml` của project, allowlist tool, vòng gọi tool tối đa 5 lượt, ghi `tool_calls`; thêm MCP SDK vào kiểm tra D08.
 - [ ] Bộ tuần tự hóa màn hình: danh sách element đánh số + screenshot resize.
 - [ ] Prompt builder: nạp `AGENTS.md` + skill phù hợp của **đúng project** (§13).
 - [ ] Explorer (§10): fingerprint màn hình (`packages/shared`, D24), app map, frontier, ngân sách, kiểm tra `never_tap`.
@@ -95,6 +96,7 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 **DoD:**
 - Khám phá app mẫu trong giới hạn chi phí → app map + **≥3 test case `active`** chạy lại tất định pass.
 - Đổi brain của vai trò `explorer` chỉ bằng `brains.yaml`, không sửa code.
+- Một vai trò AI gọi được tool từ một MCP server khai báo trong `mcp.yaml` (ví dụ server giả lập trả OTP), tool ngoài allowlist bị chặn.
 
 ---
 
@@ -146,7 +148,8 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 
 Chỉ bắt đầu khi Phase 0–6 xong và Huynh quyết định mở rộng (SPEC §20 Q4, D28).
 
-- [ ] Driver web bằng Playwright cài `UiDriver` + `TargetLifecycle` (browser context).
+- [ ] Explorer web qua Playwright MCP (§14.5, D30): Playwright MCP chạy trên agent, server gọi qua kênh WS; ghi trace (snapshot + locator) cho Test writer.
+- [ ] Runner web chạy lại bằng Playwright trực tiếp (không MCP, không AI): driver cài `UiDriver` + `TargetLifecycle` (browser context).
 - [ ] Locator web (`testid`, `role` + name, `css`) và `platform: web` trong schema `coral/testcase@1`.
 - [ ] Luật popup web: banner cookie, modal, `alert/confirm`.
 - [ ] Fingerprint màn hình web (URL + cấu trúc DOM); lease slot trình duyệt trong agent.

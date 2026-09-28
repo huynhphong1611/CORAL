@@ -188,6 +188,7 @@ Mọi bảng nghiệp vụ có `tenant_id` và bật Row-Level Security (§17). 
 | `heal_proposals` | id, tenant_id, project_id, kind, run_item_id?, test_case_id?, target_path, classification?, confidence, brain, reasoning, diff, verify_status, status, rejection_outcome?, reviewer_id, decided_at | kind ∈ locator_refresh/ai_heal/popup_rule. status ∈ pending/approved/rejected/superseded. rejection_outcome ∈ bug/wontfix (D17). |
 | `bugs` | id, tenant_id, project_id, run_item_id, title, description, evidence_prefix, status | status ∈ open/confirmed/fixed/wontfix |
 | `brain_calls` | id, tenant_id, role, provider, model, tokens_in, tokens_out, cost_usd, latency_ms, ok, ref_type, ref_id | Theo dõi chi phí. |
+| `tool_calls` | id, tenant_id, brain_call_id, mcp_server, tool, args_redacted, ok, latency_ms, created_at | Mọi lần Brain gọi tool MCP (§14.5, D29). |
 | `secrets` | id, tenant_id, project_id?, name, ciphertext, created_by | `project_id` rỗng = secret cấp tenant (ví dụ API key của provider AI). Secret cấp project đè secret cấp tenant cùng tên. Mã hóa envelope (§17, D19). |
 | `audit_log` | id, tenant_id, actor, action, target, meta, created_at | |
 
@@ -475,6 +476,7 @@ Tỷ lệ heal đúng, **tỷ lệ heal sai** (sửa test làm che bug), thời 
 ├── testcases/*.yaml
 ├── snap/                  # snapshot mốc của test case
 ├── popups.yaml
+├── mcp.yaml               # MCP server + tool được phép cho các vai trò AI (§14.5)
 └── appmap/
     ├── screens.json
     └── snap/
@@ -533,6 +535,19 @@ limits:
 
 ### 14.4 Benchmark
 Bộ "đề thi" cố định (10–20 flow trên app mẫu + app fixture có biến thể UI). Chạy từng brain, đo: tỷ lệ pass, chi phí mỗi lần chạy, thời gian, tỷ lệ heal sai. Mọi lời gọi ghi vào `brain_calls`.
+
+### 14.5 Công cụ qua MCP (D29)
+coral là **MCP client** ở phía server: các vai trò AI (Explorer, Test writer, Healer, Popup resolver) được gọi tool từ các MCP server khai báo cho project.
+
+- **Khai báo:** `mcp.yaml` trong repo project (§13) — tên server, địa chỉ, danh sách tool được phép; credential chỉ tham chiếu `${secret:NAME}`. File thuần, không gắn provider (P4).
+- **Trung lập provider:** Brain router tự làm MCP client (`@modelcontextprotocol/sdk`) và chuyển tool MCP thành function calling của từng adapter (Claude, Gemini, Copilot) — không dựa vào tính năng MCP riêng của từng nhà cung cấp.
+- **Vòng gọi tool:** trong một quyết định, Brain có thể yêu cầu gọi tool; router thực thi, đưa kết quả lại, tối đa 5 lượt rồi Brain phải trả quyết định cuối (vẫn validate bằng Zod như §14.1).
+- **Ví dụ dùng:** Explorer web điều khiển trình duyệt qua Playwright MCP (Phase 7, §20 Q4); lấy OTP hoặc tạo dữ liệu test qua MCP server do user cung cấp (R4); tạo issue cho bug đã được người xác nhận.
+- **Ràng buộc:**
+  - P1: runner và agent khi **chạy lại** test không gọi MCP; test case đã lưu không phụ thuộc MCP. MCP SDK chỉ được dùng ở phía server (bổ sung vào kiểm tra D08 khi bắt đầu dùng ở Phase 3).
+  - P5: cấu hình và credential theo tenant/project; phiên AI chỉ thấy MCP server của project đang chạy.
+  - P6: mỗi server có allowlist tool; tool có tác dụng phụ (ghi, xóa, gửi, trả tiền) mặc định tắt, bật từng tool; mọi lần gọi ghi vào `tool_calls` với tham số đã che secret.
+  - An ninh multi-tenant: tenant chỉ khai báo MCP server **từ xa** (HTTP). MCP server chạy tiến trình cục bộ (stdio) chỉ được phép từ danh sách do nền tảng duyệt sẵn (ví dụ Playwright MCP), hoặc chạy trên agent của chính tenant.
 
 ---
 
@@ -665,7 +680,8 @@ WS     /ws/agent   (§15)
 | Q1 | ~~Chốt tech stack §19~~ | Đã chốt 2026-09-28 (D07). |
 | Q2 | ~~Appium hay Maestro làm driver mặc định~~ | Android: UiAutomator2 trực tiếp (D27); iOS: Appium XCUITest. Giữ interface `DeviceDriver` để thêm Maestro sau. |
 | Q3 | Tên thương mại | `coral` là tên dự án; kiểm tra nhãn hiệu / tên miền trước khi thương mại hóa. |
-| Q4 | Mở rộng sang test web UI | Vẫn ngoài phạm vi đến hết Phase 6 (§1.3). Hướng đi: driver Playwright cài `UiDriver` (cây từ accessibility tree/DOM, `launch` = mở URL, reset = browser context mới); locator web `testid`, `role` + name, `css` (gắn nền tảng `web`); luật popup web (banner cookie, modal, `alert/confirm`); fingerprint = URL + cấu trúc DOM; lease = slot trình duyệt. Giữ đường mở bằng D28; ROADMAP Phase 7 (tùy chọn). |
+| Q4 | Mở rộng sang test web UI | Vẫn ngoài phạm vi đến hết Phase 6 (§1.3). **Khám phá** (AI): Explorer điều khiển trình duyệt qua **Playwright MCP** (§14.5, D30); mỗi thao tác được ghi lại (snapshot + locator Playwright sinh ra, bổ sung `testid`/`css`) để Test writer viết YAML. **Chạy lại** (không AI): runner dùng thư viện Playwright trực tiếp, không qua MCP (P1). Driver Playwright cài `UiDriver` (cây từ accessibility tree/DOM, `launch` = mở URL, reset = browser context mới); locator web `testid`, `role` + name, `css` (gắn nền tảng `web`); luật popup web (banner cookie, modal, `alert/confirm`); fingerprint = URL + cấu trúc DOM; lease = slot trình duyệt. Playwright MCP chạy trên agent để vào được web nội bộ sau NAT, server gọi qua kênh WS của agent (chốt chi tiết ở Phase 7). Giữ đường mở bằng D28; ROADMAP Phase 7 (tùy chọn). |
+| Q5 | coral làm **MCP server** cho AI bên ngoài (Claude Code, Copilot, Cursor…) | Đề xuất, chờ Huynh quyết: tool `list_testcases`, `run_testcases`, `get_run`, `get_step_artifacts`, `list_proposals` — xác thực bằng API token (§5.2); **không** có tool approve/reject (P3: người duyệt trên web). Nếu làm: Phase 6 cùng tích hợp CI. |
 
 ---
 
@@ -701,3 +717,5 @@ WS     /ws/agent   (§15)
 | D26 | 2026-09-28 | Object storage dev dùng image `pgsty/minio` (fork cộng đồng của MinIO) | `minio/minio` đã bị gỡ khỏi Docker Hub; fork dùng y hệt MinIO (lệnh, biến môi trường, healthcheck `mc ready`). |
 | D27 | 2026-09-28 | Android: bỏ Appium, agent gọi thẳng server UiAutomator2 `u2.jar` (openatx/uiautomator2) qua JSON-RPC + `adb forward`; locator `image` bằng OpenCV WASM; iOS giữ Appium XCUITest | Theo đề xuất của Huynh: nhanh hơn, ít thành phần hơn, không cần session Appium hay APK test; agent vẫn viết bằng TypeScript (D07). |
 | D28 | 2026-09-28 | Giữ đường mở rộng sang test web: tách `DeviceDriver` = `UiDriver` (trung lập) + `TargetLifecycle`; lõi `packages/runner` không import driver cụ thể; enum `platform` và union locator chỉ được mở rộng thêm, không đổi `coral/testcase@1` của file cũ | Theo ý Huynh: runner sau này có thể chạy test web (§20 Q4) mà không viết lại lõi; làm ngay từ Phase 1 thì gần như không tốn thêm. |
+| D29 | 2026-09-28 | coral có cơ chế dùng MCP: server là MCP client cho các vai trò AI; khai báo `mcp.yaml` theo project, allowlist tool, log `tool_calls`; runner/agent chạy lại test không dùng MCP (§14.5) | Theo yêu cầu của Huynh; mở đường cho OTP/dữ liệu test (R4), tạo issue, và khám phá web; giữ P1, P5, P6. |
+| D30 | 2026-09-28 | Phần test web (Phase 7): khám phá bằng Playwright MCP, chạy lại bằng Playwright trực tiếp | Theo yêu cầu của Huynh; AI dùng MCP để khám phá, còn test đã lưu chạy tất định không cần AI (P1). |
