@@ -59,6 +59,13 @@ describe('checkManifests', () => {
     expect(violations).toHaveLength(2)
   })
 
+  it('keeps the runner free of @coral/brain and LLM SDKs (P1, D09)', () => {
+    const violations = checkManifests([
+      pkg('@coral/runner', 'packages/runner', { '@coral/brain': 'workspace:*' }, { openai: '^5' }),
+    ])
+    expect(violations).toHaveLength(2)
+  })
+
   it('rejects an app depending on another app', () => {
     const violations = checkManifests([
       pkg('@coral/server', 'apps/server'),
