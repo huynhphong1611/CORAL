@@ -1,0 +1,38 @@
+{
+  "name": "coral",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CORAL — Continuous Observation, Repair & Adaptive Learning: tests that grow back.",
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "turbo run typecheck && tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:device": "CORAL_DEVICE_TESTS=1 vitest run",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "coral": "tsx packages/cli/src/main.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.0",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.5",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^5.0.2",
+    "yaml": "^2.9.1"
+  }
+}

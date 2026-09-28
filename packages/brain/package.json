@@ -1,0 +1,19 @@
+{
+  "name": "@coral/brain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Brain interface and provider adapters (claude, gemini, copilot). Server-only — SPEC P1, §14.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

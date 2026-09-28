@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.turbo/
+coverage/
+pnpm-lock.yaml
+
+# Markdown is hand-formatted (Vietnamese docs, Spec Kit templates and commands)
+*.md
+.specify/
+.claude/

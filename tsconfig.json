@@ -1,0 +1,18 @@
+{
+  // Root project: repo scripts and tool config files. Package sources use their own tsconfig.json.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    // Vite's native config loader wants explicit extensions (vitest.config.ts → vitest.shared.ts).
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": [
+    "*.ts",
+    "scripts/**/*.ts",
+    "scripts/**/*.mjs",
+    "apps/*/*.config.ts",
+    "packages/*/*.config.ts"
+  ]
+}
