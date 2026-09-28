@@ -63,7 +63,7 @@ export function registerBuildRoutes(
     try {
       for await (const part of request.parts()) {
         if (part.type === 'field') {
-          if (part.fieldname === 'version') version = String(part.value as string)
+          if (part.fieldname === 'version') version = String(part.value)
           continue
         }
         if (part.fieldname !== 'file' || uploaded) {
