@@ -46,7 +46,8 @@ jobs:
           cache: pnpm
       - run: docker compose up -d --wait --wait-timeout 180
       - run: pnpm install --frozen-lockfile
-      # *.int.test.ts only (SPEC D34); migrations run in the Vitest global setup.
+      - run: pnpm --filter @coral/server db:migrate
+      # *.int.test.ts only (SPEC D34); the server's Vitest global setup also migrates.
       - run: pnpm test:int
       - if: always()
         run: docker compose down -v

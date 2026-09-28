@@ -10,22 +10,30 @@ import { restrictedImports } from './scripts/boundaries.mjs'
 const APPS = ['@coral/server', '@coral/web', '@coral/agent']
 
 /**
- * Adds the D28 rules for `packages/runner/src/core/**` to a restricted-imports option object.
+ * Adds extra forbidden modules to a restricted-imports option object.
  * @param {ReturnType<typeof restrictedImports>} options
+ * @param {{ names: string[], groups: string[], message: string }} extra
  */
-function withRunnerCoreRules(options) {
-  const message =
-    'D28: the runner core only talks to UiDriver/TargetLifecycle; driver code lives in drivers/.'
+function withExtraRestrictions(options, extra) {
   return {
-    paths: [
-      ...options.paths,
-      ...['node:child_process', 'child_process', 'node:net', 'net'].map((name) => ({
-        name,
-        message,
-      })),
-    ],
-    patterns: [...options.patterns, { group: ['**/drivers', '**/drivers/**'], message }],
+    paths: [...options.paths, ...extra.names.map((name) => ({ name, message: extra.message }))],
+    patterns: [...options.patterns, { group: extra.groups, message: extra.message }],
   }
+}
+
+/** D28: the runner core is platform-neutral — no driver code, no processes, no sockets. */
+const RUNNER_CORE = {
+  names: ['node:child_process', 'child_process', 'node:net', 'net'],
+  groups: ['**/drivers', '**/drivers/**'],
+  message:
+    'D28: the runner core only talks to UiDriver/TargetLifecycle; driver code lives in drivers/.',
+}
+
+/** Constitution V: HTTP routes reach the database only through tenant-scoped repositories. */
+const ROUTES_NO_DB = {
+  names: ['drizzle-orm', 'pg'],
+  groups: ['**/db', '**/db/**', 'drizzle-orm/*'],
+  message: 'Constitution V: routes use src/repos (tenant-scoped repositories), never the DB layer.',
 }
 
 export default defineConfig(
@@ -81,12 +89,26 @@ export default defineConfig(
     },
   },
   {
-    // D28: the runner core is platform-neutral — no driver code, no processes, no sockets.
     files: ['packages/runner/src/core/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
-        withRunnerCoreRules(restrictedImports({ llmSdks: true, brain: true, apps: APPS })),
+        withExtraRestrictions(
+          restrictedImports({ llmSdks: true, brain: true, apps: APPS }),
+          RUNNER_CORE,
+        ),
+      ],
+    },
+  },
+  {
+    files: ['apps/server/src/routes/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        withExtraRestrictions(
+          restrictedImports({ llmSdks: true, brain: false, apps: APPS }),
+          ROUTES_NO_DB,
+        ),
       ],
     },
   },
