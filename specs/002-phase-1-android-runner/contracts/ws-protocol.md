@@ -46,4 +46,4 @@ Nguồn: SPEC §15, D18. Kết nối `WS /ws/agent` với header `Authorization:
 - Server chỉ gửi `job.assign` cho agent cùng tenant với run, khi lease đã được lấy; mỗi thiết bị tối đa một job.
 - Agent gửi `step.result` theo đúng thứ tự step; server bỏ qua bản trùng `(run_item_id, step_index)`.
 - Mất kết nối: agent giữ tối đa 200 message chưa gửi trong bộ nhớ và gửi lại khi nối lại; nếu server đã đánh dấu `DEVICE_OFFLINE` thì các message đến muộn bị bỏ qua.
-- Hai type bổ sung (`agent.heartbeat`, `item.result`) và `agent.welcome`, `error` sẽ được thêm vào bảng SPEC §15 khi implement.
+- `agent.welcome`, `agent.heartbeat`, `item.result`, `error` đã được thêm vào bảng SPEC §15 (D33).

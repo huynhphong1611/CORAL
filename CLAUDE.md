@@ -42,7 +42,7 @@ specs/            tài liệu Spec Kit theo phase (spec, plan, tasks)
 - Code, tên biến, comment, commit message bằng **tiếng Anh**. Trao đổi với Huynh bằng **tiếng Việt**.
 - Không hard-code tên model AI; đọc từ cấu hình.
 - Secret chỉ ở `.env` (không commit) hoặc bảng `secrets` đã mã hóa. Trong YAML chỉ dùng `${secret:NAME}`.
-- Test: Vitest, file `*.test.ts` cạnh code. Test cần thiết bị thật đặt tên `*.device.test.ts` — bị bỏ qua mặc định và trong CI, chạy bằng `pnpm test:device` (D21).
+- Test: Vitest, file `*.test.ts` cạnh code. Test cần thiết bị thật đặt tên `*.device.test.ts` — bị bỏ qua mặc định và trong CI, chạy bằng `pnpm test:device` (D21). Test cần Postgres/Redis/MinIO đặt tên `*.int.test.ts` — chạy bằng `pnpm test:int` (có job CI riêng, D34).
 - Migration DB bằng Drizzle; không sửa migration đã chạy.
 
 ## Cách làm việc

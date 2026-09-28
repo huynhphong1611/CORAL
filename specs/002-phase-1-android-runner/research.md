@@ -93,7 +93,7 @@ Technical Context không còn mục NEEDS CLARIFICATION. Dưới đây là các 
 
 ## R10. Giao thức agent ↔ server
 
-- **Decision**: server dùng `@fastify/websocket` tại `WS /ws/agent`; agent dùng `ws` (hỗ trợ header `Authorization` khi upgrade). Mọi message validate bằng Zod (`packages/shared/protocol`), envelope `{ v, type, id, ts, re?, payload }` (D18). Agent tự kết nối lại với backoff 1 s → 30 s. Hai message **bổ sung** so với bảng §15 (cần cập nhật SPEC khi implement): `agent.heartbeat` (A→S, mỗi 15 s) và `item.result` (A→S, kết quả từng test case để server cập nhật dần). Chi tiết: [contracts/ws-protocol.md](./contracts/ws-protocol.md).
+- **Decision**: server dùng `@fastify/websocket` tại `WS /ws/agent`; agent dùng `ws` (hỗ trợ header `Authorization` khi upgrade). Mọi message validate bằng Zod (`packages/shared/protocol`), envelope `{ v, type, id, ts, re?, payload }` (D18). Agent tự kết nối lại với backoff 1 s → 30 s. Hai message **bổ sung** so với bảng §15 (đã ghi vào SPEC — D33): `agent.heartbeat` (A→S, mỗi 15 s) và `item.result` (A→S, kết quả từng test case để server cập nhật dần). Chi tiết: [contracts/ws-protocol.md](./contracts/ws-protocol.md).
 - **Alternatives**: WebSocket có sẵn của Node (không đặt được header chuẩn); WS ping/pong thuần (không mang được trạng thái thiết bị).
 
 ## R11. Artifact và build trên S3/MinIO
@@ -122,7 +122,7 @@ Technical Context không còn mục NEEDS CLARIFICATION. Dưới đây là các 
   - **Tích hợp `*.int.test.ts` (CI job riêng dựng `docker compose`)**: API + DB + git store + S3; dispatcher + lease (10 run đồng thời một thiết bị, SC-007); agent giả kết nối WS với `FakeDriver` chạy trọn một run (SC-002); agent mất kết nối (SC-009, rút ngắn heartbeat bằng cấu hình test).
   - **Thiết bị `*.device.test.ts`** (chạy tay): driver Android trên emulator; toàn bộ DoD bằng `scripts/phase1-e2e.mjs` (5/5 run, SC-001, SC-003, SC-005, SC-008).
 - **Rationale**: phần lớn logic kiểm được trong CI; chỉ phần đụng thiết bị thật cần emulator (container CI không có KVM).
-- Quy ước mới `*.int.test.ts` (chạy khi `CORAL_INT_TESTS=1`, `pnpm test:int`) sẽ được thêm vào `CLAUDE.md` và `vitest.shared.ts`.
+- Quy ước `*.int.test.ts` (chạy khi `CORAL_INT_TESTS=1`, `pnpm test:int`) đã ghi vào SPEC §19 và `CLAUDE.md` (D34); `vitest.shared.ts` cập nhật trong task Setup.
 
 ## R15. App mẫu tham chiếu
 

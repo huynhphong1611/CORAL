@@ -594,6 +594,10 @@ Mỗi message có `{ v: 1, type, id, ts, payload }` và trường tùy chọn `r
 | S→A | `stream.start` / `stream.stop` | bật / tắt live view |
 | A→S | `stream.frame` | khung hình (MVP: JPEG) |
 | S→A | `job.cancel` | hủy run |
+| S→A | `agent.welcome` | trả lời `agent.hello`: `agent_id`, chu kỳ heartbeat (D33) |
+| A→S | `agent.heartbeat` | mỗi 15 giây, kèm trạng thái thiết bị; gia hạn lease (D33) |
+| A→S | `item.result` | kết quả từng test case trong run, gửi ngay khi xong (D33) |
+| ↔ | `error` | message không hợp lệ / lỗi xử lý, có `re` nếu đọc được `id` (D33) |
 
 ---
 
@@ -674,7 +678,7 @@ POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
 | So khớp ảnh | OpenCV WASM (`@techstark/opencv-js`) trong `packages/runner` | Không còn Appium images plugin trên Android (D27). |
 | Live view | MVP: stream JPEG qua WS (2–5 fps). Sau: scrcpy (Android), MJPEG của WebDriverAgent (iOS) | Làm nhanh trước, tối ưu sau. |
 | CLI | `commander`, binary `coral` | |
-| Test | Vitest 5 (projects cho cả monorepo); test cần thiết bị đặt trong `*.device.test.ts` và bỏ qua mặc định (D21) | |
+| Test | Vitest 5 (projects cho cả monorepo); test cần thiết bị đặt trong `*.device.test.ts` (D21), test cần Postgres/Redis/MinIO đặt trong `*.int.test.ts` (D34) — cả hai bị bỏ qua mặc định | |
 | Lint / format | ESLint 10 flat config + typescript-eslint (type-aware), Prettier 3 | `no-floating-promises` quan trọng với code thiết bị bất đồng bộ. |
 | Ranh giới phụ thuộc | ESLint `no-restricted-imports` + `scripts/check-boundaries.mjs` (manifest + lockfile bắc cầu) | Thực thi P1 (D08). |
 | Dev infra | Docker Compose: postgres 17, redis 7, minio (image `pgsty/minio` — D26), đều có healthcheck | |
@@ -742,3 +746,5 @@ POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
 | D30 | 2026-09-28 | Phần test web (Phase 7): khám phá bằng Playwright MCP, chạy lại bằng Playwright trực tiếp | Theo yêu cầu của Huynh; AI dùng MCP để khám phá, còn test đã lưu chạy tất định không cần AI (P1). |
 | D31 | 2026-09-28 | Test case được tạo và lưu trong chính coral (kho git project do coral quản lý, có từ Phase 1); nguồn: viết tay, Recorder, prompt, import test case thủ công (CSV/Excel/Gherkin → `coral/manualcase@1` → AI khám phá → YAML) | Trả lời Q1 của Huynh: coral là nơi sinh ra test case; import giúp chuyển bộ test thủ công sẵn có sang test tự động. |
 | D32 | 2026-09-28 | coral làm MCP server (`/mcp`) cho AI bên ngoài, kiêm cổng tới MCP server user cấu hình (`expose: true`); không có tool duyệt proposal | Trả lời Q5 của Huynh; giữ P3 (người duyệt), P5 (scope theo token/tenant), P6 (allowlist, tác dụng phụ). |
+| D33 | 2026-09-28 | Bổ sung giao thức §15: `agent.welcome`, `agent.heartbeat`, `item.result`, `error` | Cần cho heartbeat/lease (D16) và cập nhật kết quả từng test case; Huynh duyệt khi xem plan Phase 1. |
+| D34 | 2026-09-28 | Quy ước test tích hợp `*.int.test.ts` (cần Postgres/Redis/MinIO), chạy bằng `pnpm test:int` với `CORAL_INT_TESTS=1`, có job CI riêng dựng `docker compose` | Tách test cần hạ tầng khỏi unit test nhanh; Huynh duyệt khi xem plan Phase 1. |
