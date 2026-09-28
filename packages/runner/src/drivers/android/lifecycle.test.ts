@@ -1,0 +1,110 @@
+import { describe, expect, it } from 'vitest'
+import { Adb, type ExecFn } from './adb'
+import { AndroidLifecycle, MemoryInstallRegistry } from './lifecycle'
+
+const APP = 'com.saucelabs.mydemoapp.android'
+
+function setup(
+  opts: {
+    emulator?: boolean
+    apiLevel?: number
+    replies?: Record<string, string>
+    fail?: string[]
+  } = {},
+) {
+  const calls: string[] = []
+  const exec: ExecFn = (_file, args) => {
+    const key = args.slice(2).join(' ')
+    calls.push(key)
+    if (opts.fail?.some((f) => key.startsWith(f))) return Promise.reject(new Error('exit 1'))
+    const reply =
+      Object.entries(opts.replies ?? {}).find(([prefix]) => key.startsWith(prefix))?.[1] ??
+      (key.includes('pm clear') || key.startsWith('install') ? 'Success\n' : '')
+    return Promise.resolve(Buffer.from(reply))
+  }
+  const registry = new MemoryInstallRegistry()
+  const lifecycle = new AndroidLifecycle(new Adb('adb', exec).device('emu-1'), {
+    appId: APP,
+    apiLevel: opts.apiLevel ?? 34,
+    emulator: opts.emulator ?? true,
+    registry,
+  })
+  return { lifecycle, calls, registry }
+}
+
+describe('AndroidLifecycle', () => {
+  it('installs with -r -d (never -g) and skips an unchanged build', async () => {
+    const { lifecycle, calls } = setup()
+    await lifecycle.install('/b/app.apk', 'sha-1')
+    await lifecycle.install('/b/app.apk', 'sha-1')
+    await lifecycle.install('/b/app.apk', 'sha-2')
+    expect(calls).toEqual(['install -r -d /b/app.apk', 'install -r -d /b/app.apk'])
+  })
+
+  it('clears data and grants mapped permissions for the app under test only (P6)', async () => {
+    const { lifecycle, calls } = setup({ apiLevel: 32 })
+    await lifecycle.resetApp(APP)
+    await lifecycle.grantPermissions(APP, ['camera', 'notifications', 'location'])
+    expect(calls).toEqual([
+      `shell pm clear ${APP}`,
+      `shell pm grant ${APP} android.permission.CAMERA`,
+      // notifications is not a runtime permission before API 33.
+      `shell pm grant ${APP} android.permission.ACCESS_FINE_LOCATION`,
+      `shell pm grant ${APP} android.permission.ACCESS_COARSE_LOCATION`,
+    ])
+    await expect(lifecycle.resetApp('com.x; reboot')).rejects.toThrow('invalid Android package')
+  })
+
+  it('disables animations and restores them only on real devices', async () => {
+    const replies = {
+      'shell settings get global window_animation_scale': '1.0\n',
+      'shell settings get global transition_animation_scale': '0.5\n',
+      'shell settings get global animator_duration_scale': 'null\n',
+    }
+    const real = setup({ emulator: false, replies })
+    await real.lifecycle.disableAnimations()
+    await real.lifecycle.restoreAnimations()
+    expect(real.calls.filter((c) => c.includes('put') || c.includes('delete'))).toEqual([
+      'shell settings put global window_animation_scale 0',
+      'shell settings put global transition_animation_scale 0',
+      'shell settings put global animator_duration_scale 0',
+      'shell settings put global window_animation_scale 1.0',
+      'shell settings put global transition_animation_scale 0.5',
+      'shell settings delete global animator_duration_scale',
+    ])
+    const emu = setup({ emulator: true, replies })
+    await emu.lifecycle.disableAnimations()
+    await emu.lifecycle.restoreAnimations()
+    expect(emu.calls.filter((c) => c.includes('put'))).toHaveLength(3)
+  })
+
+  it('launches with monkey and opens deep links safely quoted', async () => {
+    const { lifecycle, calls } = setup()
+    await lifecycle.launch(APP)
+    await lifecycle.openDeepLink('mydemoapprn://product-details/1?x=1&y=2')
+    expect(calls).toEqual([
+      `shell monkey -p ${APP} -c android.intent.category.LAUNCHER 1`,
+      `shell am start -W -a android.intent.action.VIEW -d 'mydemoapprn://product-details/1?x=1&y=2' -p ${APP}`,
+    ])
+    const broken = setup({
+      replies: { 'shell monkey': '** No activities found to run, monkey aborted.' },
+    })
+    await expect(broken.lifecycle.launch(APP)).rejects.toThrow('cannot launch')
+  })
+
+  it('checks the process, logs and crashes since a moment', async () => {
+    const { lifecycle, calls } = setup({
+      replies: {
+        'shell pidof': '4242\n',
+        'shell logcat -d -b crash': `--------- beginning of crash\nFATAL EXCEPTION: main\nProcess: ${APP}, PID: 4242\n`,
+      },
+    })
+    expect(await lifecycle.isAppRunning(APP)).toBe(true)
+    expect(await lifecycle.crashedSince(1_700_000_000_123)).toBe(true)
+    await lifecycle.deviceLogs(1_700_000_000_123)
+    expect(calls.at(-1)).toBe(
+      'shell logcat -d -b main,system,crash -v threadtime -T 1700000000.123',
+    )
+    expect(await setup({ fail: ['shell pidof'] }).lifecycle.isAppRunning(APP)).toBe(false)
+  })
+})

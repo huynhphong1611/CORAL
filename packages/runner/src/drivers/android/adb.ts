@@ -33,6 +33,12 @@ export class AdbError extends Error {
 
 export const ADB_TIMEOUT_MS = 30_000
 
+/** Quotes one word for the device's `sh`; plain words stay as they are. */
+export function shellQuote(word: string): string {
+  if (/^[\w@%+=:,./-]+$/.test(word)) return word
+  return `'${word.replace(/'/g, `'\\''`)}'`
+}
+
 /** `device`, `offline`, `unauthorized`, `recovery`… as printed by adb. */
 export type AdbState = string
 
@@ -110,9 +116,12 @@ export class AdbDeviceClient {
     return ['-s', this.udid, ...rest]
   }
 
-  /** `adb shell` with arguments passed as separate words (no local shell involved). */
+  /**
+   * `adb shell` with arguments as separate words. adb joins them for the device shell, so every
+   * word is quoted there (URLs with `&`, text with spaces cannot inject commands).
+   */
   shell(command: readonly string[], timeoutMs?: number): Promise<string> {
-    return this.adb.text(this.args(['shell', ...command]), timeoutMs)
+    return this.adb.text(this.args(['shell', ...command.map(shellQuote)]), timeoutMs)
   }
 
   /** Binary-safe stdout (screencap). */

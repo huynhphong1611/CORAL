@@ -70,3 +70,12 @@ describe('adb', () => {
     await expect(adb.devices()).rejects.toBeInstanceOf(AdbError)
   })
 })
+
+describe('shellQuote', () => {
+  it('leaves plain words and quotes the rest for the device shell', async () => {
+    const { shellQuote } = await import('./adb')
+    expect(shellQuote('com.example.app')).toBe('com.example.app')
+    expect(shellQuote('myapp://p?a=1&b=2')).toBe("'myapp://p?a=1&b=2'")
+    expect(shellQuote("it's; rm -rf /")).toBe("'it'\\''s; rm -rf /'")
+  })
+})
