@@ -197,7 +197,7 @@ function semanticIssues(tc: TestCase): RawIssue[] {
             issues.push({
               path: innerPath,
               code: 'unsupported_in_phase',
-              message: 'image locators are not supported before Phase 3',
+              message: 'image locators are not supported yet (Phase 2, D27)',
             })
           }
         })
@@ -222,7 +222,7 @@ function semanticIssues(tc: TestCase): RawIssue[] {
         issues.push({
           path: [...path, 'screen'],
           code: 'unsupported_in_phase',
-          message: 'expect.screen is not supported before Phase 3',
+          message: 'expect.screen needs the app map (Phase 3)',
         })
       }
     }

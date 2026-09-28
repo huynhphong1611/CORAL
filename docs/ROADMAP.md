@@ -44,8 +44,8 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 
 **Mục tiêu:** chạy một test case YAML viết tay trên Android emulator thông qua server.
 
-- [ ] Tạo `packages/runner` (D09) — runner dùng chung cho `apps/agent` và `coral run`; interface `UiDriver` + `TargetLifecycle`, lõi không import driver cụ thể (§8.1, D28).
-- [ ] Zod schema test case (SPEC §7, gồm §7.1 tham số action, §7.5 quyền trừu tượng) + `coral validate <file>`; `examples/*.yaml` phải validate được.
+- [x] Tạo `packages/runner` (D09) — runner dùng chung cho `apps/agent` và `coral run`; interface `UiDriver` + `TargetLifecycle`, lõi không import driver cụ thể (§8.1, D28).
+- [x] Zod schema test case (SPEC §7, gồm §7.1 tham số action, §7.5 quyền trừu tượng) + `coral validate <file>`; `examples/*.yaml` phải validate được.
 - [ ] `DeviceDriver` bản Android gọi thẳng UiAutomator2 (`u2.jar`, JSON-RPC qua `adb forward` — SPEC §5.3, §8.1, D27), chuẩn hóa `ElementNode`.
 - [ ] Resolver chuỗi locator (§7.2): `android_id`, `text`, `text_contains`, `desc`, `rel`, `class_index`, `point_pct`. (`image` để Phase 2.)
 - [ ] `waitForStable`, `checkExpect`, hành động §7.1, kiểm tra element trên cùng trước khi tap (§8.4).

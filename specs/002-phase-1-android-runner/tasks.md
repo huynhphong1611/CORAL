@@ -75,7 +75,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/runn
 - [x] T021 [P] [US1] `packages/shared/src/testcase/parse.ts`: đọc YAML bằng `yaml` + `LineCounter`, ánh xạ `path` (`steps[3].target[1]`) → `line`/`column`; test `parse.test.ts`
 - [x] T022 [US1] `packages/shared/src/testcase/validate.ts`: lỗi `var_undeclared`, `unknown_permission`, `platform_coverage`, `duplicate_step_id`, `unsupported_in_phase` (`image`, `expect.screen`), `point_pct_not_last`; cảnh báo `no_expect_after_tap`; trả `{ file, step_id, path, code, message, line, column }`; test `validate.test.ts` so với `fixtures/testcases/invalid/expected.json` (SC-006)
 - [x] T023 [P] [US1] `packages/shared/src/popups/schema.ts` (`coral/popups@1`, `match` ít nhất một khóa trong `package`/`alert_contains`/`text_contains`/`resource_id`, `name` duy nhất) + lỗi `rule_taps_never_tap`; test `schema.test.ts` (kèm `examples/popups.example.yaml`)
-- [ ] T024 [US1] Lệnh `coral validate <file…>` trong `packages/cli/src/commands/validate.ts` (nhận loại file theo trường `schema`, `--format text|json`, mã thoát 0/1/2 theo contracts/cli.md); test `validate.test.ts` gọi program với file fixture và kiểm tra output + mã thoát
+- [x] T024 [US1] Lệnh `coral validate <file…>` trong `packages/cli/src/commands/validate.ts` (nhận loại file theo trường `schema`, `--format text|json`, mã thoát 0/1/2 theo contracts/cli.md); test `validate.test.ts` gọi program với file fixture và kiểm tra output + mã thoát
 
 **Checkpoint**: US1 dùng được độc lập
 
