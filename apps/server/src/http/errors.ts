@@ -1,4 +1,5 @@
-import type { api } from '@coral/shared'
+import { formatPath, type api } from '@coral/shared'
+
 import type { FastifyError, FastifyInstance } from 'fastify'
 import type { z } from 'zod'
 
@@ -22,14 +23,7 @@ export function notFound(what: string): HttpError {
   return new HttpError(404, 'not_found', `${what} not found`)
 }
 
-/** `["steps", 3, "target"]` → `steps[3].target` */
-export function formatPath(path: readonly PropertyKey[]): string {
-  return path
-    .map((part, i) =>
-      typeof part === 'number' ? `[${part}]` : `${i === 0 ? '' : '.'}${String(part)}`,
-    )
-    .join('')
-}
+export { formatPath }
 
 /** Validates request input with a shared Zod schema; throws 400 `validation_failed`. */
 export function parseInput<T extends z.ZodType>(schema: T, input: unknown): z.infer<T> {

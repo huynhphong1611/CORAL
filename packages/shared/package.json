@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "uuidv7": "^1.2.1",
+    "yaml": "^2.9.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
