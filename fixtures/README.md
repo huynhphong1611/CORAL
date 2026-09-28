@@ -1,0 +1,6 @@
+# fixtures
+
+Test data and fixture apps.
+
+- `sample-app/` — fixture app with UI variants v1…v6 used to evaluate the Healer (docs/ROADMAP.md, Phase 4).
+- Fake element trees for unit tests of the locator resolver arrive with Phase 1.

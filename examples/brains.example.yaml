@@ -1,0 +1,16 @@
+# Example brain routing — format defined in docs/SPEC.md §14.3.
+# Stored per tenant (DB, editable via GET/PUT /brains/config); this YAML is the import/export form.
+# Model names are configuration, never hard-coded in code. Replace the placeholders.
+schema: coral/brains@1
+
+roles:
+  explorer: { provider: gemini, model: '<flash-class>' } # many calls: cheap + vision
+  writer: { provider: copilot }
+  healer: { provider: claude, model: '<reasoning-class>' }
+  popup: { provider: gemini, model: '<flash-class>' }
+
+fallback: [claude, gemini]
+
+limits:
+  max_cost_usd_per_day: 20
+  max_cost_usd_per_exploration: 3

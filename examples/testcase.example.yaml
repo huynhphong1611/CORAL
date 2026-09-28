@@ -1,0 +1,85 @@
+# Example coral test case — format defined in docs/SPEC.md §7.
+# Zod schema lives in packages/shared (Phase 1); check with `coral validate <file>`.
+# In a project repo this file sits at testcases/<slug>.yaml.
+schema: coral/testcase@1
+id: login-to-profile
+intent: 'Đăng nhập bằng tài khoản test rồi mở trang Hồ sơ'
+tags: [smoke, auth]
+platforms: [android, ios]
+
+preconditions:
+  app_state: fresh # fresh = clear app data before the run | keep
+  grant_permissions: [notifications, location] # abstract names, mapped per platform (SPEC §7.5)
+
+variables:
+  username: ${secret:TEST_USER} # secret reference by name — never the value
+  password: ${secret:TEST_PASSWORD}
+
+steps:
+  - id: s1
+    action: launch
+    expect: { visible_text: 'Đăng nhập', timeout_ms: 10000 }
+
+  - id: s2
+    action: type
+    target:
+      - android_id: 'com.example:id/input_username'
+      - ios_id: 'usernameField'
+      - desc: 'Tên đăng nhập'
+    value: ${var:username}
+
+  - id: s3
+    action: type
+    target:
+      - android_id: 'com.example:id/input_password'
+      - ios_id: 'passwordField'
+      - rel: { below: { text: 'Mật khẩu' }, class: EditText }
+    value: ${var:password}
+
+  - id: s4
+    action: hide_keyboard
+
+  - id: s5
+    action: tap
+    target: # order = priority; platform-specific locators are skipped on the other platform
+      - android_id: 'com.example:id/btn_login'
+      - ios_id: 'loginButton'
+      - text: 'Đăng nhập'
+      - rel: { below: { text: 'Mật khẩu' }, class: Button }
+      - image: snap/s5_target.png
+      - point_pct: [0.50, 0.82] # last resort
+    expect: { visible_text: 'Trang chủ', timeout_ms: 8000 }
+    snapshot: snap/s5
+
+  - id: s6
+    action: scroll_to
+    direction: down
+    max_swipes: 5
+    target:
+      - desc: 'Hồ sơ'
+      - text: 'Hồ sơ'
+
+  - id: s7
+    action: tap
+    target:
+      - android_id: 'com.example:id/nav_profile'
+      - ios_id: 'tabProfile'
+      - desc: 'Hồ sơ'
+      - class_index:
+          { class: Button, index: 3, within: { android_id: 'com.example:id/bottom_nav' } }
+    expect: # a list: every condition must hold
+      - visible_text: 'Hồ sơ'
+      - visible:
+          - android_id: 'com.example:id/avatar'
+          - ios_id: 'profileAvatar'
+      - not_visible: { text: 'Đăng nhập' }
+    snapshot: snap/s7
+
+  - id: s8
+    action: swipe
+    direction: up
+    distance_pct: 0.5
+
+  - id: s9
+    action: assert
+    expect: { visible_text: 'Phiên bản', timeout_ms: 3000 }
