@@ -9,6 +9,25 @@ import { restrictedImports } from './scripts/boundaries.mjs'
 
 const APPS = ['@coral/server', '@coral/web', '@coral/agent']
 
+/**
+ * Adds the D28 rules for `packages/runner/src/core/**` to a restricted-imports option object.
+ * @param {ReturnType<typeof restrictedImports>} options
+ */
+function withRunnerCoreRules(options) {
+  const message =
+    'D28: the runner core only talks to UiDriver/TargetLifecycle; driver code lives in drivers/.'
+  return {
+    paths: [
+      ...options.paths,
+      ...['node:child_process', 'child_process', 'node:net', 'net'].map((name) => ({
+        name,
+        message,
+      })),
+    ],
+    patterns: [...options.patterns, { group: ['**/drivers', '**/drivers/**'], message }],
+  }
+}
+
 export default defineConfig(
   {
     ignores: ['**/node_modules/**', '**/dist/**', '**/.turbo/**', '**/coverage/**', '.specify/**'],
@@ -58,6 +77,16 @@ export default defineConfig(
       'no-restricted-imports': [
         'error',
         restrictedImports({ llmSdks: true, brain: false, apps: APPS }),
+      ],
+    },
+  },
+  {
+    // D28: the runner core is platform-neutral — no driver code, no processes, no sockets.
+    files: ['packages/runner/src/core/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        withRunnerCoreRules(restrictedImports({ llmSdks: true, brain: true, apps: APPS })),
       ],
     },
   },
