@@ -1,12 +1,14 @@
 import { CORAL_VERSION, type HealthResponse } from '@coral/shared'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { ServerConfig } from './config'
+import { registerErrorHandling } from './http/errors'
 
 /** Creates the Fastify app without listening, so tests can use `app.inject()`. */
 export function buildServer(config: Pick<ServerConfig, 'logLevel'>): FastifyInstance {
   const app = Fastify({
     logger: { level: config.logLevel, base: { service: 'coral-server' } },
   })
+  registerErrorHandling(app)
   const startedAt = performance.now()
 
   app.get('/health', async (): Promise<HealthResponse> => ({
