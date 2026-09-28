@@ -35,11 +35,10 @@ describe('validateTestCaseSource', () => {
     expect(result.errors[0]).toMatchObject({ line: 9, column: 9 })
   })
 
-  it('flags image and expect.screen in the example as not yet supported, nothing else', () => {
+  it('passes examples/testcase.example.yaml (ROADMAP: examples must validate)', () => {
     const result = validateTestCaseSource(examples['testcase.example.yaml'] ?? '', 'example')
-    expect(result.errors.map((e) => [e.code, e.path])).toEqual([
-      ['unsupported_in_phase', 'steps[4].target[4]'],
-    ])
+    expect(result.errors).toEqual([])
+    expect(result.warnings).toEqual([])
   })
 
   it('warns about a tap without expect unless an assert follows', () => {

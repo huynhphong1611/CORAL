@@ -46,7 +46,7 @@ steps:
       - ios_id: 'loginButton'
       - text: 'Đăng nhập'
       - rel: { below: { text: 'Mật khẩu' }, class: Button }
-      - image: snap/s5_target.png
+      # - image: snap/s5_target.png   # image locators arrive in Phase 2 (D27)
       - point_pct: [0.50, 0.82] # last resort
     expect: { visible_text: 'Trang chủ', timeout_ms: 8000 }
     snapshot: snap/s5
