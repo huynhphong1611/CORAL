@@ -1,9 +1,10 @@
 import { CORAL_VERSION, healthResponseSchema } from '@coral/shared'
 import { afterAll, describe, expect, it } from 'vitest'
+import { DEV_JWT_SECRET } from './config'
 import { buildServer } from './server'
 
 describe('coral-server', () => {
-  const app = buildServer({ logLevel: 'silent' })
+  const app = buildServer({ logLevel: 'silent', jwtSecret: DEV_JWT_SECRET })
   afterAll(async () => {
     await app.close()
   })

@@ -58,11 +58,9 @@ function isFastifyError(error: unknown): error is FastifyError {
 /** Installs the single error format of contracts/rest-api.md on a Fastify app. */
 export function registerErrorHandling(app: FastifyInstance): void {
   app.setNotFoundHandler((request, reply) =>
-    reply
-      .status(404)
-      .send({
-        error: { code: 'not_found', message: `${request.method} ${request.url} not found` },
-      }),
+    reply.status(404).send({
+      error: { code: 'not_found', message: `${request.method} ${request.url} not found` },
+    }),
   )
 
   app.setErrorHandler((error, request, reply) => {

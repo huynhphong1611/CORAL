@@ -15,3 +15,4 @@ export const sessionSchema = z.object({
 export type Session = z.infer<typeof sessionSchema>
 
 export const meSchema = sessionSchema.pick({ user: true, tenant: true })
+export type Me = z.infer<typeof meSchema>
