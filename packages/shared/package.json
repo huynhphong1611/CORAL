@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "uuidv7": "^1.2.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
