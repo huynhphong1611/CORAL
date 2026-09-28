@@ -11,6 +11,7 @@ import { registerErrorHandling } from './http/errors'
 import { createRepos } from './repos'
 import { registerBuildRoutes } from './routes/builds'
 import { registerProjectRoutes } from './routes/projects'
+import { registerTestCaseRoutes } from './routes/testcases'
 import type { ArtifactStore } from './storage/s3'
 
 /** Omitted parts disable their routes (unit tests only exercise stateless routes). */
@@ -49,6 +50,7 @@ export function buildServer(
   if (deps.db && deps.store) {
     const repos = createRepos({ db: deps.db, store: deps.store })
     registerProjectRoutes(app, { repos })
+    registerTestCaseRoutes(app, { repos })
     if (deps.artifacts) registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
   }
 

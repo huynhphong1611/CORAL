@@ -6,7 +6,17 @@ export const apiErrorSchema = z.object({
     code: z.string(),
     message: z.string(),
     details: z
-      .array(z.object({ path: z.string(), code: z.string(), message: z.string() }))
+      .array(
+        z.object({
+          path: z.string(),
+          code: z.string(),
+          message: z.string(),
+          // Set for YAML validation problems (test cases, popup rules).
+          step_id: z.string().optional(),
+          line: z.number().int().optional(),
+          column: z.number().int().optional(),
+        }),
+      )
       .optional(),
   }),
 })

@@ -4,6 +4,7 @@ import { audit, type AuditEntry } from './audit'
 import { buildsRepo } from './builds'
 import { identityRepo } from './identity'
 import { projectsRepo } from './projects'
+import { testCasesRepo } from './test-cases'
 
 export interface RepoDeps {
   db: Db
@@ -18,10 +19,12 @@ export function createRepos({ db, store }: RepoDeps) {
   return {
     identity: identityRepo(db),
     tenant(tenantId: string) {
+      const projects = projectsRepo(db, tenantId, store)
       return {
         tenantId,
-        projects: projectsRepo(db, tenantId, store),
+        projects,
         builds: buildsRepo(db, tenantId),
+        testCases: testCasesRepo(db, tenantId, store, projects),
         audit: (entry: Omit<AuditEntry, 'tenantId'>) => audit(db, { tenantId, ...entry }),
       }
     },

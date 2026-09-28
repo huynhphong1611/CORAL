@@ -115,19 +115,6 @@ export function projectsRepo(db: Db, tenantId: string, store: ProjectRepoStore) 
       if (!file) throw notFound('project file')
       return file
     },
-
-    async setProjectFileHead(projectId: string, kind: 'popups', headCommit: string) {
-      await db
-        .update(projectFiles)
-        .set({ headCommit, updatedAt: new Date() })
-        .where(
-          and(
-            eq(projectFiles.tenantId, tenantId),
-            eq(projectFiles.projectId, projectId),
-            eq(projectFiles.kind, kind),
-          ),
-        )
-    },
   }
 }
 

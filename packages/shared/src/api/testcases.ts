@@ -1,7 +1,14 @@
 import { z } from 'zod'
 import { commitSha, timestamp } from './common'
 
-const issue = z.object({ path: z.string(), code: z.string(), message: z.string() })
+const issue = z.object({
+  path: z.string(),
+  code: z.string(),
+  message: z.string(),
+  step_id: z.string().optional(),
+  line: z.number().int().optional(),
+  column: z.number().int().optional(),
+})
 
 export const testCaseSummarySchema = z.object({
   id: z.uuid(),
@@ -36,3 +43,9 @@ export const historyEntrySchema = z.object({
 
 export const popupsFileSchema = z.object({ yaml: z.string(), head_commit: commitSha })
 export const updatePopupsSchema = z.object({ yaml: z.string().min(1), base_commit: commitSha })
+
+export type TestCaseSummary = z.infer<typeof testCaseSummarySchema>
+export type TestCaseDetail = z.infer<typeof testCaseDetailSchema>
+export type SavedTestCase = z.infer<typeof savedTestCaseSchema>
+export type HistoryEntry = z.infer<typeof historyEntrySchema>
+export type PopupsFile = z.infer<typeof popupsFileSchema>
