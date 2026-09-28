@@ -71,7 +71,7 @@ Tải mọi `tree.json`, `device.log`, `result.json` của run và log server/ag
 
 ## 7. Không cần AI (SC-010)
 
-`pnpm check:boundaries` xanh (runner, agent, cli không chạm LLM SDK); chạy mục 3 với mạng chặn mọi tên miền nhà cung cấp AI → vẫn 5/5.
+`pnpm check:boundaries` xanh (runner, agent, cli không chạm LLM SDK) và `scripts/no-ai.test.ts` (T065) xanh — đây là bảo đảm chính, vì runner không có đường nào gọi AI. Chạy mục 3 với mạng chặn mọi tên miền nhà cung cấp AI (vẫn 5/5) chỉ là minh họa thêm, không bắt buộc.
 
 ## Checklist DoD Phase 1
 

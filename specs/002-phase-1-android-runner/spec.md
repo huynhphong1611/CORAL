@@ -66,7 +66,7 @@ Người vận hành đăng nhập bằng tài khoản seed, tạo project, app,
 4. **Given** run đang chạy, **When** người vận hành xem chi tiết run, **Then** thấy trạng thái từng step cập nhật dần (không phải đợi hết run).
 5. **Given** run đã xong, **When** người vận hành xem từng step, **Then** mỗi step có trạng thái, locator đã dùng, `degraded`, thời gian, và liên kết tải ảnh chụp/cây element có hạn dùng ngắn.
 6. **Given** hai run cùng nhắm một thiết bị, **When** cả hai được tạo gần như cùng lúc, **Then** chúng chạy lần lượt, không bao giờ chồng lên nhau.
-7. **Given** run đang chạy, **When** người vận hành hủy run, **Then** agent dừng sau thao tác hiện tại, dọn app theo quy tắc, run chuyển `cancelled` và thiết bị được trả lại.
+7. **Given** run đang chạy, **When** người vận hành hủy run, **Then** agent dừng sau thao tác hiện tại, dọn dẹp tối thiểu (khôi phục cài đặt animation trên máy thật, dừng server điều khiển; không gỡ app, không xóa dữ liệu — dọn dẹp đầy đủ ở Phase 5), run chuyển `cancelled` và thiết bị được trả lại.
 8. **Given** agent mất kết nối giữa run, **When** quá 3 nhịp heartbeat, **Then** test case đang chạy fail với `DEVICE_OFFLINE`, thiết bị được giải phóng, không tự chạy lại.
 9. **Given** token agent sai hoặc đã thu hồi, **When** agent kết nối, **Then** bị từ chối và không nhận được việc nào.
 
@@ -115,7 +115,7 @@ Mỗi step lưu đủ bằng chứng (ảnh chụp, cây element, locator đã d
 - Thiết bị bị rút / emulator tắt giữa run: fail `DEVICE_OFFLINE` hoặc `DRIVER_ERROR`, lease được giải phóng.
 - Cài build thất bại (sai kiến trúc, thiếu dung lượng): test case fail `DRIVER_ERROR` với lý do; không chạy step nào.
 - Run tạo cho thiết bị đang offline: nằm trong hàng đợi tối đa thời gian chờ hàng đợi rồi fail, không treo vô hạn.
-- Test case không khai báo `android` trong `platforms`: bị từ chối khi tạo run trên thiết bị Android.
+- Test case không khai báo `android` trong `platforms`: bị từ chối khi tạo run trên thiết bị Android và khi chạy cục bộ.
 - Message không hợp lệ giữa agent và server: bị từ chối, ghi log, không làm sập bên nào.
 
 ## Requirements *(mandatory)*
@@ -149,7 +149,7 @@ Mỗi step lưu đủ bằng chứng (ảnh chụp, cây element, locator đã d
 
 **Server tối thiểu**
 
-- **FR-017**: Người vận hành MUST đăng nhập được bằng tài khoản seed và nhận token truy cập ngắn hạn; mọi API trừ `/health` MUST yêu cầu xác thực.
+- **FR-017**: Người vận hành MUST đăng nhập được bằng tài khoản seed và nhận token truy cập ngắn hạn; mọi API trừ `/health`, `/health/ready` và `/auth/*` (đăng nhập, làm mới, đăng xuất) MUST yêu cầu xác thực; `/health/ready` chỉ trả trạng thái sẵn sàng, không lộ chi tiết hạ tầng.
 - **FR-018**: Mọi bản ghi nghiệp vụ MUST gắn tenant và mọi truy cập dữ liệu MUST lọc theo tenant của người gọi (P5, D10).
 - **FR-019**: Người vận hành MUST tạo được project, app Android (theo package), và tải lên build kèm checksum; build lưu trong kho artifact theo vùng riêng của tenant.
 - **FR-020**: Người vận hành MUST tạo được agent và nhận token **một lần**; hệ thống chỉ lưu dạng băm; token thu hồi được.
@@ -196,7 +196,7 @@ Mỗi step lưu đủ bằng chứng (ảnh chụp, cây element, locator đã d
 ## Assumptions
 
 - **App mẫu tham chiếu**: Sauce Labs My Demo App bản Android (có màn đăng nhập với tài khoản demo công khai và màn cần quyền runtime, ví dụ quét QR cần camera). Tài khoản demo vẫn được cấp qua `${secret:…}` để kiểm chứng việc che secret.
-- **Emulator tham chiếu**: Android 14 (API 34), image x86_64 Google APIs, chạy trên máy Linux hoặc Windows + WSL2 theo ROADMAP. Hỗ trợ tối thiểu Android 9 (API 28) trở lên.
+- **Emulator tham chiếu**: Android 14 (API 34), image x86_64 Google APIs, chạy trên máy Linux hoặc Windows + WSL2 theo ROADMAP. Chỉ Android 14 được kiểm chứng ở phase này; Android 9–13 (API 28–33) là best-effort — dự kiến chạy được nhưng chưa có test thiết bị.
 - **Driver Android**: theo D27 (điều khiển trực tiếp qua UiAutomator2, không Appium); kiến trúc driver theo D28 để mở rộng sau này. Đây là ràng buộc kỹ thuật đã chốt, chi tiết để ở `plan.md`.
 - **Một tenant**: phase này chỉ có một tenant và một user seed, nhưng dữ liệu vẫn gắn tenant; đăng ký, mời thành viên, RLS ở Phase 5.
 - **Không có web UI**: tương tác qua API và dòng lệnh; màn hình web ở Phase 2.

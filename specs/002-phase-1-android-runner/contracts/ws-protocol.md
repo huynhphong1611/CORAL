@@ -26,7 +26,7 @@ Nguồn: SPEC §15, D18. Kết nối `WS /ws/agent` với header `Authorization:
 | S→A | `job.cancel` | `{ run_id, reason }` | agent kết thúc bằng `job.done` status `cancelled` |
 | ↔ | `error` | `{ code, message }` | — |
 
-`Device` = `{ udid, platform: "android", kind: "emulator"|"real", model, os_version, api_level, status: "idle"|"busy"|"unauthorized"|"offline" }` (trạng thái phía agent; trạng thái lease là của server).
+`Device` = `{ udid, platform: "android", kind: "emulator"|"real", model, os_version, api_level, status: "idle"|"busy"|"offline" }` (trạng thái phía agent; trạng thái lease là của server). Thiết bị `unauthorized` trong `adb devices` không được báo lên; agent chỉ ghi cảnh báo.
 
 ### `job.assign`
 

@@ -1,6 +1,6 @@
 # Contract: REST API (Phase 1)
 
-Nguồn: SPEC §16, §17, D12, D23. Mọi JSON dùng `snake_case`; request/response được validate bằng Zod trong `packages/shared/src/api`. Tất cả route trừ `/health` và `/auth/*` cần `Authorization: Bearer <access_token>`; mọi truy vấn giới hạn trong tenant của token.
+Nguồn: SPEC §16, §17, D12, D23. Mọi JSON dùng `snake_case`; request/response được validate bằng Zod trong `packages/shared/src/api`. Tất cả route trừ `/health`, `/health/ready` và `/auth/*` cần `Authorization: Bearer <access_token>`; mọi truy vấn giới hạn trong tenant của token.
 
 ## Lỗi
 
@@ -62,4 +62,4 @@ Giới hạn: 10 lần login sai / 15 phút / email.
 
 ## Health
 
-`GET /health` → `{ status, service, version, uptime_sec }` (không đổi so với Phase 0) — thêm `GET /health/ready` kiểm tra Postgres, Redis, S3, thư mục dữ liệu.
+`GET /health` → `{ status, service, version, uptime_sec }` (không đổi so với Phase 0) — thêm `GET /health/ready` → `{ status: "ok" | "not_ready" }` (HTTP 200 / 503) sau khi kiểm tra Postgres, Redis, S3, thư mục dữ liệu; không trả chi tiết thành phần nào lỗi (chi tiết chỉ ghi log server).

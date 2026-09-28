@@ -53,7 +53,7 @@ Chi tiết quyết định: [research.md](./research.md). Dữ liệu: [data-mod
 | II. Locate, don't memorise (P2) | Resolver thử chuỗi locator theo thứ tự; tap vào tâm bounds của cây vừa dump; kiểm tra element trên cùng; `point_pct` chỉ khi mọi locator khác trượt. | PASS | PASS |
 | III. No blind healing (P3) | Phase 1 chỉ đánh dấu `degraded`; không sửa test case tự động. | PASS | PASS |
 | IV. Provider-neutral knowledge (P4) | Test case + `popups.yaml` là YAML thuần trong git project. | PASS | PASS |
-| V. Tenant isolation (P5) | Mọi bảng nghiệp vụ có `tenant_id`; repository nhận `TenantContext` và đặt `app.tenant_id` trong transaction (sẵn cho RLS ở Phase 5); key S3 bắt đầu bằng `<tenant_id>/`; repo git theo `repos/<tenant_id>/<project_id>`; agent chỉ nhận job cùng tenant. | PASS | PASS |
+| V. Tenant isolation (P5) | Mọi bảng nghiệp vụ có `tenant_id`; route chỉ truy cập DB qua `repos/**` (ESLint chặn import `db/**` từ `routes/**`); repository nhận `TenantContext` và đặt `app.tenant_id` trong transaction (sẵn cho RLS ở Phase 5); key S3 bắt đầu bằng `<tenant_id>/`; repo git theo `repos/<tenant_id>/<project_id>`; agent chỉ nhận job cùng tenant. | PASS | PASS |
 | VI. Safe operation (P6) | Guard không bấm `never_tap`, không đóng dialog crash/ANR; agent chỉ `pm clear`/`pm grant`/`install` cho package đang test; thay đổi cài đặt animation được ghi lại và khôi phục trên máy thật khi dọn dẹp. | PASS | PASS |
 | Ràng buộc kỹ thuật | Zod cho YAML/WS/API/env; `snake_case` trên dây (D12); Drizzle migration; device test `*.device.test.ts`. | PASS | PASS |
 
@@ -112,7 +112,8 @@ packages/runner/src/     # MỚI (D09)
 │   ├── hierarchy.ts     # XML → ElementNode[]
 │   ├── lifecycle.ts     # install, pm clear, pm grant, animation, launch, deeplink, logcat, crash/ANR
 │   └── android-driver.ts
-└── sinks/local-dir.ts   # ArtifactSink ghi ra thư mục (coral run)
+├── sinks/local-dir.ts   # ArtifactSink ghi ra thư mục (coral run)
+└── testing/fake-driver.ts # FakeDriver kịch bản màn hình cho unit/tích hợp
 
 packages/cli/src/commands/   # validate.ts, run.ts
 
@@ -125,12 +126,13 @@ apps/agent/src/
 apps/server/src/
 ├── config.ts            # thêm DATABASE_URL, REDIS_URL, S3_*, CORAL_DATA_DIR, CORAL_JWT_SECRET, seed
 ├── db/                  # schema.ts (Drizzle), migrations/, client.ts, tenant.ts (withTenant)
-├── repos/               # repository có tenant scope
+├── http/errors.ts       # định dạng lỗi + plugin validate Zod
+├── repos/               # repository có tenant scope — routes/** không import db/** (ESLint)
 ├── auth/                # login/refresh/logout, argon2id, JWT, guard
 ├── git/project-repo-store.ts
 ├── storage/s3.ts        # bucket, presign, lifecycle 30 ngày
 ├── agents/              # gateway WS, registry kết nối, heartbeat/offline
-├── runs/                # tạo run, dispatcher (BullMQ), lease, timeout, xử lý step/item/job
+├── runs/                # tạo run, dispatcher (BullMQ), lease, lease-sweeper, timeout, xử lý step/item/job
 ├── routes/              # auth, projects, apps, builds, agents, devices, testcases, popups, runs
 └── seed.ts              # tenant + user seed
 
