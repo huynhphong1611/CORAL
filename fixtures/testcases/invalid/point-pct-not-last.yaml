@@ -1,0 +1,10 @@
+schema: coral/testcase@1
+id: point-pct-not-last
+intent: 'point_pct phải đứng cuối (P2)'
+platforms: [android]
+steps:
+  - id: s1
+    action: tap
+    target:
+      - point_pct: [0.5, 0.5]
+      - android_id: 'id/loginBtn'

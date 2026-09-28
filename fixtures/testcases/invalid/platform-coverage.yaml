@@ -1,0 +1,11 @@
+schema: coral/testcase@1
+id: platform-coverage
+intent: 'target thiếu locator cho Android'
+platforms: [android, ios]
+steps:
+  - id: s1
+    action: launch
+  - id: s2
+    action: tap
+    target:
+      - ios_id: 'loginButton'

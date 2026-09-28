@@ -1,0 +1,10 @@
+schema: coral/testcase@1
+id: wrong-param-type
+intent: 'long_press.ms sai kiểu'
+platforms: [android]
+steps:
+  - id: s1
+    action: long_press
+    ms: slow
+    target:
+      - text: 'Item'

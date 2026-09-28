@@ -1,0 +1,10 @@
+schema: coral/testcase@1
+id: tap-without-target
+intent: 'tap thiếu target'
+platforms: [android]
+steps:
+  - id: s1
+    action: launch
+  - id: s2
+    action: tap
+    expect: { visible_text: 'Home' }

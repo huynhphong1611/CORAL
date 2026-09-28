@@ -1,0 +1,82 @@
+# Every action of SPEC §7.1 at least once (Android only).
+schema: coral/testcase@1
+id: all-actions
+intent: 'Chạm vào mọi loại hành động để kiểm tra schema'
+tags: [fixture]
+platforms: [android]
+preconditions:
+  app_state: fresh
+  grant_permissions: [camera]
+variables:
+  username: ${secret:TEST_USER}
+steps:
+  - id: s1
+    action: launch
+    expect: { visible_text: 'Login', timeout_ms: 10000 }
+  - id: s2
+    action: type
+    target:
+      - android_id: 'com.saucelabs.mydemoapp.android:id/nameET'
+    value: ${var:username}
+    clear_first: true
+  - id: s3
+    action: clear
+    target:
+      - android_id: 'id/passwordET'
+  - id: s4
+    action: type
+    value: 'Mật khẩu có dấu'
+  - id: s5
+    action: hide_keyboard
+  - id: s6
+    action: long_press
+    ms: 1500
+    target:
+      - text: 'Forgot password?'
+  - id: s7
+    action: back
+  - id: s8
+    action: tap
+    target:
+      - android_id: 'id/loginBtn'
+      - rel: { below: { text: 'Mật khẩu' }, class: Button }
+      - point_pct: [0.5, 0.41]
+    expect:
+      - visible_text: 'Products'
+      - not_visible: { text: 'Login' }
+  - id: s9
+    action: swipe
+    direction: up
+    distance_pct: 0.5
+  - id: s10
+    action: swipe
+    from: [0.5, 0.8]
+    to: [0.5, 0.2]
+    ms: 400
+  - id: s11
+    action: scroll_to
+    direction: down
+    max_swipes: 5
+    target:
+      - text_contains: 'Item 9'
+  - id: s12
+    action: wait
+    ms: 500
+  - id: s13
+    action: wait
+    until: { visible_text: 'Sauce Labs Item 9', timeout_ms: 3000 }
+  - id: s14
+    action: open_deeplink
+    url: 'mydemoapprn://product-details/1'
+  - id: s15
+    action: tap
+    target:
+      - desc: 'Profile'
+      - class_index: { class: FrameLayout, index: 3, within: { android_id: 'id/bottom_nav' } }
+    expect:
+      visible:
+        - android_id: 'id/profileTV'
+        - text: 'Profile'
+  - id: s16
+    action: assert
+    expect: { visible_text: 'Profile' }

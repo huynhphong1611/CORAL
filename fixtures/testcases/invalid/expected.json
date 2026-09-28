@@ -1,0 +1,21 @@
+{
+  "missing-intent.yaml": [{ "code": "schema", "path": "intent" }],
+  "tap-without-target.yaml": [{ "code": "schema", "step_id": "s2", "path": "steps[1].target" }],
+  "wrong-param-type.yaml": [{ "code": "schema", "step_id": "s1", "path": "steps[0].ms" }],
+  "var-undeclared.yaml": [{ "code": "var_undeclared", "step_id": "s1", "path": "steps[0].value" }],
+  "unknown-permission.yaml": [
+    { "code": "unknown_permission", "path": "preconditions.grant_permissions[1]" }
+  ],
+  "platform-coverage.yaml": [
+    { "code": "platform_coverage", "step_id": "s2", "path": "steps[1].target" }
+  ],
+  "duplicate-step-id.yaml": [
+    { "code": "duplicate_step_id", "step_id": "s2", "path": "steps[2].id" }
+  ],
+  "unsupported-in-phase.yaml": [
+    { "code": "unsupported_in_phase", "step_id": "s1", "path": "steps[0].target[1]" }
+  ],
+  "point-pct-not-last.yaml": [
+    { "code": "point_pct_not_last", "step_id": "s1", "path": "steps[0].target[0]" }
+  ]
+}
