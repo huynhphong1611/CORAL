@@ -53,7 +53,8 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 - [ ] Popup guard lớp 2 với `popups.yaml` (§9.2), giới hạn 3 popup mỗi step (D25), tôn trọng `never_tap` (§9.4).
 - [ ] Artifact mỗi step, mã lỗi (§8.5, §8.6), đánh dấu `degraded` (§8.7); che giá trị secret (D19).
 - [ ] `coral run <testcase.yaml> --device <udid>` chạy cục bộ không cần server (để dev nhanh); secret đọc từ `CORAL_SECRET_<NAME>`.
-- [ ] Server: auth tối thiểu (1 user seed nhưng có `tenant_id` ở mọi bảng nghiệp vụ), projects, apps, builds, agents (token), devices, leases, runs, run_items, run_steps; migration Drizzle.
+- [ ] Server: auth tối thiểu (1 user seed nhưng có `tenant_id` ở mọi bảng nghiệp vụ), projects, apps, builds, agents (token), devices, leases, test_cases, runs, run_items, run_steps; migration Drizzle.
+- [ ] Kho git project tối thiểu (§13.1, D15, D31): API thêm/sửa/xem test case và `popups.yaml` (validate khi lưu, mỗi lần sửa là một commit); run tham chiếu test case + commit.
 - [ ] WebSocket agent (§15): hello, device.update, job.assign/ack/done, step.result, artifact upload qua MinIO; envelope có `re` (D18).
 - [ ] Job queue + device lease (D16).
 
@@ -91,12 +92,15 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 - [ ] Prompt builder: nạp `AGENTS.md` + skill phù hợp của **đúng project** (§13).
 - [ ] Explorer (§10): fingerprint màn hình (`packages/shared`, D24), app map, frontier, ngân sách, kiểm tra `never_tap`.
 - [ ] Test writer (§11.2) + xác thực 2 lần liên tiếp → `active` / `draft`.
+- [ ] Tạo test case từ prompt (§11.3): Explorer có mục tiêu → Test writer.
+- [ ] Import test case thủ công (§11.3, D31): CSV/Excel + Gherkin → `coral/manualcase@1`; job nền có ngân sách; báo cáo đã tạo / `needs_human` / `ambiguous` / `app_mismatch`.
 - [ ] Web: màn Explorations (tiến trình, app map), Brain config.
 
 **DoD:**
 - Khám phá app mẫu trong giới hạn chi phí → app map + **≥3 test case `active`** chạy lại tất định pass.
 - Đổi brain của vai trò `explorer` chỉ bằng `brains.yaml`, không sửa code.
 - Một vai trò AI gọi được tool từ một MCP server khai báo trong `mcp.yaml` (ví dụ server giả lập trả OTP), tool ngoài allowlist bị chặn.
+- Import 10 test case thủ công (CSV) của app mẫu → ≥ 7 thành test case `active`; số còn lại có lý do rõ ràng.
 
 ---
 
@@ -138,9 +142,10 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 
 - [ ] Bộ benchmark brain (§14.4) + trang báo cáo.
 - [ ] GitHub Action / webhook: có build mới → tự tạo run.
+- [ ] coral làm MCP server `/mcp` (§14.5, D32): tool của coral + cổng tới MCP server user cấu hình (`expose: true`); API token có scope `mcp:*`.
 - [ ] (Tùy chọn) Live view nâng cấp: scrcpy (Android), MJPEG WebDriverAgent (iOS).
 
-**DoD:** báo cáo so sánh ít nhất 2 brain trên cùng bộ đề (pass rate, chi phí, thời gian, tỷ lệ heal sai); một pipeline CI kích hoạt run thành công.
+**DoD:** báo cáo so sánh ít nhất 2 brain trên cùng bộ đề (pass rate, chi phí, thời gian, tỷ lệ heal sai); một pipeline CI kích hoạt run thành công; một AI bên ngoài (ví dụ Claude Code) chạy được test case và gọi được một tool MCP do user cấu hình qua `/mcp` của coral.
 
 ---
 

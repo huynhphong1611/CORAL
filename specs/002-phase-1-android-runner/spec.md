@@ -52,7 +52,7 @@ Người viết test chạy một file test case trên emulator/thiết bị And
 
 ### User Story 3 - Chạy test case thông qua server (Priority: P1) 🎯 DoD
 
-Người vận hành đăng nhập bằng tài khoản seed, tạo project, app, tải lên bản build, tạo agent và lấy token. Agent trên máy có emulator kết nối ra server và báo danh sách thiết bị. Người vận hành tạo một run (build + thiết bị + test case); server xếp hàng, giao cho agent khi thiết bị rảnh; agent chạy và gửi kết quả từng step; người vận hành xem trạng thái, kết quả và ảnh chụp từng step qua API.
+Người vận hành đăng nhập bằng tài khoản seed, tạo project, app, tải lên bản build, lưu test case và luật popup vào project, tạo agent và lấy token. Agent trên máy có emulator kết nối ra server và báo danh sách thiết bị. Người vận hành tạo một run (build + thiết bị + test case đã lưu); server xếp hàng, giao cho agent khi thiết bị rảnh; agent chạy và gửi kết quả từng step; người vận hành xem trạng thái, kết quả và ảnh chụp từng step qua API.
 
 **Why this priority**: Đây chính là DoD của Phase 1 và là xương sống cho mọi phase sau (web UI, Explorer, Healer đều đi qua luồng run này).
 
@@ -60,14 +60,15 @@ Người vận hành đăng nhập bằng tài khoản seed, tạo project, app,
 
 **Acceptance Scenarios**:
 
-1. **Given** agent đã kết nối bằng token hợp lệ, **When** người vận hành liệt kê thiết bị, **Then** thấy emulator với nền tảng, model, phiên bản OS và trạng thái `idle`.
-2. **Given** một run được tạo cho thiết bị đang `idle`, **When** server giao việc, **Then** thiết bị chuyển `leased`, agent xác nhận nhận việc, và sau khi xong thiết bị trở về `idle`.
-3. **Given** run đang chạy, **When** người vận hành xem chi tiết run, **Then** thấy trạng thái từng step cập nhật dần (không phải đợi hết run).
-4. **Given** run đã xong, **When** người vận hành xem từng step, **Then** mỗi step có trạng thái, locator đã dùng, `degraded`, thời gian, và liên kết tải ảnh chụp/cây element có hạn dùng ngắn.
-5. **Given** hai run cùng nhắm một thiết bị, **When** cả hai được tạo gần như cùng lúc, **Then** chúng chạy lần lượt, không bao giờ chồng lên nhau.
-6. **Given** run đang chạy, **When** người vận hành hủy run, **Then** agent dừng sau thao tác hiện tại, dọn app theo quy tắc, run chuyển `cancelled` và thiết bị được trả lại.
-7. **Given** agent mất kết nối giữa run, **When** quá 3 nhịp heartbeat, **Then** test case đang chạy fail với `DEVICE_OFFLINE`, thiết bị được giải phóng, không tự chạy lại.
-8. **Given** token agent sai hoặc đã thu hồi, **When** agent kết nối, **Then** bị từ chối và không nhận được việc nào.
+1. **Given** một file test case hợp lệ, **When** người vận hành lưu nó vào project, **Then** hệ thống ghi thành một phiên bản mới có lịch sử; lưu lại nội dung sửa đổi tạo phiên bản tiếp theo; nội dung không hợp lệ bị từ chối với lỗi như US1.
+2. **Given** agent đã kết nối bằng token hợp lệ, **When** người vận hành liệt kê thiết bị, **Then** thấy emulator với nền tảng, model, phiên bản OS và trạng thái `idle`.
+3. **Given** một run được tạo cho thiết bị đang `idle`, **When** server giao việc, **Then** thiết bị chuyển `leased`, agent xác nhận nhận việc, và sau khi xong thiết bị trở về `idle`.
+4. **Given** run đang chạy, **When** người vận hành xem chi tiết run, **Then** thấy trạng thái từng step cập nhật dần (không phải đợi hết run).
+5. **Given** run đã xong, **When** người vận hành xem từng step, **Then** mỗi step có trạng thái, locator đã dùng, `degraded`, thời gian, và liên kết tải ảnh chụp/cây element có hạn dùng ngắn.
+6. **Given** hai run cùng nhắm một thiết bị, **When** cả hai được tạo gần như cùng lúc, **Then** chúng chạy lần lượt, không bao giờ chồng lên nhau.
+7. **Given** run đang chạy, **When** người vận hành hủy run, **Then** agent dừng sau thao tác hiện tại, dọn app theo quy tắc, run chuyển `cancelled` và thiết bị được trả lại.
+8. **Given** agent mất kết nối giữa run, **When** quá 3 nhịp heartbeat, **Then** test case đang chạy fail với `DEVICE_OFFLINE`, thiết bị được giải phóng, không tự chạy lại.
+9. **Given** token agent sai hoặc đã thu hồi, **When** agent kết nối, **Then** bị từ chối và không nhận được việc nào.
 
 ---
 
@@ -158,7 +159,9 @@ Mỗi step lưu đủ bằng chứng (ảnh chụp, cây element, locator đã d
 - **FR-024**: Người vận hành MUST xem được danh sách run, chi tiết run, từng test case trong run và từng step kèm liên kết tải artifact có hạn dùng ngắn.
 - **FR-025**: Agent chỉ MUST nhận việc của tenant sở hữu nó; agent mất kết nối giữa run thì test case đang chạy fail `DEVICE_OFFLINE`, lease giải phóng, không tự chạy lại.
 - **FR-026**: Mọi message agent ↔ server MUST được kiểm tra định dạng; message sai bị từ chối và ghi log, không làm sập bên nhận; message trả lời MUST tham chiếu message nó trả lời (D18).
-- **FR-027**: Server MUST lấy test case cho run từ [NEEDS CLARIFICATION: nguồn test case khi chạy qua server — gửi kèm khi tạo run, kho git của project (§13) làm luôn ở Phase 1, hay thư mục trên máy server?]
+- **FR-027**: Test case và luật popup MUST được tạo và lưu **trong chính hệ thống**, trong kho có lịch sử phiên bản của project (SPEC §13.1, D15, D31). Người vận hành MUST thêm, sửa, liệt kê và xem được test case và luật popup; nội dung được kiểm tra như FR-001–FR-003 khi lưu; mỗi lần sửa tạo một phiên bản mới.
+- **FR-028**: Run MUST tham chiếu test case đã lưu, và mỗi test case trong run MUST ghi lại đúng phiên bản đã chạy, để kết quả luôn truy ngược được về nội dung đã dùng.
+- **FR-029**: Test case viết tay MUST được đánh dấu nguồn `manual`; trạng thái mặc định `draft`; ở phase này run chạy được test case ở mọi trạng thái.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -172,7 +175,8 @@ Mỗi step lưu đủ bằng chứng (ảnh chụp, cây element, locator đã d
 - **Run**: một lần chạy một hoặc nhiều test case trên một thiết bị với một build; nguồn kích hoạt, trạng thái, thời gian.
 - **Run item**: một test case trong run: phiên bản test case đã chạy, trạng thái, mã lỗi.
 - **Run step**: kết quả một step: trạng thái, locator đã dùng, `degraded`, thời gian, nơi lưu artifact.
-- **Test case / Popup rules**: nội dung YAML theo §7 và §9.2 (nơi lưu phụ thuộc FR-027).
+- **Test case**: nội dung YAML theo §7, lưu trong kho có lịch sử của project; bản ghi chỉ mục gồm slug, intent, tags, trạng thái, phiên bản mới nhất, nguồn (`manual` ở phase này).
+- **Popup rules**: nội dung theo §9.2, một bộ cho mỗi project, cũng có lịch sử phiên bản.
 
 ## Success Criteria *(mandatory)*
 
@@ -196,6 +200,13 @@ Mỗi step lưu đủ bằng chứng (ảnh chụp, cây element, locator đã d
 - **Driver Android**: theo D27 (điều khiển trực tiếp qua UiAutomator2, không Appium); kiến trúc driver theo D28 để mở rộng sau này. Đây là ràng buộc kỹ thuật đã chốt, chi tiết để ở `plan.md`.
 - **Một tenant**: phase này chỉ có một tenant và một user seed, nhưng dữ liệu vẫn gắn tenant; đăng ký, mời thành viên, RLS ở Phase 5.
 - **Không có web UI**: tương tác qua API và dòng lệnh; màn hình web ở Phase 2.
+- **Nguồn test case**: mọi test case sinh ra trong coral (D31). Phase 1 chỉ có test case **viết tay** lưu qua API; tạo từ prompt và import test case thủ công (CSV/Excel/Gherkin) do AI chuyển đổi làm ở Phase 3; editor + Recorder ở Phase 2.
 - **Ngoài phạm vi Phase 1**: locator `image` (Phase 2), `expect.screen` (cần app map — Phase 3; bị báo "chưa hỗ trợ" khi kiểm tra), iOS (Phase 5), live view / recorder (Phase 2), mọi tính năng AI, tự động chạy lại khi lỗi.
 - **Mặc định vận hành**: timeout hàng đợi 10 phút, timeout cả run 30 phút, giữ artifact 30 ngày (cấu hình được).
 - **Một thiết bị nhiều run**: chạy lần lượt; nhiều thiết bị trên cùng agent chạy song song được.
+
+## Clarifications
+
+### Session 2026-09-28
+
+- Q: Khi chạy qua server, test case lấy từ đâu? → A: Test case được tạo và lưu trong chính coral. Phase 1 làm kho git tối thiểu của project (API thêm/sửa/xem test case và `popups.yaml`, mỗi lần sửa là một commit); run tham chiếu test case + commit. Về sau user còn tạo test case bằng prompt hoặc import rất nhiều test case thủ công sẵn có để AI khám phá và chuyển thành test case coral (Phase 3, D31).

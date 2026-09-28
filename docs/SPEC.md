@@ -99,7 +99,7 @@ coral là hệ thống test tự động cho app mobile, trong đó:
 ### 4.1 Bốn luồng chính
 
 1. **Explore:** server điều khiển thiết bị từ xa qua agent (từng lệnh một) → Brain quyết định hành động → cập nhật app map → sinh trace.
-2. **Write:** trace + intent → test case YAML (locator được trích tự động từ cây element, không do AI bịa) → chạy xác thực.
+2. **Write:** trace + intent → test case YAML (locator được trích tự động từ cây element, không do AI bịa) → chạy xác thực. Intent đến từ prompt của user, từ test case thủ công được import (§11.3), hoặc từ Recorder. Mọi test case được tạo và lưu **trong chính coral** (D31).
 3. **Run:** server giao job → agent chạy **nguyên** test case cục bộ, không AI → gửi kết quả + artifact.
 4. **Heal:** step lỗi → server gom failure bundle → Healer phân loại → đề xuất diff hoặc báo bug → người duyệt → commit vào git repo của project.
 
@@ -180,7 +180,8 @@ Mọi bảng nghiệp vụ có `tenant_id` và bật Row-Level Security (§17). 
 | `agents` | id, tenant_id, name, token_hash, os, capabilities (jsonb), last_seen_at, status | |
 | `devices` | id, tenant_id, agent_id, platform, kind (real/emulator/simulator), model, os_version, udid, status | status ∈ idle/leased/offline. Unique (agent_id, udid). |
 | `leases` | id, tenant_id, device_id, kind, holder_ref, acquired_at, expires_at, released_at | kind ∈ run/exploration/live. Tối đa một lease mở trên mỗi thiết bị (D16). |
-| `test_cases` | id, tenant_id, project_id, slug, path_in_repo, intent, tags, status, head_commit | status ∈ draft/active/quarantined. Là **chỉ mục** của file trong git; `status` chỉ lưu ở DB (D15). |
+| `test_cases` | id, tenant_id, project_id, slug, path_in_repo, intent, tags, status, head_commit, source, source_ref | status ∈ draft/active/quarantined. source ∈ manual/recorder/ai_prompt/ai_import. Là **chỉ mục** của file trong git; `status` chỉ lưu ở DB (D15, D31). |
+| `import_jobs` | id, tenant_id, project_id, source_format, status, budget (jsonb), stats (jsonb), created_by, created_at | Một lần import test case thủ công (§11.3). |
 | `runs` | id, tenant_id, project_id, build_id, device_id, trigger, status, started_at, finished_at | trigger ∈ manual/schedule/ci/validation |
 | `run_items` | id, tenant_id, run_id, test_case_id, commit, status, failure_code | Một test case trong một run. |
 | `run_steps` | id, tenant_id, run_item_id, step_id, status, locator_used_index, degraded, duration_ms, artifact_prefix | `degraded` = tìm thấy bằng locator ưu tiên thấp. |
@@ -440,6 +441,17 @@ Nhận trace từ Explorer hoặc Recorder → chia thành các flow có ý ngh�
 
 **Xác thực:** test case mới chạy tất định 2 lần liên tiếp. Pass cả 2 thì `active`, ngược lại để `draft`.
 
+### 11.3 Tạo test case từ prompt hoặc từ test case có sẵn (D31)
+Test case chỉ được tạo trong coral, từ bốn nguồn: viết tay (API/editor), Recorder (§11.1), **prompt** của user, và **import** test case thủ công đã có.
+
+- **Prompt:** user mô tả mục tiêu ("đăng nhập rồi đổi ảnh đại diện") → Explorer chạy chế độ có mục tiêu (§10) → Test writer viết YAML.
+- **Import:** user tải lên nhiều test case thủ công (title, tiền điều kiện, các bước + kết quả mong đợi).
+  1. **Đọc file — không AI:** CSV / Excel (có bước ghép cột) và Gherkin `.feature` được chuyển thành định dạng trung lập `coral/manualcase@1`, lưu trong repo project ở `imports/<job_id>/` (file thuần, P4). Định dạng export của TestRail / Zephyr / Xray thêm sau qua adapter.
+  2. **Khám phá có hướng dẫn — có AI:** với mỗi test case thủ công, Explorer lấy các bước làm mục tiêu, tự tìm element trên app thật và ghi trace (không bấm `never_tap`, trong ngân sách).
+  3. **Viết test:** Test writer tạo YAML: `intent` từ title + mô tả; `expect` từ kết quả mong đợi; locator trích từ snapshot (P2); `source = ai_import`, `source_ref` trỏ về test case gốc.
+  4. **Xác thực** như §11.2. Không thành công thì giữ `draft` kèm lý do: `needs_human` (OTP, thao tác vật lý…), `ambiguous` (bước mô tả mơ hồ), `app_mismatch` (app không làm như mô tả — có thể là **bug** hoặc test case cũ; không được sửa kỳ vọng cho khớp app, P3).
+- Import chạy thành job nền (`import_jobs`) có ngân sách chi phí, tiến độ và báo cáo cuối (đã tạo / cần người / nghi bug).
+
 ---
 
 ## 12. Healer (server, có AI)
@@ -549,6 +561,11 @@ coral là **MCP client** ở phía server: các vai trò AI (Explorer, Test writ
   - P6: mỗi server có allowlist tool; tool có tác dụng phụ (ghi, xóa, gửi, trả tiền) mặc định tắt, bật từng tool; mọi lần gọi ghi vào `tool_calls` với tham số đã che secret.
   - An ninh multi-tenant: tenant chỉ khai báo MCP server **từ xa** (HTTP). MCP server chạy tiến trình cục bộ (stdio) chỉ được phép từ danh sách do nền tảng duyệt sẵn (ví dụ Playwright MCP), hoặc chạy trên agent của chính tenant.
 
+**coral làm MCP server (D32, Phase 6).** AI bên ngoài (Claude Code, Copilot, Cursor…) kết nối tới `/mcp` của coral bằng API token (§5.2):
+- **Tool của coral:** `list_testcases`, `create_testcase_from_prompt`, `import_testcases`, `run_testcases`, `get_run`, `get_step_artifacts`, `list_proposals`, `list_bugs`. **Không** có tool approve/reject proposal (P3: người duyệt trên web).
+- **Cổng MCP (gateway):** cùng kết nối đó, AI bên ngoài gọi được tool từ các MCP server user tự cấu hình trong `mcp.yaml` của project — chỉ những tool được đánh dấu `expose: true`, vẫn qua allowlist, luật tác dụng phụ và log `tool_calls` (ghi actor là API token).
+- **Quyền:** API token có scope `mcp:read`, `mcp:run`, `mcp:tools`; chỉ thấy project của tenant sở hữu token (P5).
+
 ---
 
 ## 15. Giao thức agent ↔ server (WebSocket, JSON)
@@ -595,6 +612,8 @@ POST   /apps/:id/builds            (upload)
 GET    /agents                     POST /agents   (trả token một lần)
 GET    /devices
 GET    /projects/:id/testcases     POST /projects/:id/testcases
+POST   /projects/:id/testcases/generate   (từ prompt, §11.3)
+POST   /projects/:id/testcases/import     GET  /imports/:id
 GET    /testcases/:id              PUT  /testcases/:id
 POST   /runs                       GET  /runs   GET /runs/:id   POST /runs/:id/cancel
 GET    /runs/:id/items/:itemId/steps
@@ -603,9 +622,11 @@ GET    /heals                      POST /heals/:id/approve   POST /heals/:id/rej
 GET    /projects/:id/popups        PUT  /projects/:id/popups
 GET    /projects/:id/skills        PUT  /projects/:id/skills/:name
 GET    /brains/config              PUT  /brains/config
+GET    /projects/:id/mcp           PUT  /projects/:id/mcp   (mcp.yaml, §14.5)
 GET    /usage/ai
 WS     /ws/ui      (sự kiện run, live view)
 WS     /ws/agent   (§15)
+POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
 ```
 
 ---
@@ -681,7 +702,7 @@ WS     /ws/agent   (§15)
 | Q2 | ~~Appium hay Maestro làm driver mặc định~~ | Android: UiAutomator2 trực tiếp (D27); iOS: Appium XCUITest. Giữ interface `DeviceDriver` để thêm Maestro sau. |
 | Q3 | Tên thương mại | `coral` là tên dự án; kiểm tra nhãn hiệu / tên miền trước khi thương mại hóa. |
 | Q4 | Mở rộng sang test web UI | Vẫn ngoài phạm vi đến hết Phase 6 (§1.3). **Khám phá** (AI): Explorer điều khiển trình duyệt qua **Playwright MCP** (§14.5, D30); mỗi thao tác được ghi lại (snapshot + locator Playwright sinh ra, bổ sung `testid`/`css`) để Test writer viết YAML. **Chạy lại** (không AI): runner dùng thư viện Playwright trực tiếp, không qua MCP (P1). Driver Playwright cài `UiDriver` (cây từ accessibility tree/DOM, `launch` = mở URL, reset = browser context mới); locator web `testid`, `role` + name, `css` (gắn nền tảng `web`); luật popup web (banner cookie, modal, `alert/confirm`); fingerprint = URL + cấu trúc DOM; lease = slot trình duyệt. Playwright MCP chạy trên agent để vào được web nội bộ sau NAT, server gọi qua kênh WS của agent (chốt chi tiết ở Phase 7). Giữ đường mở bằng D28; ROADMAP Phase 7 (tùy chọn). |
-| Q5 | coral làm **MCP server** cho AI bên ngoài (Claude Code, Copilot, Cursor…) | Đề xuất, chờ Huynh quyết: tool `list_testcases`, `run_testcases`, `get_run`, `get_step_artifacts`, `list_proposals` — xác thực bằng API token (§5.2); **không** có tool approve/reject (P3: người duyệt trên web). Nếu làm: Phase 6 cùng tích hợp CI. |
+| Q5 | ~~coral làm MCP server cho AI bên ngoài~~ | Đã quyết: có, kèm cổng tới MCP server user tự cấu hình (§14.5, D32), Phase 6. |
 
 ---
 
@@ -719,3 +740,5 @@ WS     /ws/agent   (§15)
 | D28 | 2026-09-28 | Giữ đường mở rộng sang test web: tách `DeviceDriver` = `UiDriver` (trung lập) + `TargetLifecycle`; lõi `packages/runner` không import driver cụ thể; enum `platform` và union locator chỉ được mở rộng thêm, không đổi `coral/testcase@1` của file cũ | Theo ý Huynh: runner sau này có thể chạy test web (§20 Q4) mà không viết lại lõi; làm ngay từ Phase 1 thì gần như không tốn thêm. |
 | D29 | 2026-09-28 | coral có cơ chế dùng MCP: server là MCP client cho các vai trò AI; khai báo `mcp.yaml` theo project, allowlist tool, log `tool_calls`; runner/agent chạy lại test không dùng MCP (§14.5) | Theo yêu cầu của Huynh; mở đường cho OTP/dữ liệu test (R4), tạo issue, và khám phá web; giữ P1, P5, P6. |
 | D30 | 2026-09-28 | Phần test web (Phase 7): khám phá bằng Playwright MCP, chạy lại bằng Playwright trực tiếp | Theo yêu cầu của Huynh; AI dùng MCP để khám phá, còn test đã lưu chạy tất định không cần AI (P1). |
+| D31 | 2026-09-28 | Test case được tạo và lưu trong chính coral (kho git project do coral quản lý, có từ Phase 1); nguồn: viết tay, Recorder, prompt, import test case thủ công (CSV/Excel/Gherkin → `coral/manualcase@1` → AI khám phá → YAML) | Trả lời Q1 của Huynh: coral là nơi sinh ra test case; import giúp chuyển bộ test thủ công sẵn có sang test tự động. |
+| D32 | 2026-09-28 | coral làm MCP server (`/mcp`) cho AI bên ngoài, kiêm cổng tới MCP server user cấu hình (`expose: true`); không có tool duyệt proposal | Trả lời Q5 của Huynh; giữ P3 (người duyệt), P5 (scope theo token/tenant), P6 (allowlist, tác dụng phụ). |

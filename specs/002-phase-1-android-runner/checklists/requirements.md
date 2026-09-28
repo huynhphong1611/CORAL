@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -34,5 +34,5 @@
 - Iteration 1 → 2: removed an environment-variable name, "object storage" and "CI" wording from requirements and success criteria.
 - Decisions already fixed in `docs/SPEC.md` (D19 secrets from the environment, D27 Android driver, D28 driver split) appear only as constraints in Assumptions; the design lives in `plan.md`.
 - "API" is kept: in this phase the API and the command line are the only user-facing interfaces (no web UI until Phase 2).
-- Open: FR-027 (where server runs get test cases from) — waiting for the owner's answer (Q1).
+- Iteration 3: Q1 answered by the owner — test cases are created and stored in coral (project git store from Phase 1; prompt and bulk import of manual test cases in Phase 3, D31). FR-027–FR-029 added; all items pass.
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
