@@ -1,11 +1,15 @@
+import type { Readable } from 'node:stream'
 import {
   CreateBucketCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   HeadBucketCommand,
   PutBucketLifecycleConfigurationCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3'
+import { Upload } from '@aws-sdk/lib-storage'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import type { ServerConfig } from '../config'
 
@@ -32,6 +36,11 @@ export interface ArtifactStore {
     opts?: { runArtifact?: boolean },
   ): Promise<PresignedUrl>
   presignGet(key: string): Promise<PresignedUrl>
+  /** Streams an object of unknown length (multipart upload); aborts when the stream fails. */
+  putStream(key: string, body: Readable, contentType: string): Promise<void>
+  /** Size in bytes, or undefined when the object does not exist. */
+  size(key: string): Promise<number | undefined>
+  remove(key: string): Promise<void>
 }
 
 /** S3-compatible storage (MinIO in dev, R11). Only standard S3 API calls. */
@@ -84,6 +93,26 @@ export function createArtifactStore(config: ServerConfig['s3']): ArtifactStore {
         signableHeaders: new Set(['content-type']),
       })
       return { url, expiresAt: expiry(PUT_URL_TTL_SEC) }
+    },
+
+    async putStream(key, body, contentType) {
+      await new Upload({
+        client,
+        params: { Bucket, Key: key, Body: body, ContentType: contentType },
+        leavePartsOnError: false,
+      }).done()
+    },
+
+    async size(key) {
+      try {
+        return (await client.send(new HeadObjectCommand({ Bucket, Key: key }))).ContentLength
+      } catch {
+        return undefined
+      }
+    },
+
+    async remove(key) {
+      await client.send(new DeleteObjectCommand({ Bucket, Key: key }))
     },
 
     async presignGet(key) {

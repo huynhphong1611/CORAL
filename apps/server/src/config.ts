@@ -19,6 +19,7 @@ const envSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().min(1).default('coral'),
   S3_SECRET_ACCESS_KEY: z.string().min(1).default('coral-dev-secret'),
   CORAL_DATA_DIR: z.string().min(1).default('./data'),
+  CORAL_MAX_BUILD_MB: z.coerce.number().int().min(1).max(4096).default(500),
   CORAL_JWT_SECRET: z.string().min(32, 'must be at least 32 characters').optional(),
   CORAL_SEED_EMAIL: z.email().optional(),
   CORAL_SEED_PASSWORD: z.string().min(8).optional(),
@@ -41,6 +42,7 @@ export interface ServerConfig {
     secretAccessKey: string
   }
   dataDir: string
+  maxBuildBytes: number
   jwtSecret: string
   seed: { email?: string; password?: string }
   timeouts: { heartbeatMs: number; queueTimeoutMs: number; runTimeoutMs: number }
@@ -72,6 +74,7 @@ export function loadConfig(env: Record<string, string | undefined>): ServerConfi
       secretAccessKey: e.S3_SECRET_ACCESS_KEY,
     },
     dataDir: e.CORAL_DATA_DIR,
+    maxBuildBytes: e.CORAL_MAX_BUILD_MB * 1024 * 1024,
     jwtSecret: e.CORAL_JWT_SECRET ?? DEV_JWT_SECRET,
     seed: { email: e.CORAL_SEED_EMAIL, password: e.CORAL_SEED_PASSWORD },
     timeouts: {

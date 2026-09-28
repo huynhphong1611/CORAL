@@ -12,6 +12,7 @@ describe('loadConfig', () => {
       redisUrl: 'redis://localhost:6379',
       s3: { endpoint: 'http://localhost:9000', bucket: 'coral-artifacts' },
       dataDir: './data',
+      maxBuildBytes: 500 * 1024 * 1024,
       jwtSecret: DEV_JWT_SECRET,
       timeouts: { heartbeatMs: 15_000, queueTimeoutMs: 600_000, runTimeoutMs: 1_800_000 },
     })

@@ -1,4 +1,5 @@
 import cookie from '@fastify/cookie'
+import multipart from '@fastify/multipart'
 import { CORAL_VERSION, type HealthResponse } from '@coral/shared'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { registerAuthGuard } from './auth/guard'
@@ -8,6 +9,7 @@ import type { Db } from './db/client'
 import type { ProjectRepoStore } from './git/project-repo-store'
 import { registerErrorHandling } from './http/errors'
 import { createRepos } from './repos'
+import { registerBuildRoutes } from './routes/builds'
 import { registerProjectRoutes } from './routes/projects'
 import type { ArtifactStore } from './storage/s3'
 
@@ -16,6 +18,8 @@ export interface ServerDeps {
   db?: Db
   store?: ProjectRepoStore
   artifacts?: ArtifactStore
+  /** Largest build upload (config CORAL_MAX_BUILD_MB). */
+  maxBuildBytes?: number
 }
 
 /** Creates the Fastify app without listening, so tests can use `app.inject()`. */
@@ -28,6 +32,9 @@ export function buildServer(
   })
   registerErrorHandling(app)
   void app.register(cookie)
+  void app.register(multipart, {
+    limits: { fileSize: deps.maxBuildBytes ?? 500 * 1024 * 1024, files: 1, fields: 5 },
+  })
   registerAuthGuard(app, config.jwtSecret)
   const startedAt = performance.now()
 
@@ -42,6 +49,7 @@ export function buildServer(
   if (deps.db && deps.store) {
     const repos = createRepos({ db: deps.db, store: deps.store })
     registerProjectRoutes(app, { repos })
+    if (deps.artifacts) registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
   }
 
   return app
