@@ -279,9 +279,12 @@ Tên quyền trung lập nền tảng, được `packages/shared` ánh xạ sang
 ## 8. Runner (không AI — `packages/runner`, chạy trong agent)
 
 ### 8.1 Interface driver
+Driver tách làm hai phần (D28): **`UiDriver`** trung lập nền tảng — lõi runner (resolve locator, thao tác, `expect`, popup guard, chờ ổn định) **chỉ** dùng phần này; và **`TargetLifecycle`** — cài, reset, cấp quyền, log, khác nhau theo loại mục tiêu (thiết bị mobile hôm nay, trình duyệt nếu sau này mở rộng test web — §20 Q4).
 ```ts
-interface DeviceDriver {
-  platform: 'android' | 'ios'
+type Platform = 'android' | 'ios'          // mở rộng thêm, không đổi nghĩa giá trị cũ (D28)
+
+interface UiDriver {
+  platform: Platform
   windowSize(): Promise<{ width: number; height: number }>   // đơn vị tap: px (Android), point (iOS)
   screenshot(): Promise<Buffer>                             // PNG, đơn vị pixel
   tree(): Promise<ElementNode[]>                            // cây element đã chuẩn hóa
@@ -291,14 +294,21 @@ interface DeviceDriver {
   type(el: ElementNode, text: string): Promise<void>
   swipe(from: Point, to: Point, ms: number): Promise<void>
   back(): Promise<void>
+}
+
+interface TargetLifecycle {
   launch(appId: string): Promise<void>
   install(buildPath: string): Promise<void>
   resetApp(appId: string): Promise<void>
   grantPermissions(appId: string, perms: string[]): Promise<void>
   deviceLogs(sinceMs: number): Promise<string>              // logcat / syslog
 }
+
+interface DeviceDriver extends UiDriver, TargetLifecycle {}
 ```
 `ElementNode` chuẩn hóa hai nền tảng: `{ ref, platform_id, text, desc, class, bounds: {x,y,w,h}, clickable, enabled, visible, package_or_bundle, children }`.
+
+Mỗi driver nằm trong thư mục riêng `packages/runner/src/drivers/<platform>/`; lõi runner không import gì từ đó hay từ `adb` / `u2.jar` / Appium (kiểm tra bằng ESLint, D28).
 
 ### 8.2 Thuật toán chạy một step
 ```
@@ -655,6 +665,7 @@ WS     /ws/agent   (§15)
 | Q1 | ~~Chốt tech stack §19~~ | Đã chốt 2026-09-28 (D07). |
 | Q2 | ~~Appium hay Maestro làm driver mặc định~~ | Android: UiAutomator2 trực tiếp (D27); iOS: Appium XCUITest. Giữ interface `DeviceDriver` để thêm Maestro sau. |
 | Q3 | Tên thương mại | `coral` là tên dự án; kiểm tra nhãn hiệu / tên miền trước khi thương mại hóa. |
+| Q4 | Mở rộng sang test web UI | Vẫn ngoài phạm vi đến hết Phase 6 (§1.3). Hướng đi: driver Playwright cài `UiDriver` (cây từ accessibility tree/DOM, `launch` = mở URL, reset = browser context mới); locator web `testid`, `role` + name, `css` (gắn nền tảng `web`); luật popup web (banner cookie, modal, `alert/confirm`); fingerprint = URL + cấu trúc DOM; lease = slot trình duyệt. Giữ đường mở bằng D28; ROADMAP Phase 7 (tùy chọn). |
 
 ---
 
@@ -689,3 +700,4 @@ WS     /ws/agent   (§15)
 | D25 | 2026-09-28 | Popup guard chạy ngay sau launch; tối đa 3 popup mỗi step rồi fail `BLOCKED_BY_POPUP` | Tránh vòng lặp vô hạn; khớp §9.2 với §8.2. |
 | D26 | 2026-09-28 | Object storage dev dùng image `pgsty/minio` (fork cộng đồng của MinIO) | `minio/minio` đã bị gỡ khỏi Docker Hub; fork dùng y hệt MinIO (lệnh, biến môi trường, healthcheck `mc ready`). |
 | D27 | 2026-09-28 | Android: bỏ Appium, agent gọi thẳng server UiAutomator2 `u2.jar` (openatx/uiautomator2) qua JSON-RPC + `adb forward`; locator `image` bằng OpenCV WASM; iOS giữ Appium XCUITest | Theo đề xuất của Huynh: nhanh hơn, ít thành phần hơn, không cần session Appium hay APK test; agent vẫn viết bằng TypeScript (D07). |
+| D28 | 2026-09-28 | Giữ đường mở rộng sang test web: tách `DeviceDriver` = `UiDriver` (trung lập) + `TargetLifecycle`; lõi `packages/runner` không import driver cụ thể; enum `platform` và union locator chỉ được mở rộng thêm, không đổi `coral/testcase@1` của file cũ | Theo ý Huynh: runner sau này có thể chạy test web (§20 Q4) mà không viết lại lõi; làm ngay từ Phase 1 thì gần như không tốn thêm. |
