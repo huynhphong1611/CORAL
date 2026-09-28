@@ -5,11 +5,17 @@ import { registerAuthGuard } from './auth/guard'
 import { registerAuthRoutes } from './auth/routes'
 import type { ServerConfig } from './config'
 import type { Db } from './db/client'
+import type { ProjectRepoStore } from './git/project-repo-store'
 import { registerErrorHandling } from './http/errors'
+import { createRepos } from './repos'
+import { registerProjectRoutes } from './routes/projects'
+import type { ArtifactStore } from './storage/s3'
 
+/** Omitted parts disable their routes (unit tests only exercise stateless routes). */
 export interface ServerDeps {
-  /** Omitted in unit tests that only exercise stateless routes. */
   db?: Db
+  store?: ProjectRepoStore
+  artifacts?: ArtifactStore
 }
 
 /** Creates the Fastify app without listening, so tests can use `app.inject()`. */
@@ -33,6 +39,10 @@ export function buildServer(
   }))
 
   if (deps.db) registerAuthRoutes(app, { db: deps.db, jwtSecret: config.jwtSecret })
+  if (deps.db && deps.store) {
+    const repos = createRepos({ db: deps.db, store: deps.store })
+    registerProjectRoutes(app, { repos })
+  }
 
   return app
 }

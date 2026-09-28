@@ -23,3 +23,7 @@ export const buildSchema = z.object({
   size_bytes: z.number().int().nonnegative(),
   created_at: timestamp,
 })
+
+export type Project = z.infer<typeof projectSchema>
+export type App = z.infer<typeof appSchema>
+export type Build = z.infer<typeof buildSchema>

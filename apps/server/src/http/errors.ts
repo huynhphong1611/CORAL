@@ -23,6 +23,15 @@ export function notFound(what: string): HttpError {
   return new HttpError(404, 'not_found', `${what} not found`)
 }
 
+export function conflict(code: string, message: string): HttpError {
+  return new HttpError(409, code, message)
+}
+
+/** A business rule refuses the request (422), e.g. `missing_secrets`. */
+export function unprocessable(code: string, message: string, details?: ErrorDetail[]): HttpError {
+  return new HttpError(422, code, message, details)
+}
+
 export { formatPath }
 
 /** Validates request input with a shared Zod schema; throws 400 `validation_failed`. */

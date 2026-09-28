@@ -122,7 +122,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/runn
 
 ### Server — tài nguyên
 
-- [ ] T042 [P] [US3] Project + app: `apps/server/src/repos/projects.ts`, `repos/apps.ts`, `routes/projects.ts` (`GET/POST /projects`, `GET/POST /projects/:id/apps`); tạo project → khởi tạo kho git với `popups.yaml` mặc định + `README.md`, ghi `project_files`; test `projects.int.test.ts` (kể cả tenant khác → 404)
+- [x] T042 [P] [US3] Project + app: `apps/server/src/repos/projects.ts`, `repos/apps.ts`, `routes/projects.ts` (`GET/POST /projects`, `GET/POST /projects/:id/apps`); tạo project → khởi tạo kho git với `popups.yaml` mặc định + `README.md`, ghi `project_files`; test `projects.int.test.ts` (kể cả tenant khác → 404)
 - [ ] T043 [P] [US3] Build: `apps/server/src/repos/builds.ts`, `routes/builds.ts` (`POST/GET /apps/:id/builds`, multipart stream lên S3, tính sha256 + size trên đường truyền, giới hạn 500 MB → 413); test `builds.int.test.ts`
 - [ ] T044 [US3] Test case + luật popup: `apps/server/src/repos/test-cases.ts`, `routes/testcases.ts`, `routes/popups.ts` theo contracts/rest-api.md — validate (US1) trước khi commit, `source = manual`, `status` mặc định `draft`, `PUT` cần `base_commit` (khác head → 409), `GET ?commit=`, `/history`; test `testcases.int.test.ts` (tạo, sửa, xung đột, nội dung sai → 400 với `details`)
 - [ ] T045 [P] [US3] Agent + thiết bị: `apps/server/src/repos/agents.ts`, `repos/devices.ts`, `routes/agents.ts` (`POST /agents` trả token `coral_agt_…` **một lần**, lưu SHA-256; `GET /agents`; `POST /agents/:id/revoke` đóng kết nối), `routes/devices.ts`; ghi `audit_log`; test `agents.int.test.ts`

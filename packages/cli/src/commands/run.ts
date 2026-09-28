@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { join, resolve as resolvePath } from 'node:path'
 import {
+  DEFAULT_POPUPS_YAML,
   validatePopupsSource,
   validateTestCaseSource,
   type Popups,
@@ -16,7 +17,7 @@ import {
   type RunEvent,
 } from '@coral/runner'
 import { Command, Option } from 'commander'
-import { DEFAULT_POPUPS_YAML } from '../assets/default-popups'
+
 import { AdbMissingError, type CliDeps, type RunnableDriver } from '../deps'
 import type { CliIo } from '../io'
 import { formatIssue } from './validate'
