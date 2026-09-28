@@ -65,4 +65,13 @@ describe('ESLint dependency boundaries', () => {
     expect(errors).toHaveLength(2)
     expect(errors[0]).toContain('Constitution V')
   })
+
+  it('lets route integration tests inspect the database', async () => {
+    const file = `${root}/apps/server/src/routes/__eslint_probe__.test.ts`
+    const errors = await restrictedImportErrors(
+      "import { sql } from 'drizzle-orm'\nexport const x = sql\n",
+      file,
+    )
+    expect(errors).toEqual([])
+  })
 })

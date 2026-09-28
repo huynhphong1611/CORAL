@@ -73,7 +73,7 @@ describe('builds', () => {
     expect(Buffer.from(await download.arrayBuffer())).toEqual(data)
 
     const list = await server.call(huynh, { method: 'GET', url: `/apps/${appId}/builds` })
-    expect((list.body as unknown as { id: string }[]).map((b) => b.id)).toEqual([build.id])
+    expect((list.body as { id: string }[]).map((b) => b.id)).toEqual([build.id])
   })
 
   it('refuses builds over the size limit with 413 and keeps nothing', async () => {
@@ -85,7 +85,7 @@ describe('builds', () => {
     expect(res.status).toBe(413)
     expect(api.apiErrorSchema.parse(res.body).error.code).toBe('payload_too_large')
     const list = await server.call(huynh, { method: 'GET', url: `/apps/${appId}/builds` })
-    expect((list.body as unknown as { version: string }[]).map((b) => b.version)).not.toContain(
+    expect((list.body as { version: string }[]).map((b) => b.version)).not.toContain(
       '9.9.9',
     )
   })

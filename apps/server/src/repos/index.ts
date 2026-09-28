@@ -1,5 +1,6 @@
 import type { Db } from '../db/client'
 import type { ProjectRepoStore } from '../git/project-repo-store'
+import { agentsRepo } from './agents'
 import { audit, type AuditEntry } from './audit'
 import { buildsRepo } from './builds'
 import { identityRepo } from './identity'
@@ -24,6 +25,7 @@ export function createRepos({ db, store }: RepoDeps) {
         tenantId,
         projects,
         builds: buildsRepo(db, tenantId),
+        agents: agentsRepo(db, tenantId),
         testCases: testCasesRepo(db, tenantId, store, projects),
         audit: (entry: Omit<AuditEntry, 'tenantId'>) => audit(db, { tenantId, ...entry }),
       }

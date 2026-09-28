@@ -69,7 +69,7 @@ export async function startTestServer(extra: Partial<ServerDeps> = {}) {
     } catch {
       body = res.body
     }
-    return { status: res.statusCode, body: body as Record<string, unknown> & unknown[], res }
+    return { status: res.statusCode, body, res }
   }
 
   async function close() {

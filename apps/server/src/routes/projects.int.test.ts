@@ -33,7 +33,7 @@ describe('projects and apps', () => {
     })
 
     const list = await server.call(huynh, { method: 'GET', url: '/projects' })
-    expect((list.body as unknown as { name: string }[]).map((p) => p.name)).toEqual(['Demo'])
+    expect((list.body as { name: string }[]).map((p) => p.name)).toEqual(['Demo'])
   })
 
   it('rejects a duplicate name with 409 and leaves no stray repo', async () => {

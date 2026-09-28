@@ -102,6 +102,8 @@ export default defineConfig(
   },
   {
     files: ['apps/server/src/routes/**/*.ts'],
+    // Integration tests next to the routes may inspect the database they exercise.
+    ignores: ['**/*.test.ts'],
     rules: {
       'no-restricted-imports': [
         'error',

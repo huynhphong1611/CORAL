@@ -9,6 +9,7 @@ import type { Db } from './db/client'
 import type { ProjectRepoStore } from './git/project-repo-store'
 import { registerErrorHandling } from './http/errors'
 import { createRepos } from './repos'
+import { registerAgentRoutes, type AgentConnections } from './routes/agents'
 import { registerBuildRoutes } from './routes/builds'
 import { registerProjectRoutes } from './routes/projects'
 import { registerTestCaseRoutes } from './routes/testcases'
@@ -19,6 +20,8 @@ export interface ServerDeps {
   db?: Db
   store?: ProjectRepoStore
   artifacts?: ArtifactStore
+  /** Live agent WebSockets (gateway), so revoking an agent closes its connection. */
+  connections?: AgentConnections
   /** Largest build upload (config CORAL_MAX_BUILD_MB). */
   maxBuildBytes?: number
 }
@@ -51,6 +54,10 @@ export function buildServer(
     const repos = createRepos({ db: deps.db, store: deps.store })
     registerProjectRoutes(app, { repos })
     registerTestCaseRoutes(app, { repos })
+    registerAgentRoutes(app, {
+      repos,
+      ...(deps.connections ? { connections: deps.connections } : {}),
+    })
     if (deps.artifacts) registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
   }
 
