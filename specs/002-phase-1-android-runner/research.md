@@ -101,7 +101,7 @@ Technical Context không còn mục NEEDS CLARIFICATION. Dưới đây là các 
 - **Decision**:
   - Key: `<tenant_id>/builds/<build_id>.apk`; `<tenant_id>/runs/<run_id>/<run_item_id>/<step_index>-<step_id>/{screenshot.png,tree.json,device.log}`.
   - Agent xin presigned PUT theo lô cho mỗi step (`artifact.request_upload`), hạn 10 phút; API trả presigned GET hạn 15 phút.
-  - Server tạo bucket và lifecycle rule 30 ngày cho prefix `*/runs/` khi khởi động (MinIO hỗ trợ lifecycle S3).
+  - Server tạo bucket và lifecycle rule 30 ngày cho artifact của run khi khởi động (MinIO hỗ trợ lifecycle S3). Filter lifecycle chỉ nhận prefix cố định nên không khớp được `<tenant_id>/runs/`; artifact run được gắn tag `coral-retention=run-artifact` qua presigned PUT (tag ký vào query string) và rule lọc theo tag.
   - Upload build: `@fastify/multipart` stream thẳng lên S3, tính sha256 trên đường truyền; agent tải bằng presigned GET, cache theo sha256.
 - **Alternatives**: gửi artifact qua WS (nặng, chặn kênh điều khiển).
 

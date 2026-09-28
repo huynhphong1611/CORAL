@@ -79,7 +79,7 @@ Commit đầu tiên khi tạo project: `popups.yaml` mặc định + `README.md`
                                                                     /device.log     # chỉ khi step lỗi
 <bucket>/<tenant_id>/runs/<run_id>/<run_item_id>/result.json                     # tổng kết item
 ```
-`run_steps.artifact_prefix` = thư mục của step. Lifecycle 30 ngày cho `*/runs/`.
+`run_steps.artifact_prefix` = thư mục của step. Lifecycle 30 ngày cho artifact run (object dưới `runs/` được gắn tag `coral-retention=run-artifact` khi upload — R11).
 
 ## 5. Kiểu dữ liệu dùng chung (`packages/shared`)
 

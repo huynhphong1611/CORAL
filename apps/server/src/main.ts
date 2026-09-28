@@ -1,9 +1,12 @@
 import { loadConfig } from './config'
 import { createDatabase } from './db/client'
 import { buildServer } from './server'
+import { createArtifactStore } from './storage/s3'
 
 const config = loadConfig(process.env)
 const database = createDatabase(config.databaseUrl)
+const artifacts = createArtifactStore(config.s3)
+await artifacts.ensureBucket()
 const app = buildServer(config, { db: database.db })
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
