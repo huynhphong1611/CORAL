@@ -29,4 +29,12 @@ export function testSelection(env: Record<string, string | undefined>): TestSele
   }
 }
 
+/**
+ * Device test files share one device, so they run one after another (two files driving the same
+ * emulator at once made `setText` miss its field in CI). Root-level option: not per project.
+ */
+export function fileParallelism(env: Record<string, string | undefined>): boolean {
+  return env.CORAL_DEVICE_TESTS !== '1'
+}
+
 export const sharedTestConfig = testSelection(process.env)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { testSelection } from '../vitest.shared.ts'
+import { fileParallelism, testSelection } from '../vitest.shared.ts'
 
 describe('testSelection (D21, D34)', () => {
   it('runs only unit tests by default', () => {
@@ -17,7 +17,10 @@ describe('testSelection (D21, D34)', () => {
     expect(selection.passWithNoTests).toBe(true)
   })
 
-  it('runs only device tests with CORAL_DEVICE_TESTS=1', () => {
+  it('runs only device tests with CORAL_DEVICE_TESTS=1, one file at a time', () => {
     expect(testSelection({ CORAL_DEVICE_TESTS: '1' }).include).toEqual(['**/*.device.test.ts'])
+    expect(fileParallelism({ CORAL_DEVICE_TESTS: '1' })).toBe(false)
+    expect(fileParallelism({})).toBe(true)
+    expect(fileParallelism({ CORAL_INT_TESTS: '1' })).toBe(true)
   })
 })

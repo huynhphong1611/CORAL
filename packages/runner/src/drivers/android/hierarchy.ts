@@ -62,11 +62,13 @@ function toNode(raw: RawNode, ref: string, windowIndex: number): ElementNode {
 }
 
 /**
- * `dumpWindowHierarchy` XML → top-level windows, bottom-most first (research R3).
- * `ref` is the index path within this dump (`0.3.1`).
+ * `dumpWindowHierarchy` XML → top-level windows, bottom-most first (research R3, R5). u2 lists
+ * windows top-most first — checked on an Android 14 emulator against `dumpsys window`: status bar,
+ * then the app or the permission dialog — so the list is reversed here.
+ * `ref` is the index path in the returned list (`0.3.1`).
  */
 export function parseHierarchy(xml: string): ElementNode[] {
   const doc = parser.parse(xml) as { hierarchy?: { node?: RawNode[] } | '' }
   const windows = typeof doc.hierarchy === 'object' ? (doc.hierarchy.node ?? []) : []
-  return windows.map((window, i) => toNode(window, String(i), i))
+  return [...windows].reverse().map((window, i) => toNode(window, String(i), i))
 }

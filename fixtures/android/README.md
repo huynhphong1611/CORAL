@@ -2,11 +2,12 @@
 
 Synthetic UiAutomator2 dumps (`dumpWindowHierarchy`, SPEC §8.1, research R3) for unit tests of the
 resolver, hit-test, hierarchy parser and popup guard — no device needed. Screen 1080 × 2400, app
-`com.saucelabs.mydemoapp.android`; the status bar window (`com.android.systemui`) is always last.
+`com.saucelabs.mydemoapp.android`; the status bar window (`com.android.systemui`) is always first.
 
-Window order follows the dump order: **later windows are drawn on top** (research R5). This must be
-confirmed on a real emulator by `android-driver.device.test.ts`; if it differs, only
-`hierarchy.ts` changes.
+Window order is the dump order of u2: **the top-most window comes first** (status bar, then a
+dialog or the keyboard, then the app) — confirmed on the CI Android 14 emulator against
+`dumpsys window` (research R5). `hierarchy.ts` reverses it, so `tree()` is bottom-most first.
+When a permission dialog is on top, the app's window is not in the dump at all.
 
 | File | Screen | Used for |
 |---|---|---|

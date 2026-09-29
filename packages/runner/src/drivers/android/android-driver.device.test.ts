@@ -112,10 +112,14 @@ describe('AndroidDriver on a real device', () => {
     const text = 'Nguyễn Văn Ánh ệ ữ ỷ'
     await driver.clearText()
     await driver.type(text)
-    const field = [...walkTree(await stableTree())].find((n) =>
-      n.platform_id.endsWith(':id/nameET'),
-    )
+    const tree = await stableTree()
+    const field = [...walkTree(tree)].find((n) => n.platform_id.endsWith(':id/nameET'))
     expect(field?.text).toBe(text)
+    // With the keyboard open, its window (when the dump has it) must sit above the app's.
+    await logWindowOrder('keyboard', tree)
+    const ime = tree.findIndex((w) => /inputmethod|keyboard/i.test(w.package_or_bundle))
+    const app = tree.findIndex((w) => w.package_or_bundle === env.appId)
+    if (ime >= 0 && app >= 0) expect(ime).toBeGreaterThan(app)
   }, 60_000)
 
   it('keeps working after a second UiAutomation server started', async () => {
@@ -142,7 +146,7 @@ describe('AndroidDriver on a real device', () => {
     expect([...walkTree(tree)].some((n) => n.package_or_bundle === env.appId)).toBe(true)
   }, 60_000)
 
-  it('sees the camera permission dialog as covering the app (window order, R5)', async () => {
+  it('sees the camera permission dialog on top (window order, R5)', async () => {
     await driver.resetApp(env.appId)
     await driver.launch(env.appId)
     await waitForApp()
@@ -156,17 +160,21 @@ describe('AndroidDriver on a real device', () => {
     await logWindowOrder('permission dialog', tree)
     const popup = findPopups(tree, env.appId)[0]
     expect(popup?.root.package_or_bundle).toMatch(/permissioncontroller/)
-    // Any point of the dialog is also on top of the app window: a tap there must not count as
-    // reaching the app element below.
     const allow = popup?.nodes.find((n) => n.clickable)
     if (!allow) throw new Error('no button in the permission dialog')
     const point = center(allow.bounds)
-    const appNode = [...walkTree(tree)]
-      .filter((n) => n.package_or_bundle === env.appId && n.visible && contains(n.bounds, point))
-      .at(-1)
-    if (!appNode) throw new Error('no app node under the dialog')
-    expect(checkHit(tree, appNode, point)).toMatchObject({ ok: false })
     expect(touchTargetAt(tree, point)?.package_or_bundle).toMatch(/permissioncontroller/)
+    // The status bar is the top-most window; the app, if dumped at all, is below the dialog.
+    expect(tree.at(-1)?.package_or_bundle).toBe('com.android.systemui')
+    const dialog = tree.indexOf(popup?.root as ElementNode)
+    const app = tree.findIndex((w) => w.package_or_bundle === env.appId)
+    if (app >= 0) {
+      expect(app).toBeLessThan(dialog)
+      const under = [...walkTree([tree[app] as ElementNode])]
+        .filter((n) => n.visible && contains(n.bounds, point))
+        .at(-1)
+      if (under) expect(checkHit(tree, under, point)).toMatchObject({ ok: false })
+    }
     await driver.resetApp(env.appId)
   }, 90_000)
 })
