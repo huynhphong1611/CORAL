@@ -1,4 +1,5 @@
 import {
+  DeleteBucketCommand,
   GetBucketLifecycleConfigurationCommand,
   GetObjectTaggingCommand,
   S3Client,
@@ -77,5 +78,13 @@ describe('artifact store (MinIO)', () => {
       body: 'x',
     })
     expect(res.status).toBe(403)
+  })
+
+  it('survives several servers creating the same new bucket at once', async () => {
+    const bucket = `coral-race-${newId().slice(-12)}`
+    const stores = [1, 2, 3].map(() => createArtifactStore({ ...s3, bucket }))
+    await Promise.all(stores.map((store) => store.ensureBucket()))
+    expect(await stores[0]?.ready()).toBe(true)
+    await admin.send(new DeleteBucketCommand({ Bucket: bucket }))
   })
 })

@@ -61,7 +61,13 @@ export function createArtifactStore(config: ServerConfig['s3']): ArtifactStore {
       try {
         await client.send(new HeadBucketCommand({ Bucket }))
       } catch {
-        await client.send(new CreateBucketCommand({ Bucket }))
+        try {
+          await client.send(new CreateBucketCommand({ Bucket }))
+        } catch (error) {
+          // Another server instance (or test process) created it in the meantime.
+          const name = (error as { name?: string }).name
+          if (name !== 'BucketAlreadyOwnedByYou' && name !== 'BucketAlreadyExists') throw error
+        }
       }
       await client.send(
         new PutBucketLifecycleConfigurationCommand({

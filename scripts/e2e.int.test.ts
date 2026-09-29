@@ -26,7 +26,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await agent?.stop()
   await server?.close()
-  await rm(cacheDir, { recursive: true, force: true })
+  if (cacheDir) await rm(cacheDir, { recursive: true, force: true })
 })
 
 const until = async <T>(read: () => Promise<T>, done: (v: T) => boolean, timeoutMs = 15_000) => {

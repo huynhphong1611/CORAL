@@ -35,8 +35,8 @@ beforeAll(async () => {
 })
 afterAll(async () => {
   await stopAgent?.()
-  await server.close()
-  await rm(dir, { recursive: true, force: true })
+  await server?.close()
+  if (dir) await rm(dir, { recursive: true, force: true })
 })
 
 const env = {
