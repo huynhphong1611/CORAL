@@ -22,6 +22,7 @@ const device = {
   api_level: 34,
   udid: 'emulator-5554',
   status: 'idle',
+  activity: { kind: 'idle' },
 }
 const recordingStep = {
   n: 1,

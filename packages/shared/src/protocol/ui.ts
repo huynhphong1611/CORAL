@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { ROLES } from '../api/auth'
-import { deviceSchema } from '../api/agents'
+import { deviceViewSchema } from '../api/live'
 import { RUN_ITEM_STATUSES, RUN_STATUSES } from '../api/runs'
 import { elementNodeSchema } from '../element'
 import { FAILURE_CODES } from '../failure-codes'
@@ -53,7 +53,7 @@ export const uiPayloadSchemas = {
     degraded: z.boolean(),
     duration_ms: z.number().int().nonnegative(),
   }),
-  'devices.updated': z.object({ devices: z.array(deviceSchema) }),
+  'devices.updated': z.object({ devices: z.array(deviceViewSchema) }),
   'stream.subscribe': z.object({ device_id: uuid }),
   'stream.unsubscribe': z.object({ device_id: uuid }),
   'stream.status': z.object({

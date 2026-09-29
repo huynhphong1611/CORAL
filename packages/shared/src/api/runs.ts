@@ -48,6 +48,8 @@ export const runSchema = z.object({
 export const listRunsQuerySchema = z.object({
   project_id: z.uuid().optional(),
   status: z.enum(RUN_STATUSES).optional(),
+  device_id: z.uuid().optional(),
+  test_case_id: z.uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.string().optional(),
 })

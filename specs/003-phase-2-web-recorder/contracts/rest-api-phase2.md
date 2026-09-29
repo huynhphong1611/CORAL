@@ -9,7 +9,7 @@ Bổ sung cho `specs/002-phase-1-android-runner/contracts/rest-api.md` (quy ư�
 | Method | Path | Body → Response |
 |---|---|---|
 | GET | `/devices` | như Phase 1 + `{ activity: { kind: "idle"\|"run"\|"live"\|"recording"\|"offline", by?: { user_id, name }, run_id?, since? } }` |
-| POST ✍ | `/devices/:id/control` | → 201 `{ live_session_id, device_id, expires_at, idle_timeout_ms }`; 409 `device_busy` `{ activity }` (run, người khác điều khiển/ghi); 409 `device_offline` |
+| POST ✍ | `/devices/:id/control` | → 201 `{ live_session_id, device_id, user: { id, name }, started_at, expires_at, idle_timeout_ms }`; 409 `device_busy` `{ activity }` (run, người khác điều khiển/ghi); 409 `device_offline` |
 | DELETE ✍ | `/devices/:id/control` | chỉ người giữ phiên → 204; người khác → 403 |
 | GET | `/devices/:id/control` | → phiên hiện tại hoặc 404 |
 
