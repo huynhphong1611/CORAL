@@ -8,6 +8,12 @@ importers:
 
   .:
     devDependencies:
+      '@coral/runner':
+        specifier: workspace:*
+        version: link:packages/runner
+      '@coral/shared':
+        specifier: workspace:*
+        version: link:packages/shared
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.11.0)

@@ -107,6 +107,23 @@ export class RunDispatcher implements RunQueue {
     )
   }
 
+  /** Uses the server's logger once the app exists. */
+  attachLogger(log: FastifyBaseLogger): void {
+    this.options.log = log
+  }
+
+  /** Redis answers within 2 s (readiness). */
+  async ping(): Promise<boolean> {
+    const timeout = new Promise<boolean>((resolve) =>
+      setTimeout(() => resolve(false), 2000).unref(),
+    )
+    const probe = this.dispatchQueue.getJobCounts('waiting').then(
+      () => true,
+      () => false,
+    )
+    return Promise.race([probe, timeout])
+  }
+
   /** Called by the agent channel when the owning agent answers a job.assign. */
   ackReceived(runId: string, result: AckResult): void {
     this.acks.get(runId)?.(result)

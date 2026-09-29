@@ -2,7 +2,7 @@
   "name": "coral",
   "version": "0.1.0",
   "private": true,
-  "description": "CORAL \u2014 Continuous Observation, Repair & Adaptive Learning: tests that grow back.",
+  "description": "CORAL — Continuous Observation, Repair & Adaptive Learning: tests that grow back.",
   "type": "module",
   "packageManager": "pnpm@10.34.5",
   "engines": {
@@ -22,6 +22,8 @@
     "coral": "tsx packages/cli/src/main.ts"
   },
   "devDependencies": {
+    "@coral/runner": "workspace:*",
+    "@coral/shared": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.19.0",
     "eslint": "^10.11.0",

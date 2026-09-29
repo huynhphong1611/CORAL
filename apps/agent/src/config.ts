@@ -9,7 +9,7 @@ const envSchema = z.object({
     .string()
     .regex(/^coral_agt_[A-Za-z0-9_-]{20,}$/, 'must look like coral_agt_…')
     .optional(),
-  CORAL_AGENT_POLL_MS: z.coerce.number().int().min(1000).default(15_000),
+  CORAL_AGENT_POLL_MS: z.coerce.number().int().min(1000).default(5_000),
   CORAL_ADB: z.string().min(1).default('adb'),
   CORAL_U2_JAR: z.string().min(1).optional(),
   CORAL_CACHE_DIR: z.string().min(1).optional(),
@@ -21,6 +21,7 @@ export interface AgentConfig {
   /** WebSocket endpoint derived from serverUrl (http → ws, https → wss). */
   wsUrl: string
   agentToken?: string
+  /** How often `adb devices` is polled (T052). */
   pollMs: number
   adbPath: string
   u2JarPath?: string

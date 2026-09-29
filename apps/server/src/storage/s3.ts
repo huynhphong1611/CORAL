@@ -41,6 +41,8 @@ export interface ArtifactStore {
   /** Size in bytes, or undefined when the object does not exist. */
   size(key: string): Promise<number | undefined>
   remove(key: string): Promise<void>
+  /** The bucket answers (readiness). */
+  ready(): Promise<boolean>
 }
 
 /** S3-compatible storage (MinIO in dev, R11). Only standard S3 API calls. */
@@ -108,6 +110,15 @@ export function createArtifactStore(config: ServerConfig['s3']): ArtifactStore {
         return (await client.send(new HeadObjectCommand({ Bucket, Key: key }))).ContentLength
       } catch {
         return undefined
+      }
+    },
+
+    async ready() {
+      try {
+        await client.send(new HeadBucketCommand({ Bucket }))
+        return true
+      } catch {
+        return false
       }
     },
 

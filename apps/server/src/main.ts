@@ -1,18 +1,17 @@
 import { loadConfig } from './config'
-import { createDatabase } from './db/client'
 import { buildServer } from './server'
-import { createArtifactStore } from './storage/s3'
+import { startServices } from './services'
 
 const config = loadConfig(process.env)
-const database = createDatabase(config.databaseUrl)
-const artifacts = createArtifactStore(config.s3)
-await artifacts.ensureBucket()
-const app = buildServer(config, { db: database.db })
+const services = await startServices(config)
+const app = buildServer(config, services.deps)
+services.start(app.log)
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   app.log.info({ signal }, 'shutting down')
+  // Closes agent connections (agents go offline) before the DB and queues stop.
   await app.close()
-  await database.close()
+  await services.close()
   process.exit(0)
 }
 

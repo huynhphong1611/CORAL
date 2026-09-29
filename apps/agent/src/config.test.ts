@@ -9,7 +9,7 @@ describe('loadConfig', () => {
       serverUrl: 'http://localhost:3000',
       wsUrl: 'ws://localhost:3000/ws/agent',
       agentToken: undefined,
-      pollMs: 15_000,
+      pollMs: 5_000,
       adbPath: 'adb',
       u2JarPath: undefined,
       cacheDir: join(homedir(), '.cache', 'coral'),
