@@ -8,6 +8,7 @@ on:
     paths:
       - .github/workflows/device.yml
       - scripts/ci-device.sh
+      - scripts/ci-contact-sheet.py
       - scripts/phase1-e2e.mjs
       - packages/runner/**
       - apps/agent/**
@@ -74,6 +75,14 @@ jobs:
           disable-animations: true
           # The runner action executes each script line separately: keep it to one line.
           script: bash scripts/ci-device.sh
+      # Contact sheets of the step screenshots, also printed as base64 lines ("CORAL-SHEET …") so
+      # a report can show them without downloading the artifact.
+      - name: Screenshot sheets
+        if: always()
+        run: |
+          python3 -m venv /tmp/sheets-venv
+          /tmp/sheets-venv/bin/pip install --quiet pillow
+          /tmp/sheets-venv/bin/python scripts/ci-contact-sheet.py device-results device-results/sheets
       - if: always()
         uses: actions/upload-artifact@v4
         with:
