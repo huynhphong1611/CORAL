@@ -2,7 +2,7 @@
 
 Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definition of Done (DoD)** đã đạt. Chi tiết kỹ thuật tham chiếu `docs/SPEC.md` (ký hiệu §, quyết định ký hiệu D). Mỗi phase là một feature Spec Kit trong `specs/` (D22).
 
-**Phase hiện tại:** Phase 1 (Phase 0 đạt DoD ngày 2026-09-28)
+**Phase hiện tại:** Phase 2 — bắt đầu 2026-09-29 theo yêu cầu của Huynh (`specs/003-phase-2-web-recorder`). Phase 1 xong mọi task chạy được trong container/CI; các task 🔌 (T039, T041, T056, T060, T063) chạy bằng emulator trong CI (`.github/workflows/device.yml`), T067 đóng Phase 1 khi chúng xanh. (Phase 0 đạt DoD ngày 2026-09-28.)
 
 ---
 
