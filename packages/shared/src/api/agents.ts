@@ -28,3 +28,4 @@ export const deviceSchema = z.object({
   udid: z.string(),
   status: z.enum(['idle', 'leased', 'offline']),
 })
+export type Device = z.infer<typeof deviceSchema>

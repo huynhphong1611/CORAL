@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lt } from 'drizzle-orm'
+import { and, asc, desc, eq, exists, lt } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { runItems, runs, runSteps, testCases } from '../db/schema'
 import { notFound } from '../http/errors'
@@ -64,6 +64,8 @@ export function runsRepo(db: Db, tenantId: string) {
     async list(query: {
       projectId?: string
       status?: RunRow['status']
+      deviceId?: string
+      testCaseId?: string
       limit: number
       cursor?: string
     }) {
@@ -75,6 +77,21 @@ export function runsRepo(db: Db, tenantId: string) {
             inTenant,
             query.projectId ? eq(runs.projectId, query.projectId) : undefined,
             query.status ? eq(runs.status, query.status) : undefined,
+            query.deviceId ? eq(runs.deviceId, query.deviceId) : undefined,
+            query.testCaseId
+              ? exists(
+                  db
+                    .select({ id: runItems.id })
+                    .from(runItems)
+                    .where(
+                      and(
+                        eq(runItems.tenantId, tenantId),
+                        eq(runItems.runId, runs.id),
+                        eq(runItems.testCaseId, query.testCaseId),
+                      ),
+                    ),
+                )
+              : undefined,
             query.cursor ? lt(runs.id, query.cursor) : undefined,
           ),
         )

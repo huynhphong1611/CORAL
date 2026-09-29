@@ -67,6 +67,8 @@ export function registerRunRoutes(app: FastifyInstance, deps: RunRouteDeps): voi
       limit: query.limit,
       ...(query.project_id ? { projectId: query.project_id } : {}),
       ...(query.status ? { status: query.status } : {}),
+      ...(query.device_id ? { deviceId: query.device_id } : {}),
+      ...(query.test_case_id ? { testCaseId: query.test_case_id } : {}),
       ...(query.cursor ? { cursor: parseInput(z.uuid(), query.cursor) } : {}),
     })
     const items = await Promise.all(

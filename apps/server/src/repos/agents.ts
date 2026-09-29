@@ -1,6 +1,6 @@
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import type { Db } from '../db/client'
-import { agents, devices } from '../db/schema'
+import { agents, devices, leases, liveSessions, recordings, runs, users } from '../db/schema'
 import { hashToken, newOpaqueToken } from '../auth/tokens'
 import { notFound } from '../http/errors'
 
@@ -8,6 +8,16 @@ export const AGENT_TOKEN_PREFIX = 'coral_agt_'
 
 export type AgentRow = typeof agents.$inferSelect
 export type DeviceRow = typeof devices.$inferSelect
+
+/** An open lease with the person behind it: who controls, records or started the run. */
+export interface OpenLease {
+  deviceId: string
+  kind: (typeof leases.$inferSelect)['kind']
+  holderRef: string
+  acquiredAt: Date
+  userId: string | null
+  userName: string | null
+}
 
 /** Agents and devices of one tenant, as the operator sees them. */
 export function agentsRepo(db: Db, tenantId: string) {
@@ -60,6 +70,37 @@ export function agentsRepo(db: Db, tenantId: string) {
         .from(devices)
         .where(eq(devices.tenantId, tenantId))
         .orderBy(asc(devices.createdAt))
+    },
+
+    /** Open leases of the tenant's devices (at most one per device, D16). */
+    openLeases(): Promise<OpenLease[]> {
+      return db
+        .select({
+          deviceId: leases.deviceId,
+          kind: leases.kind,
+          holderRef: leases.holderRef,
+          acquiredAt: leases.acquiredAt,
+          userId: users.id,
+          userName: users.name,
+        })
+        .from(leases)
+        .leftJoin(
+          liveSessions,
+          and(eq(liveSessions.tenantId, tenantId), eq(liveSessions.leaseId, leases.id)),
+        )
+        .leftJoin(
+          recordings,
+          and(eq(recordings.tenantId, tenantId), eq(recordings.leaseId, leases.id)),
+        )
+        .leftJoin(
+          runs,
+          and(eq(runs.tenantId, tenantId), sql`${leases.holderRef} = 'run:' || ${runs.id}::text`),
+        )
+        .leftJoin(
+          users,
+          sql`${users.id} = coalesce(${liveSessions.userId}, ${recordings.userId}, ${runs.createdBy})`,
+        )
+        .where(and(eq(leases.tenantId, tenantId), isNull(leases.releasedAt)))
     },
 
     async getDevice(id: string): Promise<DeviceRow> {

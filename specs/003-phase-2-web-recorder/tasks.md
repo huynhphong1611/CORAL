@@ -71,9 +71,9 @@ Monorepo (plan.md → Project Structure): `apps/web/src/`, `apps/server/src/`, `
 
 **Independent Test**: server + agent giả; đăng nhập web, mở run có sẵn → đủ step và ảnh; tạo run từ web → chạy xong hiện kết quả không cần tải lại (quickstart §2).
 
-- [ ] T019 [P] [US1] Server: `GET /devices` thêm `activity` (`idle|run|live|recording|offline`, `by`, `run_id`, `since` — từ lease mở); `GET /runs` thêm lọc `device_id`, `test_case_id`; test `devices.int.test.ts`, `runs-list.int.test.ts` ca mới
-- [x] T020 [US1] Server đẩy sự kiện: ingest (`runs/ingest.ts`) và dispatcher phát `run.updated` / `run.step` tới kết nối UI đã `run.watch` (cùng tenant); đổi lease/thiết bị → `devices.updated` cho cả tenant; test `ui-run-events.int.test.ts` (agent giả chạy run → UI client nhận đúng thứ tự; tenant khác không nhận)
-- [ ] T021 [P] [US1] Web `routes/login.tsx`: form, lỗi chung "Invalid email or password", `next`; test component (submit, lỗi)
+- [x] T019 [P] [US1] Server: `GET /devices` thêm `activity` (`idle|run|live|recording|offline`, `by`, `run_id`, `since` — từ lease mở); `GET /runs` thêm lọc `device_id`, `test_case_id`; test `devices.int.test.ts`, `runs-list.int.test.ts` ca mới
+- [ ] T020 [US1] Server đẩy sự kiện: ingest (`runs/ingest.ts`) và dispatcher phát `run.updated` / `run.step` tới kết nối UI đã `run.watch` (cùng tenant); đổi lease/thiết bị → `devices.updated` cho cả tenant; test `ui-run-events.int.test.ts` (agent giả chạy run → UI client nhận đúng thứ tự; tenant khác không nhận)
+- [x] T021 [P] [US1] Web `routes/login.tsx`: form, lỗi chung "Invalid email or password", `next`; test component (submit, lỗi)
 - [ ] T022 [P] [US1] Web `routes/projects/*`: danh sách + tạo project ✍; trang project với tab Test cases, Runs, Recordings và danh sách app/build chỉ đọc (FR-003; tạo app, tải build ở US7); test component (loading/empty/error)
 - [ ] T023 [P] [US1] Web `routes/devices.tsx`: bảng thiết bị + trạng thái `activity`, cập nhật qua `devices.updated`; test component
 - [ ] T024 [US1] Web `routes/runs/*`: danh sách run (lọc, cập nhật trực tiếp) và chi tiết run: step (ảnh presigned, trạng thái, locator đã dùng + `degraded`, thời gian, popup, lỗi + device log, xem `tree.json` dạng cây), `run.watch`; test component với dữ liệu mẫu

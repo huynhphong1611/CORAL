@@ -2,7 +2,8 @@ import { api } from '@coral/shared'
 import type { FastifyInstance } from 'fastify'
 import { parseInput } from '../http/errors'
 import type { Repos } from '../repos'
-import type { AgentRow, DeviceRow } from '../repos/agents'
+import type { AgentRow } from '../repos/agents'
+import { deviceViews } from '../devices/views'
 import { isoOrNull, scope } from './context'
 
 /** Closes live agent connections; implemented by the WebSocket gateway. */
@@ -19,19 +20,7 @@ const toAgent = (a: AgentRow) => ({
   last_seen_at: isoOrNull(a.lastSeenAt),
 })
 
-const toDevice = (d: DeviceRow) => ({
-  id: d.id,
-  agent_id: d.agentId,
-  platform: 'android' as const,
-  kind: d.kind,
-  model: d.model,
-  os_version: d.osVersion,
-  api_level: d.apiLevel,
-  udid: d.udid,
-  status: d.status,
-})
-
-/** POST/GET /agents, POST /agents/:id/revoke, GET /devices (contracts/rest-api.md). */
+/** POST/GET /agents, POST /agents/:id/revoke, GET /devices with activity (contracts/rest-api.md, rest-api-phase2.md). */
 export function registerAgentRoutes(
   app: FastifyInstance,
   deps: { repos: Repos; connections?: AgentConnections },
@@ -57,7 +46,5 @@ export function registerAgentRoutes(
     return reply.status(204).send()
   })
 
-  app.get('/devices', async (request) =>
-    (await scope(deps.repos, request).agents.listDevices()).map(toDevice),
-  )
+  app.get('/devices', async (request) => deviceViews(scope(deps.repos, request)))
 }
