@@ -31,6 +31,9 @@ jobs:
     name: Android 14 emulator (My Demo App)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      # Only to store the screenshot sheets as git blobs (see "Screenshot sheets").
+      contents: write
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -75,14 +78,23 @@ jobs:
           disable-animations: true
           # The runner action executes each script line separately: keep it to one line.
           script: bash scripts/ci-device.sh
-      # Contact sheets of the step screenshots, also printed as base64 lines ("CORAL-SHEET …") so
-      # a report can show them without downloading the artifact.
+      # Contact sheets of the step screenshots. Each is also stored as a git blob (no ref, no
+      # commit) and its sha logged ("CORAL-SHEET <file> <sha>"): reports fetch it from
+      # GET /repos/{repo}/git/blobs/{sha} when the artifact storage is out of reach.
       - name: Screenshot sheets
         if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           python3 -m venv /tmp/sheets-venv
           /tmp/sheets-venv/bin/pip install --quiet pillow
           /tmp/sheets-venv/bin/python scripts/ci-contact-sheet.py device-results device-results/sheets
+          for f in device-results/sheets/*.jpg; do
+            [ -e "$f" ] || continue
+            jq -n --rawfile c <(base64 -w0 "$f") '{content: $c, encoding: "base64"}' >/tmp/blob.json
+            sha=$(gh api "repos/$GITHUB_REPOSITORY/git/blobs" --input /tmp/blob.json --jq .sha)
+            echo "CORAL-SHEET $(basename "$f") $sha"
+          done
       - if: always()
         uses: actions/upload-artifact@v4
         with:

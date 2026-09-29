@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
-"""Contact sheets of the step screenshots from a Device CI run, printed into the job log.
-
-The CI artifact holds every screenshot, but the log is the one thing every reader can fetch
-(`get_job_logs`), so each sheet is also printed as base64 lines:
-
-    CORAL-SHEET <name> <i>/<n> <chunk>
+"""Contact sheets of the step screenshots from a Device CI run.
 
 One sheet per test case, from the latest run of it through the server (`server-runs/`), or from
 `coral run` (`coral-run/`) when the server run has none. Step directories follow the local and
-downloaded layout `<slug>/<index>-<step_id>/screenshot.png`.
+downloaded layout `<slug>/<index>-<step_id>/screenshot.png`. The workflow stores each sheet as a
+git blob (no ref, no commit) and logs its sha, so a report can fetch it through the API when the
+artifact's storage is out of reach.
 
 Usage: ci-contact-sheet.py <device-results dir> <out dir>   (needs Pillow)
 """
 
-import base64
 import re
 import sys
 from pathlib import Path
@@ -22,7 +18,6 @@ from PIL import Image, ImageDraw
 
 TILE_WIDTH = 216
 LABEL_HEIGHT = 16
-CHUNK = 3000
 STEP_DIR = re.compile(r"^(\d+)-(.+)$")
 
 
@@ -77,11 +72,7 @@ def main() -> int:
     for slug, slug_dir in runs.items():
         path = out_dir / f"{slug}.jpg"
         sheet(slug_dir).save(path, "JPEG", quality=60, optimize=True)
-        data = base64.b64encode(path.read_bytes()).decode()
-        chunks = [data[i : i + CHUNK] for i in range(0, len(data), CHUNK)]
         print(f"{slug}: {slug_dir.relative_to(root)} → {path} ({path.stat().st_size} bytes)")
-        for i, chunk in enumerate(chunks, 1):
-            print(f"CORAL-SHEET {slug} {i}/{len(chunks)} {chunk}")
     return 0
 
 
