@@ -1,5 +1,6 @@
 import { walkTree, type ElementNode, type Permission, type Platform } from '@coral/shared'
 import type { DeviceDriver, Point, Size } from '../core/driver'
+import { renderTree, type RenderOptions } from './render'
 
 type NodeSpec = Partial<Omit<ElementNode, 'bounds' | 'children' | 'ref'>> & {
   /** [x, y, w, h] */
@@ -65,6 +66,8 @@ export interface FakeDriverOptions {
   platform?: Platform
   size?: Size
   logs?: string
+  /** screenshot() draws the current tree (renderTree) instead of returning a stub PNG. */
+  renderScreens?: boolean | RenderOptions
 }
 
 /**
@@ -80,6 +83,7 @@ export class FakeDriver implements DeviceDriver {
   readonly typed = new Map<string, string>()
   private frameIndex = 0
   private focusedRef: string | undefined
+  private rendered: { tree: ElementNode[]; png: Uint8Array } | undefined
 
   constructor(private readonly options: FakeDriverOptions) {
     this.platform = options.platform ?? 'android'
@@ -142,9 +146,22 @@ export class FakeDriver implements DeviceDriver {
 
   screenshot(): Promise<Uint8Array> {
     this.calls.push({ kind: 'screenshot' })
+    if (this.options.renderScreens) return Promise.resolve(this.render())
     // PNG signature + screen name: enough for artifact plumbing tests.
     const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
     return Promise.resolve(Uint8Array.from([...png, ...Buffer.from(this.current)]))
+  }
+
+  /** The current tree drawn as a PNG, redrawn only when the tree changes. */
+  private render(): Uint8Array {
+    const tree = this.currentTree()
+    if (this.rendered?.tree !== tree) {
+      const options =
+        typeof this.options.renderScreens === 'object' ? this.options.renderScreens : {}
+      const size = this.options.size ?? { width: 1080, height: 2400 }
+      this.rendered = { tree, png: renderTree(tree, size, options) }
+    }
+    return this.rendered.png
   }
 
   tree(): Promise<ElementNode[]> {
