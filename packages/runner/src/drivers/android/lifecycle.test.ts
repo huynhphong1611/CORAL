@@ -107,4 +107,26 @@ describe('AndroidLifecycle', () => {
     )
     expect(await setup({ fail: ['shell pidof'] }).lifecycle.isAppRunning(APP)).toBe(false)
   })
+
+  it('reads whose crash / ANR dialog has the focus from dumpsys window', async () => {
+    const dump = (focus: string) => ({
+      'shell dumpsys window windows': [
+        'WINDOW MANAGER WINDOWS (dumpsys window windows)',
+        `  Window #3 Window{a1 u0 ${APP}/.MainActivity}:`,
+        `  mCurrentFocus=Window{b2 u0 ${focus}}`,
+        `  mFocusedApp=ActivityRecord{c3 u0 ${APP}/.MainActivity t12}`,
+      ].join('\n'),
+    })
+    const launcher = setup({
+      replies: dump('Application Not Responding: com.google.android.apps.nexuslauncher'),
+    })
+    expect(await launcher.lifecycle.systemDialogOwner()).toBe(
+      'com.google.android.apps.nexuslauncher',
+    )
+    expect(launcher.calls).toEqual(['shell dumpsys window windows'])
+    const crash = setup({ replies: dump(`Application Error: ${APP}`) })
+    expect(await crash.lifecycle.systemDialogOwner()).toBe(APP)
+    const none = setup({ replies: dump(`${APP}/.MainActivity`) })
+    expect(await none.lifecycle.systemDialogOwner()).toBeUndefined()
+  })
 })

@@ -1,6 +1,7 @@
 import {
   decidePopup,
   locatorPlatforms,
+  normalizeButtonText,
   walkTree,
   type ElementNode,
   type ExpectCondition,
@@ -8,7 +9,7 @@ import {
   type Popups,
   type Step,
 } from '@coral/shared'
-import type { UiDriver } from './driver'
+import type { TargetLifecycle, UiDriver } from './driver'
 import { StepFailure } from './errors'
 import { conditionFailure } from './expect'
 import { center } from './locator/geometry'
@@ -59,17 +60,30 @@ export function findPopups(tree: readonly ElementNode[], appId: string): Popup[]
   return popups
 }
 
-/** Crash and ANR dialogs end the step; the guard never dismisses them (R6). */
-function appFailure(tree: readonly ElementNode[]): StepFailure | undefined {
+interface SystemDialog {
+  kind: 'anr' | 'crash'
+  title: string
+  /** Button that lets another app's dialog go without harming anything: Wait / Close app. */
+  dismiss: ElementNode | undefined
+}
+
+/** The system's crash or not-responding dialog, if one is on screen (R6). */
+function systemDialog(tree: readonly ElementNode[]): SystemDialog | undefined {
   const nodes = [...walkTree(tree)].filter((n) => n.visible)
   const title = nodes.find((n) => n.platform_id === 'android:id/alertTitle')?.text ?? ''
-  if (nodes.some((n) => n.platform_id === ANR_BUTTON)) {
-    return new StepFailure('APP_NOT_RESPONDING', title || 'application not responding')
-  }
+  const wait = nodes.find((n) => n.platform_id === ANR_BUTTON)
+  const close = nodes.find((n) => n.platform_id === CRASH_BUTTONS[0])
+  if (wait) return { kind: 'anr', title, dismiss: wait }
   if (nodes.some((n) => CRASH_BUTTONS.includes(n.platform_id))) {
-    return new StepFailure('APP_CRASHED', title || 'application crashed')
+    return { kind: 'crash', title, dismiss: close }
   }
   return undefined
+}
+
+function appFailure(dialog: SystemDialog): StepFailure {
+  return dialog.kind === 'anr'
+    ? new StepFailure('APP_NOT_RESPONDING', dialog.title || 'application not responding')
+    : new StepFailure('APP_CRASHED', dialog.title || 'application crashed')
 }
 
 function conditionsOf(step: Step): ExpectCondition[] {
@@ -111,17 +125,35 @@ const describe = (popup: Popup) =>
 
 /**
  * Popup guard layer 2 (SPEC §9.2, §9.4, D25): dismisses popups by the project's rules, never
- * presses a never_tap button, never closes crash/ANR dialogs, and leaves a popup alone when the
- * current step is about it. Unknown popups block the step only when the step is stuck.
+ * presses a never_tap button, and leaves a popup alone when the current step is about it. A crash
+ * or ANR dialog of the app under test ends the step (never dismissed); the same dialog of another
+ * app (e.g. the launcher right after an emulator boots) is let go with Wait / Close app — only when
+ * the driver can tell whose dialog it is. Unknown popups block the step only when it is stuck.
  */
 export function createPopupGuard(options: {
   popups: Popups
-  driver: Pick<UiDriver, 'tapAt'>
+  driver: Pick<UiDriver, 'tapAt'> & Pick<TargetLifecycle, 'systemDialogOwner'>
 }): PopupGuard {
+  const forbidden = new Set(options.popups.never_tap.map(normalizeButtonText))
   return {
     async handle(tree: ElementNode[], ctx: PopupContext): Promise<HandledPopup | null> {
-      const failure = appFailure(tree)
-      if (failure) throw failure
+      const dialog = systemDialog(tree)
+      if (dialog) {
+        const owner = await options.driver.systemDialogOwner?.().catch(() => undefined)
+        if (!owner || owner === ctx.appId) throw appFailure(dialog)
+        const button = dialog.dismiss
+        if (!button || forbidden.has(normalizeButtonText(button.text))) {
+          throw new StepFailure('BLOCKED_BY_POPUP', `dialog of ${owner}: "${dialog.title}"`)
+        }
+        if (ctx.limitReached) {
+          throw new StepFailure(
+            'BLOCKED_BY_POPUP',
+            `more popups than the limit per step (last: dialog of ${owner})`,
+          )
+        }
+        await options.driver.tapAt(center(button.bounds))
+        return { rule: dialog.kind === 'anr' ? 'system_anr' : 'system_crash', button: button.text }
+      }
 
       for (const popup of findPopups(tree, ctx.appId)) {
         if (stepTargetsPopup(ctx.step, popup, ctx.resolveCtx)) return null

@@ -3,6 +3,8 @@ import type { TargetLifecycle } from '../../core/driver'
 import { AdbError, type AdbDeviceClient } from './adb'
 
 const PACKAGE = /^[A-Za-z][\w]*(\.[A-Za-z_][\w]*)+$/
+const SYSTEM_DIALOG_TITLE =
+  /Application (?:Not Responding|Error): ([A-Za-z][\w]*(?:\.[A-Za-z_][\w]*)+)/
 
 function assertPackage(appId: string): string {
   if (!PACKAGE.test(appId)) throw new AdbError(`invalid Android package name: ${appId}`)
@@ -155,6 +157,20 @@ export class AndroidLifecycle implements TargetLifecycle {
       '-T',
       (Math.max(0, sinceMs) / 1000).toFixed(3),
     ])
+  }
+
+  /**
+   * Package of the crash / ANR dialog that has the focus: the system names its window
+   * "Application Not Responding: <package>" or "Application Error: <package>" (`dumpsys window`).
+   */
+  async systemDialogOwner(): Promise<string | undefined> {
+    const out = await this.device.shell(['dumpsys', 'window', 'windows'])
+    const focus = out.split('\n').filter((line) => /mCurrentFocus|mFocusedWindow/.test(line))
+    for (const line of [...focus, out]) {
+      const owner = SYSTEM_DIALOG_TITLE.exec(line)?.[1]
+      if (owner) return owner
+    }
+    return undefined
   }
 
   /** A crash of the app under test was logged since `sinceMs` (`logcat -b crash`). */

@@ -9,7 +9,7 @@ adb -s <udid> push u2.jar /data/local/tmp/u2.jar            # nếu md5 khác
 adb -s <udid> shell CLASSPATH=/data/local/tmp/u2.jar app_process / com.wetest.uia2.Main -p 9008
 adb -s <udid> forward tcp:<local_port> tcp:9008
 ```
-Lỗi khởi chạy: stdout chứa `already registered` → một client UiAutomation khác đang chạy → `DRIVER_ERROR` với hướng dẫn tắt nó.
+Lỗi khởi chạy: stdout chứa `already registered` → một client UiAutomation khác đang chạy → `DRIVER_ERROR` với hướng dẫn tắt nó. Android 14 (emulator API 34, kiểm trong CI) không báo lỗi này: server thứ hai vẫn khởi động; xung đột chỉ lộ ra khi gọi (`UiAutomation not connected`) và client khởi động lại u2 một lần như mục "Lỗi" bên dưới.
 
 ## Gọi
 

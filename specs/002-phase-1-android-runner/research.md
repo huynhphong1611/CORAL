@@ -58,7 +58,8 @@ Technical Context không còn mục NEEDS CLARIFICATION. Dưới đây là các 
 - **Decision**:
   - Nhận diện popup: có node thuộc package khác app đang test và không phải `com.android.systemui` (thanh trạng thái), **hoặc** node dialog (`android:id/parentPanel`, `buttonPanel`) che vùng app.
   - Gói hộp thoại quyền: `com.android.permissioncontroller`, `com.google.android.permissioncontroller`, `com.android.packageinstaller` (Android cũ).
-  - Hộp thoại crash/ANR (package `android`, id `android:id/aerr_close`, `aerr_wait`, `aerr_restart`) **không** phải popup: runner dừng với `APP_CRASHED` / `APP_NOT_RESPONDING`. Kiểm tra thêm `pidof <package>` và `logcat -b crash` từ lúc bắt đầu step.
+  - Hộp thoại crash/ANR (package `android`, id `android:id/aerr_close`, `aerr_wait`, `aerr_restart`) **của app đang test** không phải popup: runner dừng với `APP_CRASHED` / `APP_NOT_RESPONDING`. Kiểm tra thêm `pidof <package>` và `logcat -b crash` từ lúc bắt đầu step.
+  - Chủ của hộp thoại lấy từ tiêu đề cửa sổ đang focus (`dumpsys window`: `Application Not Responding: <package>` / `Application Error: <package>`). Hộp thoại của **app khác** (ví dụ "Pixel Launcher isn't responding" ngay sau khi emulator boot — thấy trong CI Android 14) được bỏ qua bằng "Wait" (ANR) hoặc "Close app" (crash), ghi `system_anr` / `system_crash` vào `popups_handled`, tính vào giới hạn 3 popup, vẫn tôn trọng `never_tap`. Không xác định được chủ → coi là của app đang test.
   - So khớp luật và `never_tap` là hàm thuần trong `packages/shared/popups` (dùng lại ở Explorer Phase 3).
   - Ngoại lệ "đang test chính popup": nếu locator đầu tiên áp dụng được của target/expect khớp một node trong popup → không đóng.
   - Tối đa 3 popup mỗi step (D25); mỗi lần xử lý ghi `{ rule, button }` vào kết quả step.

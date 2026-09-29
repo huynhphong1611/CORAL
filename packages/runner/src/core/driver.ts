@@ -43,6 +43,11 @@ export interface TargetLifecycle {
   isAppRunning(appId: string): Promise<boolean>
   /** Device log since `sinceMs` (epoch ms): logcat on Android. */
   deviceLogs(sinceMs: number): Promise<string>
+  /**
+   * Package whose crash / not-responding dialog has the focus, when the platform can tell
+   * (Android: the focused system window's title). Undefined when unknown.
+   */
+  systemDialogOwner?(): Promise<string | undefined>
 }
 
 export interface DeviceDriver extends UiDriver, TargetLifecycle {}

@@ -127,6 +127,9 @@ export class AndroidDriver implements DeviceDriver {
   deviceLogs(sinceMs: number): Promise<string> {
     return this.lifecycle.deviceLogs(sinceMs)
   }
+  systemDialogOwner(): Promise<string | undefined> {
+    return this.lifecycle.systemDialogOwner()
+  }
 }
 
 export interface CreateAndroidDriverOptions {

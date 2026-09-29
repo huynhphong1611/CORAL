@@ -13,11 +13,14 @@ import type { PopupContext, PopupReason } from './run-testcase'
 
 const popups: Popups = popupsSchema.parse(parseYaml(DEFAULT_POPUPS_YAML).value)
 
-function setup(rules: Popups = popups) {
+function setup(rules: Popups = popups, dialogOwner?: string) {
   const taps: Point[] = []
   const guard = createPopupGuard({
     popups: rules,
-    driver: { tapAt: (p) => Promise.resolve(void taps.push(p)) },
+    driver: {
+      tapAt: (p) => Promise.resolve(void taps.push(p)),
+      ...(dialogOwner ? { systemDialogOwner: () => Promise.resolve(dialogOwner) } : {}),
+    },
   })
   const ctx = (
     reason: PopupReason = 'target_not_found',
@@ -98,7 +101,36 @@ describe('popup guard', () => {
     await expect(guard.handle(androidTree('anr-dialog'), ctx())).rejects.toMatchObject({
       code: 'APP_NOT_RESPONDING',
     })
-    expect(taps).toEqual([])
+    // The driver names the app under test as the owner: still a failure of the app.
+    const own = setup(popups, APP)
+    await expect(own.guard.handle(androidTree('anr-dialog'), own.ctx())).rejects.toMatchObject({
+      code: 'APP_NOT_RESPONDING',
+    })
+    expect([...taps, ...own.taps]).toEqual([])
+  })
+
+  it("lets another app's crash or ANR dialog go (launcher after an emulator boot)", async () => {
+    const launcher = 'com.google.android.apps.nexuslauncher'
+    const { guard, taps, ctx } = setup(popups, launcher)
+    expect(await guard.handle(androidTree('anr-dialog'), ctx('launch'))).toEqual({
+      rule: 'system_anr',
+      button: 'Wait',
+    })
+    expect(await guard.handle(androidTree('crash-dialog'), ctx())).toEqual({
+      rule: 'system_crash',
+      button: 'Close app',
+    })
+    // Centres of Wait [120,1280][960,1390] and of Close app in crash-dialog.xml.
+    expect(taps[0]).toEqual({ x: 540, y: 1335 })
+    expect(taps).toHaveLength(2)
+    await expect(
+      guard.handle(androidTree('anr-dialog'), ctx('target_not_found', undefined, true)),
+    ).rejects.toMatchObject({ code: 'BLOCKED_BY_POPUP' })
+    const strict = setup({ ...popups, never_tap: [...popups.never_tap, 'wait'] }, launcher)
+    await expect(
+      strict.guard.handle(androidTree('anr-dialog'), strict.ctx()),
+    ).rejects.toMatchObject({ code: 'BLOCKED_BY_POPUP' })
+    expect(strict.taps).toEqual([])
   })
 
   it('leaves the popup alone when the step is testing it', async () => {
