@@ -10,11 +10,14 @@ const APP = process.env.CORAL_TEST_APP ?? 'com.saucelabs.mydemoapp.android'
 const testCase = new URL('../../../../fixtures/testcases/mydemo-login.yaml', import.meta.url)
   .pathname
 
+// On CI (CORAL_DEVICE_OUT, scripts/ci-device.sh) the run's steps are kept next to the other
+// device results, so a failure comes with its screenshots, tree and device log.
+const keep = process.env.CORAL_DEVICE_OUT
 let out = ''
 beforeAll(async () => {
-  out = await mkdtemp(join(tmpdir(), 'coral-device-run-'))
+  out = keep ? join(keep, 'coral-run-test') : await mkdtemp(join(tmpdir(), 'coral-device-run-'))
 })
-afterAll(() => rm(out, { recursive: true, force: true }))
+afterAll(() => (keep ? undefined : rm(out, { recursive: true, force: true })))
 
 describe('coral run on a real device', () => {
   it('passes mydemo-login in under 60 s', async () => {

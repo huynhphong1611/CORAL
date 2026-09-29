@@ -47,7 +47,7 @@ sleep 30
 
 # Local runs without the server (US2).
 check T039 'driver + coral run device tests (pnpm test:device)' \
-  env CORAL_TEST_APK="$APK" pnpm test:device
+  env CORAL_TEST_APK="$APK" CORAL_DEVICE_OUT="$OUT" pnpm test:device
 check T041 'coral run mydemo-login' \
   pnpm -s coral run "$LOGIN" --app "$APP" --apk "$APK" --out "$OUT/coral-run"
 check T060-local 'coral run mydemo-camera-permission (popup guard)' \

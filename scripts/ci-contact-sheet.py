@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Contact sheets of the step screenshots from a Device CI run.
 
-Sheets `local-<slug>` for each `coral run` (`coral-run/<slug>/`) and `server-<slug>` for the
-latest run of each test case through the server (`server-runs/<run>/<slug>/`). A local run that did
-not pass also gets its last step described in the log: windows and texts from `tree.json`, and
+Sheets `local-<slug>` for each `coral run` (`coral-run/<slug>/`), `test-<slug>` for the run of
+the `coral run` device test (`coral-run-test/<slug>/`) and `server-<slug>` for the latest run of
+each test case through the server (`server-runs/<run>/<slug>/`). A local run that did not pass
+also gets its last step described in the log: windows and texts from `tree.json`, and
 the activity-manager lines of its `device.log`. Step directories follow the local and downloaded
 layout `<slug>/<index>-<step_id>/screenshot.png`. The workflow stores each sheet as a
 git blob (no ref, no commit) and logs its sha, so a report can fetch it through the API when the
@@ -42,6 +43,9 @@ def groups(root: Path) -> dict[str, Path]:
     for slug_dir in sorted((root / "coral-run").glob("*/")):
         if step_dirs(slug_dir):
             found[f"local-{slug_dir.name}"] = slug_dir
+    for slug_dir in sorted((root / "coral-run-test").glob("*/")):
+        if step_dirs(slug_dir):
+            found[f"test-{slug_dir.name}"] = slug_dir
     # Run ids are UUIDv7: sorted by time, so the last one per test case wins.
     for slug_dir in sorted((root / "server-runs").glob("*/*/")):
         if step_dirs(slug_dir):
@@ -120,7 +124,7 @@ def main() -> int:
         path = out_dir / f"{name}.jpg"
         sheet(slug_dir).save(path, "JPEG", quality=60, optimize=True)
         print(f"{name}: {slug_dir.relative_to(root)} → {path} ({path.stat().st_size} bytes)")
-        if name.startswith("local-"):
+        if not name.startswith("server-"):
             describe_failure(slug_dir)
     return 0
 
