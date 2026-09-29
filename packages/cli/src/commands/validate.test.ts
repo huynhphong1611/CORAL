@@ -45,6 +45,15 @@ describe('coral validate', () => {
     expect(result.out).toBe('3 files, 0 errors, 0 warnings\n')
   })
 
+  it('accepts the My Demo App reference test cases run on emulators', async () => {
+    const result = await coral([
+      'validate',
+      fixture('mydemo-login.yaml'),
+      fixture('mydemo-camera-permission.yaml'),
+    ])
+    expect(result).toMatchObject({ code: 0, out: '2 files, 0 errors, 0 warnings\n' })
+  })
+
   it('prints file:line:column  step_id  path  code  message and exits 1', async () => {
     const file = fixture('invalid/point-pct-not-last.yaml')
     const result = await coral(['validate', file])
