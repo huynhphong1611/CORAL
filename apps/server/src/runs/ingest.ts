@@ -180,6 +180,11 @@ export function startLeaseSweeper(deps: {
   db: Db
   dispatcher?: Pick<RunDispatcher, 'clearTimeout'>
   notify?: RunNotifier
+  /**
+   * Ends what holds an expired non-run lease (a live control session: idle timeout) and releases
+   * it; returns false when the lease is not its own.
+   */
+  expire?: (lease: { id: string; holderRef: string; tenantId: string }) => Promise<boolean>
   intervalMs?: number
   log?: FastifyBaseLogger
 }): { stop(): void; sweep(): Promise<number>; first: Promise<unknown> } {
@@ -189,6 +194,7 @@ export function startLeaseSweeper(deps: {
     for (const lease of expired) {
       // One bad row must not stop the others from being released.
       try {
+        if (!lease.holderRef.startsWith('run:') && (await deps.expire?.(lease))) continue
         const runId = lease.holderRef.startsWith('run:') ? lease.holderRef.slice(4) : ''
         if (UUID.test(runId)) {
           await control.finishRun(runId, 'error', 'DEVICE_OFFLINE', 'DEVICE_OFFLINE')

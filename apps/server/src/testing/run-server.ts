@@ -9,6 +9,8 @@ import { registerIngest, startLeaseSweeper } from '../runs/ingest'
 import { envSecrets } from '../runs/secrets'
 import { UiGateway } from '../ui/gateway'
 import { RunEvents } from '../ui/run-events'
+import { AgentCommands } from '../live/agent-commands'
+import { LiveControl } from '../live/control'
 import { deviceLookup, StreamHub } from '../live/stream-hub'
 import { multipart } from './multipart'
 import { startTestServer, type TestUser } from './test-server'
@@ -20,6 +22,8 @@ export interface RunServerOptions {
   runTimeoutMs?: number
   retryMinMs?: number
   retryMaxMs?: number
+  /** Idle time after which a live control session ends (default 10 min). */
+  liveIdleMs?: number
   /** Secret values the server knows (as CORAL_SECRET_<NAME>). */
   secrets?: Record<string, string>
   /** Server log (default silent), wired to the gateway, dispatcher, ingest and sweeper as in main. */
@@ -64,6 +68,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
   let uiGateway: UiGateway | undefined
   let events: RunEvents | undefined
   let streams: StreamHub | undefined
+  let live: LiveControl | undefined
   const server = await startTestServer(({ db, store, artifacts }) => {
     gateway = new AgentGateway({ db, heartbeatMs: options.heartbeatMs ?? 15_000 })
     uiGateway = new UiGateway({ jwtSecret: DEV_JWT_SECRET })
@@ -92,7 +97,16 @@ export async function startRunServer(options: RunServerOptions = {}) {
       notify,
     })
     registerIngest({ db, gateway, dispatcher, artifacts, notify })
-    return { gateway, uiGateway, runs: { dispatcher, secrets } }
+    live = new LiveControl({
+      db,
+      ui: uiGateway,
+      agents: gateway,
+      commands: new AgentCommands(gateway),
+      secrets,
+      idleMs: options.liveIdleMs ?? 600_000,
+      notify,
+    })
+    return { gateway, uiGateway, runs: { dispatcher, secrets }, live }
   }, options.logging)
   if (!gateway || !dispatcher) throw new Error('run server not wired')
   dispatcher.attachLogger(server.app.log)
@@ -102,6 +116,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
     db: server.db,
     dispatcher,
     notify: events,
+    expire: (lease) => live?.expire(lease) ?? Promise.resolve(false),
     intervalMs: 60_000,
     log: server.app.log,
   })

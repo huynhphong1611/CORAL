@@ -26,6 +26,8 @@ const envSchema = z.object({
   CORAL_HEARTBEAT_MS: z.coerce.number().int().min(100).default(15_000),
   CORAL_QUEUE_TIMEOUT_MS: z.coerce.number().int().min(1000).default(600_000),
   CORAL_RUN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(1_800_000),
+  /** A live control session ends after this long without a command (research R7). */
+  CORAL_LIVE_IDLE_MS: z.coerce.number().int().min(1000).default(600_000),
 })
 
 export interface ServerConfig {
@@ -45,7 +47,12 @@ export interface ServerConfig {
   maxBuildBytes: number
   jwtSecret: string
   seed: { email?: string; password?: string }
-  timeouts: { heartbeatMs: number; queueTimeoutMs: number; runTimeoutMs: number }
+  timeouts: {
+    heartbeatMs: number
+    queueTimeoutMs: number
+    runTimeoutMs: number
+    liveIdleMs: number
+  }
 }
 
 /** Reads server settings from the environment; throws with every problem listed. */
@@ -81,6 +88,7 @@ export function loadConfig(env: Record<string, string | undefined>): ServerConfi
       heartbeatMs: e.CORAL_HEARTBEAT_MS,
       queueTimeoutMs: e.CORAL_QUEUE_TIMEOUT_MS,
       runTimeoutMs: e.CORAL_RUN_TIMEOUT_MS,
+      liveIdleMs: e.CORAL_LIVE_IDLE_MS,
     },
   }
 }

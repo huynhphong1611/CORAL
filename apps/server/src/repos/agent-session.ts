@@ -101,7 +101,10 @@ export function agentSessionRepo(db: Db, agent: { id: string; tenantId: string }
       }
     },
 
-    /** `agent.heartbeat`: last seen + open leases on this agent's devices extended by `ttlMs`. */
+    /**
+     * `agent.heartbeat`: last seen + the open run leases on this agent's devices extended by
+     * `ttlMs`. A person's lease (live, recording) is not: it ends after their idle time (R7).
+     */
     async heartbeat(now: Date, ttlMs: number): Promise<void> {
       await db
         .update(agents)
@@ -117,6 +120,7 @@ export function agentSessionRepo(db: Db, agent: { id: string; tenantId: string }
         .where(
           and(
             isNull(leases.releasedAt),
+            inArray(leases.kind, ['run', 'exploration']),
             inArray(leases.deviceId, db.select({ id: devices.id }).from(devices).where(own)),
           ),
         )

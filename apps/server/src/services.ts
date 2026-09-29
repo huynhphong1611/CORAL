@@ -5,6 +5,8 @@ import type { FastifyBaseLogger } from 'fastify'
 import { AgentGateway } from './agents/gateway'
 import type { ServerConfig } from './config'
 import { createDatabase } from './db/client'
+import { AgentCommands } from './live/agent-commands'
+import { LiveControl } from './live/control'
 import { deviceLookup, StreamHub } from './live/stream-hub'
 import { ProjectRepoStore } from './git/project-repo-store'
 import { RunDispatcher } from './runs/dispatcher'
@@ -51,6 +53,15 @@ export async function startServices(
     notify,
   })
   registerIngest({ db: database.db, gateway, dispatcher, artifacts, notify })
+  const live = new LiveControl({
+    db: database.db,
+    ui: uiGateway,
+    agents: gateway,
+    commands: new AgentCommands(gateway),
+    secrets,
+    idleMs: config.timeouts.liveIdleMs,
+    notify,
+  })
 
   const readiness = async (): Promise<boolean> => {
     const checks = await Promise.allSettled([
@@ -69,6 +80,7 @@ export async function startServices(
     gateway,
     uiGateway,
     runs: { dispatcher, secrets },
+    live,
     readiness,
     maxBuildBytes: config.maxBuildBytes,
   }
@@ -81,7 +93,14 @@ export async function startServices(
       dispatcher.attachLogger(log)
       notify.attachLogger(log)
       streams.attachLogger(log)
-      sweeper = startLeaseSweeper({ db: database.db, dispatcher, notify, log })
+      live.attachLogger(log)
+      sweeper = startLeaseSweeper({
+        db: database.db,
+        dispatcher,
+        notify,
+        expire: (lease) => live.expire(lease),
+        log,
+      })
     },
     async close() {
       sweeper?.stop()

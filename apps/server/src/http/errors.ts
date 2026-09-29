@@ -12,6 +12,8 @@ export class HttpError extends Error {
     readonly code: string,
     message: string,
     readonly details?: ErrorDetail[],
+    /** More fields of the error object, e.g. `activity` of 409 `device_busy`. */
+    readonly extra?: Record<string, unknown>,
   ) {
     super(message)
     this.name = 'HttpError'
@@ -70,6 +72,7 @@ export function registerErrorHandling(app: FastifyInstance): void {
     if (error instanceof HttpError) {
       return reply.status(error.status).send({
         error: {
+          ...error.extra,
           code: error.code,
           message: error.message,
           ...(error.details ? { details: error.details } : {}),
