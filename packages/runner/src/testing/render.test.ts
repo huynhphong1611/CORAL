@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { walkTree, type ElementNode } from '@coral/shared'
 import { decode } from 'fast-png'
 import { describe, expect, it } from 'vitest'
@@ -96,5 +97,27 @@ describe('FakeDriver with renderScreens', () => {
     expect(await driver.screenshot()).toBe(first)
     await driver.tapAt({ x: 540, y: 200 })
     expect(await driver.screenshot()).not.toBe(first)
+  })
+})
+
+describe('fixtures/images (T012)', () => {
+  const dir = new URL('../../../../fixtures/images/', import.meta.url)
+  const read = (name: string) => new Uint8Array(readFileSync(new URL(name, dir)))
+
+  it('still matches what renderTree draws (regenerate with scripts/gen-image-fixtures.ts)', () => {
+    const fixture = Buffer.from(decode(read('login-screen.png')).data)
+    const drawn = Buffer.from(decode(renderTree(androidTree('login'), SIZE)).data)
+    expect(fixture.equals(drawn)).toBe(true)
+  })
+
+  it('has the login button crop from the screen', () => {
+    const button = decode(read('login-button.png'))
+    expect([button.width, button.height]).toEqual([960, 140])
+    const screen = decode(read('login-screen.png'))
+    const at = (x: number, y: number) => [
+      ...screen.data.slice((y * screen.width + x) * 3, (y * screen.width + x) * 3 + 3),
+    ]
+    expect([...button.data.slice(0, 3)]).toEqual(at(60, 920))
+    expect(decode(read('login-720.png')).width).toBe(720)
   })
 })
