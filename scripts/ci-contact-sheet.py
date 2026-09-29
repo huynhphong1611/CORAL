@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Contact sheets of the step screenshots from a Device CI run.
 
-One sheet per test case, from the latest run of it through the server (`server-runs/`), or from
-`coral run` (`coral-run/`) when the server run has none. Step directories follow the local and
+Sheets `local-<slug>` for each `coral run` (`coral-run/<slug>/`) and `server-<slug>` for the
+latest run of each test case through the server (`server-runs/<run>/<slug>/`). A local run that did
+not pass also gets its last step's screen described in the log (windows, texts from `tree.json`). Step directories follow the local and
 downloaded layout `<slug>/<index>-<step_id>/screenshot.png`. The workflow stores each sheet as a
 git blob (no ref, no commit) and logs its sha, so a report can fetch it through the API when the
 artifact's storage is out of reach.
@@ -10,6 +11,7 @@ artifact's storage is out of reach.
 Usage: ci-contact-sheet.py <device-results dir> <out dir>   (needs Pillow)
 """
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -30,17 +32,48 @@ def step_dirs(slug_dir: Path) -> list[tuple[int, str, Path]]:
     return sorted(steps)
 
 
-def latest_runs(root: Path) -> dict[str, Path]:
-    """slug → its step directories' parent: the server run with the highest id (UUIDv7 sorts by
-    time), else the local `coral run` output."""
+def groups(root: Path) -> dict[str, Path]:
+    """Sheet name → the directory holding its step directories."""
     found: dict[str, Path] = {}
     for slug_dir in sorted((root / "coral-run").glob("*/")):
         if step_dirs(slug_dir):
-            found[slug_dir.name] = slug_dir
+            found[f"local-{slug_dir.name}"] = slug_dir
+    # Run ids are UUIDv7: sorted by time, so the last one per test case wins.
     for slug_dir in sorted((root / "server-runs").glob("*/*/")):
         if step_dirs(slug_dir):
-            found[slug_dir.name] = slug_dir
+            found[f"server-{slug_dir.name}"] = slug_dir
     return found
+
+
+def describe_failure(slug_dir: Path) -> None:
+    """Prints what was on screen at the last step of a local run that did not pass."""
+    result_file = slug_dir / "result.json"
+    if not result_file.is_file():
+        return
+    result = json.loads(result_file.read_text())
+    if result.get("status") == "passed":
+        return
+    index, step_id, png = step_dirs(slug_dir)[-1]
+    print(f"  {result.get('status')} {result.get('failure_code')}: {result.get('message')}")
+    tree_file = png.parent / "tree.json"
+    if not tree_file.is_file():
+        return
+    windows = json.loads(tree_file.read_text())
+    texts: list[str] = []
+
+    def walk(node: dict) -> None:
+        label = node.get("text") or node.get("desc")
+        if label and len(texts) < 20:
+            texts.append(label)
+        for child in node.get("children", []):
+            walk(child)
+
+    for window in windows:
+        walk(window)
+    print(f"  step {index} {step_id} windows (bottom-most first):")
+    for window in windows:
+        print(f"    {window.get('package_or_bundle')} {json.dumps(window.get('bounds'))}")
+    print(f"  texts: {json.dumps(texts, ensure_ascii=False)}")
 
 
 def sheet(slug_dir: Path) -> Image.Image:
@@ -65,14 +98,16 @@ def sheet(slug_dir: Path) -> Image.Image:
 def main() -> int:
     root, out_dir = Path(sys.argv[1]), Path(sys.argv[2])
     out_dir.mkdir(parents=True, exist_ok=True)
-    runs = latest_runs(root)
-    if not runs:
+    found = groups(root)
+    if not found:
         print("no step screenshots found")
         return 0
-    for slug, slug_dir in runs.items():
-        path = out_dir / f"{slug}.jpg"
+    for name, slug_dir in found.items():
+        path = out_dir / f"{name}.jpg"
         sheet(slug_dir).save(path, "JPEG", quality=60, optimize=True)
-        print(f"{slug}: {slug_dir.relative_to(root)} → {path} ({path.stat().st_size} bytes)")
+        print(f"{name}: {slug_dir.relative_to(root)} → {path} ({path.stat().st_size} bytes)")
+        if name.startswith("local-"):
+            describe_failure(slug_dir)
     return 0
 
 
