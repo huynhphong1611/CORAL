@@ -5,7 +5,8 @@ import { join } from 'node:path'
 import { protocol } from '@coral/shared'
 import { FakeClock, FakeDriver, el, windows } from '@coral/runner/testing'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { JobManager, type RunnableDriver } from './jobs'
+import { DeviceSessions } from './device-sessions'
+import { JobManager } from './jobs'
 
 const APP = 'com.example.app'
 const RUN = '0192f000-0000-7000-8000-000000000001'
@@ -128,20 +129,27 @@ function setup(opts: { apk?: Buffer; onSend?: (type: string, manager: JobManager
     cacheDir,
     fetch: fakeFetch,
     clock: new FakeClock(),
-    createDriver: () => {
-      const driver = new FakeDriver({
-        screens: { login: { frames: [login], taps: { Login: 'home' } }, home: { frames: [home] } },
-        start: 'login',
-      })
-      const entry = { driver, opened: 0, closed: 0 }
-      drivers.push(entry)
-      return Promise.resolve(
-        Object.assign(driver, {
-          open: () => Promise.resolve(void (entry.opened += 1)),
-          close: () => Promise.resolve(void (entry.closed += 1)),
-        }) as unknown as RunnableDriver,
-      )
-    },
+    // Sessions close as soon as the job gives the device back (idleMs 0).
+    sessions: new DeviceSessions({
+      idleMs: 0,
+      createDriver: () => {
+        const driver = new FakeDriver({
+          screens: {
+            login: { frames: [login], taps: { Login: 'home' } },
+            home: { frames: [home] },
+          },
+          start: 'login',
+        })
+        const entry = { driver, opened: 0, closed: 0 }
+        drivers.push(entry)
+        return Promise.resolve(
+          Object.assign(driver, {
+            open: () => Promise.resolve(void (entry.opened += 1)),
+            close: () => Promise.resolve(void (entry.closed += 1)),
+          }),
+        )
+      },
+    }),
   })
   return { manager, sent, uploads, drivers, downloads: () => downloads }
 }

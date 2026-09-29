@@ -34,8 +34,11 @@ export class MemoryInstallRegistry implements InstallRegistry {
 }
 
 export interface AndroidLifecycleOptions {
-  /** Package under test; install() needs it to remember what is installed. */
-  appId: string
+  /**
+   * Package under test; install(), openDeepLink() and crashedSince() need it. A device session
+   * without an app (live view) leaves it out and binds one later with forApp().
+   */
+  appId?: string
   apiLevel: number
   emulator: boolean
   registry?: InstallRegistry
@@ -53,12 +56,23 @@ export class AndroidLifecycle implements TargetLifecycle {
     private readonly device: AdbDeviceClient,
     private readonly options: AndroidLifecycleOptions,
   ) {
-    assertPackage(options.appId)
+    if (options.appId !== undefined) assertPackage(options.appId)
     this.registry = options.registry ?? new MemoryInstallRegistry()
   }
 
+  /** The same device and install registry, for another package under test. */
+  forApp(appId: string): AndroidLifecycle {
+    return new AndroidLifecycle(this.device, { ...this.options, appId, registry: this.registry })
+  }
+
+  private app(): string {
+    if (this.options.appId === undefined)
+      throw new AdbError('no app under test for this device session')
+    return this.options.appId
+  }
+
   async install(buildPath: string, sha256: string): Promise<void> {
-    const { appId } = this.options
+    const appId = this.app()
     if (this.registry.get(this.device.udid, appId) === sha256) return
     const out = await this.device.install(buildPath)
     if (!/Success/.test(out)) throw new AdbError(`install failed: ${out.trim()}`)
@@ -132,7 +146,7 @@ export class AndroidLifecycle implements TargetLifecycle {
       '-d',
       url,
       '-p',
-      this.options.appId,
+      this.app(),
     ])
     if (/Error:/.test(out)) throw new AdbError(`cannot open ${url}: ${out.trim()}`)
   }
@@ -183,6 +197,6 @@ export class AndroidLifecycle implements TargetLifecycle {
       '-T',
       (Math.max(0, sinceMs) / 1000).toFixed(3),
     ])
-    return out.includes(`Process: ${this.options.appId}`)
+    return out.includes(`Process: ${this.app()}`)
   }
 }

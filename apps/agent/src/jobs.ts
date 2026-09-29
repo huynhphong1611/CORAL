@@ -10,22 +10,17 @@ import {
 import { createPopupGuard, runTestCase, type Clock, type DeviceDriver } from '@coral/runner'
 import type { Logger } from 'pino'
 import type { AgentConnection } from './connection'
+import type { DeviceLease, DeviceSessions } from './device-sessions'
 import type { SecretValues } from './log'
 import { UploadSink } from './upload-sink'
 
 type Assign = protocol.Payload<'job.assign'>
 type JobStatus = protocol.Payload<'job.done'>['status']
 
-/** A device driver the agent opens for a job and closes after it. */
-export interface RunnableDriver extends DeviceDriver {
-  open(): Promise<void>
-  /** Minimal cleanup (T053): restore animations on real devices, stop u2. No uninstall, no data wipe. */
-  close(): Promise<void>
-}
-
 export interface JobDeps {
   connection: Pick<AgentConnection, 'send' | 'request'>
-  createDriver(input: { udid: string; appId: string }): Promise<RunnableDriver>
+  /** The device's shared session (one u2 per device, research R6). */
+  sessions: Pick<DeviceSessions, 'acquire'>
   /** Builds are cached here by sha256 (`<cacheDir>/builds/<sha256>.apk`). */
   cacheDir: string
   fetch?: typeof fetch
@@ -121,14 +116,14 @@ export class JobManager {
     const summary = { passed: 0, failed: 0, skipped: 0 }
     let status: JobStatus = 'passed'
     let failureCode: FailureCode | undefined
-    let driver: RunnableDriver | undefined
+    let lease: DeviceLease | undefined
     try {
       // Rules at the run's pinned commit; the server validated them when they were saved.
       const popups = validatePopupsSource(job.popups_yaml, 'popups.yaml').value
       if (!popups) throw new Error('popups.yaml of the run is not valid')
       const apk = await this.build(job.build)
-      driver = await this.deps.createDriver({ udid: job.device_udid, appId: job.build.package })
-      await driver.open()
+      lease = await this.deps.sessions.acquire(job.device_udid, { appId: job.build.package })
+      const driver: DeviceDriver = lease.driver
       for (const [index, item] of job.items.entries()) {
         if (signal.aborted) {
           summary.skipped += job.items.length - index
@@ -210,9 +205,8 @@ export class JobManager {
       status = signal.aborted ? 'cancelled' : 'error'
       if (!signal.aborted) failureCode = 'DRIVER_ERROR'
     } finally {
-      await driver
-        ?.close()
-        .catch((error: unknown) => this.deps.log?.warn({ err: error }, 'driver cleanup failed'))
+      // The session closes (animations restored, u2 stopped) once the device is idle.
+      await lease?.release()
     }
     connection.send('job.done', {
       run_id: job.run_id,

@@ -41,6 +41,14 @@ export class AndroidDriver implements DeviceDriver {
     readonly lifecycle: AndroidLifecycle,
   ) {}
 
+  /**
+   * The same device and u2 server with the lifecycle bound to `appId`: a device session is opened
+   * once and shared by jobs, the live view and remote commands (one u2 per device, research R6).
+   */
+  forApp(appId: string): AndroidDriver {
+    return new AndroidDriver(this.device, this.u2, this.lifecycle.forApp(appId))
+  }
+
   /** Starts the u2 server and turns animations off. */
   async open(): Promise<void> {
     await this.u2.start()
@@ -139,7 +147,8 @@ export class AndroidDriver implements DeviceDriver {
 
 export interface CreateAndroidDriverOptions {
   udid: string
-  appId: string
+  /** Package under test; leave it out for a device session and use forApp() per job. */
+  appId?: string
   adbPath?: string
   /** `CORAL_U2_JAR` */
   u2JarPath?: string
@@ -165,7 +174,7 @@ export async function createAndroidDriver(
     ...(options.spawner ? { spawner: options.spawner } : {}),
   })
   const lifecycle = new AndroidLifecycle(device, {
-    appId: options.appId,
+    ...(options.appId !== undefined ? { appId: options.appId } : {}),
     apiLevel: props.apiLevel,
     emulator: props.emulator,
     ...(options.registry ? { registry: options.registry } : {}),

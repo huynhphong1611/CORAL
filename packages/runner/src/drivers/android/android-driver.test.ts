@@ -137,4 +137,14 @@ describe('AndroidDriver', () => {
     await driver.launch(APP)
     expect(adbCalls).toContain(`shell monkey -p ${APP} -c android.intent.category.LAUNCHER 1`)
   })
+
+  it('shares the device and u2 server with a driver bound to another app', async () => {
+    const { driver, u2, rpc } = setup()
+    await driver.open()
+    const other = driver.forApp('com.example.other')
+    await other.tapAt({ x: 1, y: 2 })
+    expect(rpc.at(-1)).toEqual({ method: 'click', params: [1, 2] })
+    // One server for both: opening the bound driver is not needed.
+    expect(u2.started).toBe(1)
+  })
 })

@@ -26,10 +26,9 @@ const agent = startAgent({
     list: () => adb.devices(),
     props: (udid) => adb.device(udid).props(),
   },
-  createDriver: ({ udid, appId }) =>
+  createDriver: ({ udid }) =>
     android.createAndroidDriver({
       udid,
-      appId,
       adbPath: config.adbPath,
       cacheDir: config.cacheDir,
       ...(config.u2JarPath ? { u2JarPath: config.u2JarPath } : {}),

@@ -3,7 +3,6 @@
 // `permissionPopup`, a runtime-permission dialog covers the login screen after every launch.
 import { FakeClock, FakeDriver, el, windows } from '@coral/runner/testing'
 import { startAgent } from '../apps/agent/src/agent'
-import type { RunnableDriver } from '../apps/agent/src/jobs'
 
 export const FAKE_APP = 'com.example.app'
 
@@ -71,6 +70,8 @@ export function startFakeDeviceAgent(input: {
     cacheDir: input.cacheDir,
     clock: new FakeClock(),
     minBackoffMs: 50,
+    // A fresh fake device per job, as before sessions were shared.
+    sessionIdleMs: 0,
     source: {
       list: () => Promise.resolve([{ udid: input.udid ?? 'emulator-5554', state: 'device' }]),
       props: () =>
@@ -90,7 +91,7 @@ export function startFakeDeviceAgent(input: {
         Object.assign(driver, {
           open: () => Promise.resolve(),
           close: () => Promise.resolve(),
-        }) as unknown as RunnableDriver,
+        }),
       )
     },
   })

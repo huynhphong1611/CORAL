@@ -4,14 +4,18 @@ import { android, type Clock } from '@coral/runner'
 import type { Logger } from 'pino'
 import { AgentConnection } from './connection'
 import { DeviceWatcher, type DeviceSource } from './devices'
-import { JobManager, type RunnableDriver } from './jobs'
+import { DeviceSessions, type SessionDriver } from './device-sessions'
+import { JobManager } from './jobs'
 import type { SecretValues } from './log'
 
 export interface AgentOptions {
   wsUrl: string
   token: string
   source: DeviceSource
-  createDriver(input: { udid: string; appId: string }): Promise<RunnableDriver>
+  /** A driver for the whole device; jobs bind their app with forApp(). */
+  createDriver(input: { udid: string }): Promise<SessionDriver>
+  /** How long an unused device session stays open (default 60 s). */
+  sessionIdleMs?: number
   cacheDir: string
   log?: Pick<Logger, 'info' | 'warn' | 'error' | 'debug'>
   /** Secrets of the jobs, for the redacting logger (createAgentLogger). */
@@ -62,9 +66,14 @@ export function startAgent(options: AgentOptions) {
     ...(options.maxBackoffMs ? { maxBackoffMs: options.maxBackoffMs } : {}),
     ...(options.onUnauthorized ? { onUnauthorized: options.onUnauthorized } : {}),
   })
+  const sessions = new DeviceSessions({
+    createDriver: (udid) => options.createDriver({ udid }),
+    ...(options.sessionIdleMs !== undefined ? { idleMs: options.sessionIdleMs } : {}),
+    ...(options.log ? { log: options.log } : {}),
+  })
   const jobs = new JobManager({
     connection,
-    createDriver: (input) => options.createDriver(input),
+    sessions,
     cacheDir: options.cacheDir,
     ...(options.fetch ? { fetch: options.fetch } : {}),
     ...(options.clock ? { clock: options.clock } : {}),
@@ -78,6 +87,7 @@ export function startAgent(options: AgentOptions) {
   return {
     connection,
     jobs,
+    sessions,
     watcher,
     /** Graceful stop: running jobs are cancelled and get up to 10 s to report job.done. */
     async stop(): Promise<void> {
@@ -87,6 +97,7 @@ export function startAgent(options: AgentOptions) {
         jobs.drain(),
         new Promise((resolve) => setTimeout(resolve, SHUTDOWN_GRACE_MS).unref()),
       ])
+      await sessions.closeAll()
       await connection.stop()
     },
   }

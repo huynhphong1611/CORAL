@@ -5,7 +5,8 @@ import { join } from 'node:path'
 import { MASK, createRedactor, protocol } from '@coral/shared'
 import { FakeClock, FakeDriver, el, windows } from '@coral/runner/testing'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { JobManager, type RunnableDriver } from './jobs'
+import { DeviceSessions } from './device-sessions'
+import { JobManager } from './jobs'
 import { SecretValues, createAgentLogger, redactLogArg } from './log'
 
 const APP = 'com.example.app'
@@ -151,20 +152,24 @@ describe('secrets in agent outputs (SC-008)', () => {
       clock: new FakeClock(),
       log,
       secrets,
-      createDriver: () => {
-        driver = new FakeDriver({
-          screens: { login: { frames: [screen] } },
-          start: 'login',
-          logs: `I/App: user=${USER} key=${API_KEY}\n`,
-        })
-        return Promise.resolve(
-          Object.assign(driver, {
-            open: () => Promise.resolve(),
-            // Cleanup fails with a message that quotes a secret: the log line must mask it.
-            close: () => Promise.reject(new Error(`cannot reset settings for ${USER}`)),
-          }) as unknown as RunnableDriver,
-        )
-      },
+      sessions: new DeviceSessions({
+        idleMs: 0,
+        log,
+        createDriver: () => {
+          driver = new FakeDriver({
+            screens: { login: { frames: [screen] } },
+            start: 'login',
+            logs: `I/App: user=${USER} key=${API_KEY}\n`,
+          })
+          return Promise.resolve(
+            Object.assign(driver, {
+              open: () => Promise.resolve(),
+              // Cleanup fails with a message that quotes a secret: the log line must mask it.
+              close: () => Promise.reject(new Error(`cannot reset settings for ${USER}`)),
+            }),
+          )
+        },
+      }),
     })
 
     manager.handle(

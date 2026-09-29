@@ -129,4 +129,29 @@ describe('AndroidLifecycle', () => {
     const none = setup({ replies: dump(`${APP}/.MainActivity`) })
     expect(await none.lifecycle.systemDialogOwner()).toBeUndefined()
   })
+
+  it('binds the app later for a device session and keeps one install registry', async () => {
+    const calls: string[] = []
+    const exec: ExecFn = (_file, args) => {
+      calls.push(args.slice(2).join(' '))
+      return Promise.resolve(Buffer.from('Success\n'))
+    }
+    const registry = new MemoryInstallRegistry()
+    const session = new AndroidLifecycle(new Adb('adb', exec).device('emu-1'), {
+      apiLevel: 34,
+      emulator: true,
+      registry,
+    })
+    // Nothing app-specific works without an app…
+    await expect(session.install('/b/app.apk', 'sha-1')).rejects.toThrow('no app under test')
+    await expect(session.openDeepLink('mydemo://x')).rejects.toThrow('no app under test')
+    // …device-level commands and forApp() do.
+    await session.launch(APP)
+    const app = session.forApp(APP)
+    await app.install('/b/app.apk', 'sha-1')
+    await session.forApp(APP).install('/b/app.apk', 'sha-1')
+    expect(calls.filter((c) => c.startsWith('install'))).toHaveLength(1)
+    expect(registry.get('emu-1', APP)).toBe('sha-1')
+    expect(() => session.forApp('not a package')).toThrow()
+  })
 })
