@@ -112,21 +112,22 @@ describe('popup guard', () => {
   it("lets another app's crash or ANR dialog go (launcher after an emulator boot)", async () => {
     const launcher = 'com.google.android.apps.nexuslauncher'
     const { guard, taps, ctx } = setup(popups, launcher)
+    // Close app, not Wait: on the CI emulator Wait brought the launcher's ANR back every few seconds.
     expect(await guard.handle(androidTree('anr-dialog'), ctx('launch'))).toEqual({
       rule: 'system_anr',
-      button: 'Wait',
+      button: 'Close app',
     })
     expect(await guard.handle(androidTree('crash-dialog'), ctx())).toEqual({
       rule: 'system_crash',
       button: 'Close app',
     })
-    // Centres of Wait [120,1280][960,1390] and of Close app in crash-dialog.xml.
-    expect(taps[0]).toEqual({ x: 540, y: 1335 })
+    // Centre of Close app [120,1150][960,1260] in anr-dialog.xml.
+    expect(taps[0]).toEqual({ x: 540, y: 1205 })
     expect(taps).toHaveLength(2)
     await expect(
       guard.handle(androidTree('anr-dialog'), ctx('target_not_found', undefined, true)),
     ).rejects.toMatchObject({ code: 'BLOCKED_BY_POPUP' })
-    const strict = setup({ ...popups, never_tap: [...popups.never_tap, 'wait'] }, launcher)
+    const strict = setup({ ...popups, never_tap: [...popups.never_tap, 'close app'] }, launcher)
     await expect(
       strict.guard.handle(androidTree('anr-dialog'), strict.ctx()),
     ).rejects.toMatchObject({ code: 'BLOCKED_BY_POPUP' })

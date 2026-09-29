@@ -40,6 +40,10 @@ check() {
 
 adb devices -l | tee "$OUT/devices.txt"
 adb shell getprop ro.build.version.release | sed 's/^/android /' | tee -a "$OUT/devices.txt"
+# A cold emulator keeps the launcher busy for a while after boot_completed (its ANR dialogs hit the
+# first runs): let it settle on the home screen first.
+adb shell input keyevent KEYCODE_HOME
+sleep 30
 
 # Local runs without the server (US2).
 check T039 'driver + coral run device tests (pnpm test:device)' \

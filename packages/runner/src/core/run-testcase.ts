@@ -32,7 +32,8 @@ export interface HandledPopup {
 }
 
 /** Why the guard is asked to look (§8.2): right after launch, or because the step is stuck. */
-export type PopupReason = 'launch' | 'target_not_found' | 'target_covered' | 'expect_failed'
+export type PopupReason =
+  'launch' | 'target_not_found' | 'target_covered' | 'action_failed' | 'expect_failed'
 
 export interface PopupContext {
   appId: string
@@ -217,11 +218,19 @@ export async function runTestCase(options: RunOptions): Promise<ItemResult> {
           if (outcome.target) target = outcome.target
           break
         } catch (error) {
-          if (!(error instanceof TargetCoveredError) || !(await tryPopup('target_covered'))) {
-            throw error
-          }
+          const covered = error instanceof TargetCoveredError
+          // A driver error in the middle of the action (on the CI emulator a system dialog took
+          // the focus between the tap and the typing): look again, and if a popup was dismissed,
+          // do the action once more. tryPopup's per-step limit bounds the retries.
+          const actionFailed =
+            !covered && !(error instanceof StepFailure) && !(error instanceof AbortError)
+          if (actionFailed) ({ tree } = await stable())
+          if (!(covered || actionFailed)) throw error
+          if (!(await tryPopup(covered ? 'target_covered' : 'action_failed'))) throw error
           if ('target' in step && step.target) target = resolve(step.target, tree, resolveCtx)
-          if (!target) throw new StepFailure('TARGET_NOT_FOUND', 'target gone after popup')
+          if (!target && needsResolvedTarget(step)) {
+            throw new StepFailure('TARGET_NOT_FOUND', 'target gone after popup')
+          }
         }
       }
 

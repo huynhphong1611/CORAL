@@ -63,7 +63,11 @@ export function findPopups(tree: readonly ElementNode[], appId: string): Popup[]
 interface SystemDialog {
   kind: 'anr' | 'crash'
   title: string
-  /** Button that lets another app's dialog go without harming anything: Wait / Close app. */
+  /**
+   * Button that lets another app's dialog go: Close app (that app is restarted by the system when
+   * needed), Wait only when there is no Close app. On the CI emulator "Wait" on the launcher's ANR
+   * brought the dialog back every few seconds.
+   */
   dismiss: ElementNode | undefined
 }
 
@@ -73,7 +77,7 @@ function systemDialog(tree: readonly ElementNode[]): SystemDialog | undefined {
   const title = nodes.find((n) => n.platform_id === 'android:id/alertTitle')?.text ?? ''
   const wait = nodes.find((n) => n.platform_id === ANR_BUTTON)
   const close = nodes.find((n) => n.platform_id === CRASH_BUTTONS[0])
-  if (wait) return { kind: 'anr', title, dismiss: wait }
+  if (wait) return { kind: 'anr', title, dismiss: close ?? wait }
   if (nodes.some((n) => CRASH_BUTTONS.includes(n.platform_id))) {
     return { kind: 'crash', title, dismiss: close }
   }

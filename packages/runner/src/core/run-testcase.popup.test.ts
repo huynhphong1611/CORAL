@@ -199,6 +199,72 @@ describe('runTestCase with the popup guard', () => {
     expect(driver.calls.filter((c) => c.kind === 'tap')).toHaveLength(1)
   })
 
+  it('redoes an action once a popup that broke it is dismissed', async () => {
+    const field = el({
+      platform_id: `${APP}:id/user`,
+      class: 'android.widget.EditText',
+      clickable: true,
+      bounds: [100, 300, 880, 120],
+    })
+    const form = appWindow(field)
+    const driver = new FakeDriver({
+      screens: {
+        // Tapping the field makes a rating dialog pop up before the text is typed.
+        form: { frames: [windows(APP, form)], taps: { [`${APP}:id/user`]: 'rate' } },
+        rate: { frames: [windows(APP, form, rateDialog(1))], taps: { 'Để sau': 'calm' } },
+        calm: { frames: [windows(APP, form)] },
+      },
+      start: 'form',
+    })
+    const type = driver.type.bind(driver)
+    driver.type = (text: string) =>
+      driver.current === 'rate'
+        ? Promise.reject(new Error('u2 setText: UiObjectNotFoundException'))
+        : type(text)
+    const result = await runTestCase({
+      driver,
+      testCase: testCaseSchema.parse({
+        schema: 'coral/testcase@1',
+        id: 'type',
+        intent: 'x',
+        platforms: ['android'],
+        steps: [
+          { id: 's1', action: 'launch' },
+          { id: 's2', action: 'type', target: [{ android_id: 'id/user' }], value: 'bob' },
+        ],
+      }),
+      appId: APP,
+      clock: new FakeClock(),
+      popupGuard: createPopupGuard({ popups, driver }),
+    })
+    expect(result.status).toBe('passed')
+    expect(result.steps[1]?.popups_handled).toEqual([{ rule: 'rate_app', button: 'Để sau' }])
+    expect(driver.calls.filter((c) => c.kind === 'type')).toEqual([{ kind: 'type', text: 'bob' }])
+  })
+
+  it('still fails a broken action when there is no popup to blame', async () => {
+    const driver = new FakeDriver({
+      screens: { home: { frames: [windows(APP, home)] } },
+      start: 'home',
+    })
+    driver.back = () => Promise.reject(new Error('adb: device offline'))
+    const result = await runTestCase({
+      driver,
+      testCase: testCaseSchema.parse({
+        schema: 'coral/testcase@1',
+        id: 'back',
+        intent: 'x',
+        platforms: ['android'],
+        steps: [{ id: 's1', action: 'back' }],
+      }),
+      appId: APP,
+      clock: new FakeClock(),
+      popupGuard: createPopupGuard({ popups, driver }),
+    })
+    expect(result).toMatchObject({ status: 'failed', failure_code: 'DRIVER_ERROR' })
+    expect(result.message).toContain('device offline')
+  })
+
   it('lets a step test the permission dialog itself', async () => {
     const { driver, promise } = run(
       {
