@@ -52,6 +52,32 @@ jobs:
       - if: always()
         run: docker compose down -v
 
+  e2e:
+    name: Browser E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: docker compose up -d --wait --wait-timeout 180
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @coral/server db:migrate
+      - run: pnpm exec playwright install --with-deps chromium
+      # e2e/*.e2e.ts: built SPA + server + agent with a fake device (research R14).
+      - run: pnpm test:e2e
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: e2e-results
+          if-no-files-found: warn
+      - if: always()
+        run: docker compose down -v
+
   infra:
     name: Docker Compose services
     runs-on: ubuntu-latest

@@ -5,6 +5,7 @@ node_modules/
 dist/
 .turbo/
 coverage/
+e2e-results/
 *.tsbuildinfo
 .vite/
 

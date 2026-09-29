@@ -11,6 +11,12 @@ describe('testSelection (D21, D34)', () => {
     expect(selection.passWithNoTests).toBe(false)
   })
 
+  it('never picks up Playwright specs (e2e/**, pnpm test:e2e)', () => {
+    for (const env of [{}, { CORAL_INT_TESTS: '1' }, { CORAL_DEVICE_TESTS: '1' }]) {
+      expect(testSelection(env).exclude).toContain('e2e/**')
+    }
+  })
+
   it('runs only integration tests with CORAL_INT_TESTS=1', () => {
     const selection = testSelection({ CORAL_INT_TESTS: '1' })
     expect(selection.include).toEqual(['**/*.int.test.ts'])

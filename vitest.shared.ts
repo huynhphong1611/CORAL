@@ -2,6 +2,8 @@ import { configDefaults } from 'vitest/config'
 
 const DEVICE_TESTS = '**/*.device.test.ts'
 const INT_TESTS = '**/*.int.test.ts'
+/** Playwright specs (`pnpm test:e2e`), never picked up by Vitest. */
+const E2E = 'e2e/**'
 
 export interface TestSelection {
   include: string[]
@@ -17,14 +19,22 @@ export interface TestSelection {
  */
 export function testSelection(env: Record<string, string | undefined>): TestSelection {
   if (env.CORAL_DEVICE_TESTS === '1') {
-    return { include: [DEVICE_TESTS], exclude: [...configDefaults.exclude], passWithNoTests: true }
+    return {
+      include: [DEVICE_TESTS],
+      exclude: [...configDefaults.exclude, E2E],
+      passWithNoTests: true,
+    }
   }
   if (env.CORAL_INT_TESTS === '1') {
-    return { include: [INT_TESTS], exclude: [...configDefaults.exclude], passWithNoTests: true }
+    return {
+      include: [INT_TESTS],
+      exclude: [...configDefaults.exclude, E2E],
+      passWithNoTests: true,
+    }
   }
   return {
     include: ['**/*.test.ts', '**/*.test.tsx'],
-    exclude: [...configDefaults.exclude, DEVICE_TESTS, INT_TESTS],
+    exclude: [...configDefaults.exclude, DEVICE_TESTS, INT_TESTS, E2E],
     passWithNoTests: false,
   }
 }
