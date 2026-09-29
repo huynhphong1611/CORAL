@@ -36,6 +36,7 @@ Nguồn: SPEC §7, §9.2, §9.4, D14. Zod schema trong `packages/shared/src/test
 `target` = Locator[] (≥ 1).
 
 **Expect** = một điều kiện hoặc danh sách: `{ visible_text }` · `{ visible: Locator | Locator[] }` · `{ not_visible: Locator | Locator[] }` · `{ screen }`; mỗi phần tử có thể kèm `timeout_ms` (100–120000, mặc định 5000).
+`visible_text` = có node hiển thị trên màn hình mà `text` chứa giá trị (chuẩn hóa khoảng trắng, phân biệt hoa/thường, không xét content-desc). Mọi điều kiện xét cả node đang bị popup che; chỉ target của thao tác mới bị kiểm tra "bị che" (SPEC §7.3, §8.4, D35).
 
 **Nội suy**: chỉ `${secret:NAME}` (NAME `^[A-Z][A-Z0-9_]*$`) và `${var:name}` (name khai báo trong `variables`).
 

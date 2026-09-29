@@ -265,6 +265,8 @@ Locator gắn nền tảng (`android_id`, `ios_id`) bị bỏ qua khi chạy tr�
 ### 7.3 Điều kiện kỳ vọng (`expect`)
 `visible_text`, `visible` (một locator **hoặc** danh sách locator, khớp bất kỳ), `not_visible` (như `visible`), `screen` (id màn hình trong app map), `timeout_ms` (mặc định 5000). Có thể là một danh sách, tất cả phải đúng.
 
+`visible_text` đúng khi có một node hiển thị trên màn hình mà `text` **chứa** giá trị (chuẩn hóa khoảng trắng, phân biệt hoa/thường; không xét content-desc — dùng `visible: { desc }`). Điều kiện `expect` xét mọi node hiển thị của cây, kể cả node đang bị popup che; kiểm tra "bị che" chỉ áp dụng cho target của thao tác (§8.4) — D35.
+
 `screen` được kiểm tra bằng hàm fingerprint màn hình (§10) đặt trong `packages/shared`; khi test case dùng `screen`, `job.assign` gửi kèm fingerprint của các màn hình liên quan từ `appmap/screens.json` (D24).
 
 ### 7.4 Quy tắc
@@ -748,3 +750,4 @@ POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
 | D32 | 2026-09-28 | coral làm MCP server (`/mcp`) cho AI bên ngoài, kiêm cổng tới MCP server user cấu hình (`expose: true`); không có tool duyệt proposal | Trả lời Q5 của Huynh; giữ P3 (người duyệt), P5 (scope theo token/tenant), P6 (allowlist, tác dụng phụ). |
 | D33 | 2026-09-28 | Bổ sung giao thức §15: `agent.welcome`, `agent.heartbeat`, `item.result`, `error` | Cần cho heartbeat/lease (D16) và cập nhật kết quả từng test case; Huynh duyệt khi xem plan Phase 1. |
 | D34 | 2026-09-28 | Quy ước test tích hợp `*.int.test.ts` (cần Postgres/Redis/MinIO), chạy bằng `pnpm test:int` với `CORAL_INT_TESTS=1`, có job CI riêng dựng `docker compose` | Tách test cần hạ tầng khỏi unit test nhanh; Huynh duyệt khi xem plan Phase 1. |
+| D35 | 2026-09-29 | `expect.visible_text` = "chứa chuỗi" (chuẩn hóa khoảng trắng, phân biệt hoa/thường, chỉ `text`); `expect` thấy cả node dưới popup, chỉ target thao tác mới bị kiểm tra "bị che"; popup guard dùng cùng quy tắc để nhận ra step đang kiểm tra popup | Huynh duyệt khi xem US4 Phase 1: popup vẫn được xử lý ở thao tác kế tiếp (target bị che → guard); muốn khẳng định popup đã đi thì dùng `not_visible`. |

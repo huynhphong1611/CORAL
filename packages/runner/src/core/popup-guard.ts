@@ -1,7 +1,6 @@
 import {
   decidePopup,
   locatorPlatforms,
-  normalizeButtonText,
   walkTree,
   type ElementNode,
   type ExpectCondition,
@@ -11,6 +10,7 @@ import {
 } from '@coral/shared'
 import type { UiDriver } from './driver'
 import { StepFailure } from './errors'
+import { conditionFailure } from './expect'
 import { center } from './locator/geometry'
 import { findAll, type ResolveContext } from './locator/resolve'
 import type { HandledPopup, PopupContext, PopupGuard } from './run-testcase'
@@ -95,8 +95,8 @@ function stepTargetsPopup(step: Step | undefined, popup: Popup, ctx: ResolveCont
       if (hits(firstApplicable(chain))) return true
     }
     if (condition.visible_text !== undefined) {
-      const needle = normalizeButtonText(condition.visible_text)
-      if (popup.nodes.some((n) => normalizeButtonText(n.text).includes(needle))) return true
+      const text = { visible_text: condition.visible_text }
+      if (conditionFailure(text, [popup.root], ctx) === undefined) return true
     }
   }
   return false

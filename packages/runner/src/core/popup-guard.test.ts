@@ -112,6 +112,13 @@ describe('popup guard', () => {
       await guard.handle(androidTree('permission-dialog'), ctx('expect_failed', expectDialog)),
     ).toBeNull()
     expect(taps).toEqual([])
+
+    // Same text rule as expect (case-sensitive): this step is not about the dialog.
+    const otherCase = { action: 'assert', expect: { visible_text: 'TAKE PICTURES' } }
+    expect(
+      await guard.handle(androidTree('permission-dialog'), ctx('expect_failed', otherCase)),
+    ).toMatchObject({ rule: 'android_permission' })
+    expect(taps).toHaveLength(1)
   })
 
   it('refuses a further popup once the per-step limit is reached (D25)', async () => {
