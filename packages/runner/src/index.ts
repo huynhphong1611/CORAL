@@ -10,6 +10,7 @@ export type {
   FrameSource,
   LiveFrame,
   Point,
+  RemoteControl,
   Size,
   TargetLifecycle,
   UiDriver,

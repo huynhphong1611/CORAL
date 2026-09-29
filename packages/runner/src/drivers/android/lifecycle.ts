@@ -84,6 +84,11 @@ export class AndroidLifecycle implements TargetLifecycle {
     if (!/Success/.test(out)) throw new AdbError(`pm clear ${appId} failed: ${out.trim()}`)
   }
 
+  /** Stops the app (`am force-stop`), keeping its data: "restart app" from the live view. */
+  async stopApp(appId: string): Promise<void> {
+    await this.device.shell(['am', 'force-stop', assertPackage(appId)])
+  }
+
   async grantPermissions(appId: string, permissions: readonly Permission[]): Promise<void> {
     assertPackage(appId)
     for (const permission of permissions) {

@@ -52,6 +52,14 @@ export interface TargetLifecycle {
 
 export interface DeviceDriver extends UiDriver, TargetLifecycle {}
 
+/** What a person controlling the device from the browser needs beyond the runner (US3). */
+export interface RemoteControl {
+  /** The Home button. */
+  home(): Promise<void>
+  /** Stops the app, keeping its data (restart = stop + launch). */
+  stopApp(appId: string): Promise<void>
+}
+
 export interface FrameOptions {
   /** Longest edge of the image, in pixels (the device may send a smaller one). */
   maxEdge: number

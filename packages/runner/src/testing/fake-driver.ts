@@ -5,6 +5,7 @@ import type {
   FrameSource,
   LiveFrame,
   Point,
+  RemoteControl,
   Size,
 } from '../core/driver'
 import { imageInfo } from '../core/image/size'
@@ -58,9 +59,9 @@ export interface FakeScreen {
 export type FakeCall =
   | { kind: 'tap' | 'longPress'; point: Point; node?: ElementNode; ms?: number }
   | { kind: 'type'; text: string }
-  | { kind: 'clearText' | 'back' | 'hideKeyboard' | 'screenshot' }
+  | { kind: 'clearText' | 'back' | 'hideKeyboard' | 'screenshot' | 'home' }
   | { kind: 'swipe'; from: Point; to: Point; ms: number }
-  | { kind: 'launch' | 'resetApp' | 'isAppRunning'; appId: string }
+  | { kind: 'launch' | 'resetApp' | 'isAppRunning' | 'stopApp'; appId: string }
   | { kind: 'openDeepLink'; url: string }
   | { kind: 'install'; path: string; sha256: string }
   | { kind: 'grantPermissions'; appId: string; permissions: readonly Permission[] }
@@ -84,7 +85,7 @@ export interface FakeDriverOptions {
  * Scripted in-memory device for unit tests of the runner core (no adb, no emulator).
  * Taps hit the deepest visible node that contains the point, searching windows top-most first.
  */
-export class FakeDriver implements DeviceDriver, FrameSource {
+export class FakeDriver implements DeviceDriver, FrameSource, RemoteControl {
   readonly platform: Platform
   readonly calls: FakeCall[] = []
   current: string
@@ -274,6 +275,19 @@ export class FakeDriver implements DeviceDriver, FrameSource {
 
   hideKeyboard(): Promise<void> {
     this.calls.push({ kind: 'hideKeyboard' })
+    return Promise.resolve()
+  }
+
+  /** Leaves the app (the fake has no launcher: the screen stays, the app is not running). */
+  home(): Promise<void> {
+    this.calls.push({ kind: 'home' })
+    this.appRunning = false
+    return Promise.resolve()
+  }
+
+  stopApp(appId: string): Promise<void> {
+    this.calls.push({ kind: 'stopApp', appId })
+    this.appRunning = false
     return Promise.resolve()
   }
 

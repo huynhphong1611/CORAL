@@ -2,6 +2,7 @@ import { arch, platform } from 'node:os'
 import { CORAL_VERSION } from '@coral/shared'
 import { android, type Clock } from '@coral/runner'
 import type { Logger } from 'pino'
+import { DeviceCommands } from './commands'
 import { AgentConnection } from './connection'
 import { DeviceWatcher, type DeviceSource } from './devices'
 import { DeviceSessions, type SessionDriver } from './device-sessions'
@@ -32,11 +33,11 @@ export interface AgentOptions {
 export const SHUTDOWN_GRACE_MS = 10_000
 
 /**
- * coral-agent (SPEC §15): one WebSocket to the server, the adb device watcher, the job runner and
- * the live-view streamer, wired together. No AI here (P1).
+ * coral-agent (SPEC §15): one WebSocket to the server, the adb device watcher, the job runner,
+ * the live-view streamer and remote commands, wired together. No AI here (P1).
  */
 export function startAgent(options: AgentOptions) {
-  const holder: { jobs?: JobManager; streamer?: Streamer } = {}
+  const holder: { jobs?: JobManager; streamer?: Streamer; commands?: DeviceCommands } = {}
   const watcher = new DeviceWatcher({
     source: options.source,
     busy: (udid) => holder.jobs?.busy(udid) ?? false,
@@ -65,6 +66,8 @@ export function startAgent(options: AgentOptions) {
     onMessage: (message) => {
       if (message.type === 'stream.start') holder.streamer?.start(message.payload)
       else if (message.type === 'stream.stop') void holder.streamer?.stop(message.payload.udid)
+      else if (message.type === 'device.command')
+        holder.commands?.handle(message.id, message.payload)
       else holder.jobs?.handle(message)
     },
     ...(options.log ? { log: options.log } : {}),
@@ -92,8 +95,16 @@ export function startAgent(options: AgentOptions) {
     ...(options.clock ? { clock: options.clock } : {}),
     ...(options.log ? { log: options.log } : {}),
   })
+  const commands = new DeviceCommands({
+    connection,
+    sessions,
+    busy: (udid) => jobs.busy(udid),
+    ...(options.secrets ? { secrets: options.secrets } : {}),
+    ...(options.log ? { log: options.log } : {}),
+  })
   holder.jobs = jobs
   holder.streamer = streamer
+  holder.commands = commands
   watcher.start()
   connection.start()
 
@@ -102,6 +113,7 @@ export function startAgent(options: AgentOptions) {
     jobs,
     sessions,
     streamer,
+    commands,
     watcher,
     /** Graceful stop: running jobs are cancelled and get up to 10 s to report job.done. */
     async stop(): Promise<void> {

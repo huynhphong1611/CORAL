@@ -5,6 +5,7 @@ import type {
   FrameSource,
   LiveFrame,
   Point,
+  RemoteControl,
   Size,
 } from '../../core/driver'
 import { imageInfo } from '../../core/image/size'
@@ -47,7 +48,7 @@ export interface U2Rpc {
  * Android DeviceDriver (SPEC §8.1, D27): UI through the u2 JSON-RPC server, everything else
  * through adb (research R7). Call open() before a run and close() after it.
  */
-export class AndroidDriver implements DeviceDriver, FrameSource {
+export class AndroidDriver implements DeviceDriver, FrameSource, RemoteControl {
   readonly platform = 'android' as const
   /** Set once the u2 server turned out to have no takeScreenshot: frames are PNG from then on. */
   private pngFramesOnly = false
@@ -161,6 +162,14 @@ export class AndroidDriver implements DeviceDriver, FrameSource {
 
   async back(): Promise<void> {
     await this.u2.call('pressKey', ['back'])
+  }
+
+  async home(): Promise<void> {
+    await this.u2.call('pressKey', ['home'])
+  }
+
+  stopApp(appId: string): Promise<void> {
+    return this.lifecycle.stopApp(appId)
   }
 
   async hideKeyboard(): Promise<void> {

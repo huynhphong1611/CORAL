@@ -122,6 +122,15 @@ describe('AndroidDriver', () => {
     ])
   })
 
+  it('presses Home and stops an app for the live view (US3)', async () => {
+    const { driver, rpc, adbCalls } = setup()
+    await driver.home()
+    expect(rpc.at(-1)).toEqual({ method: 'pressKey', params: ['home'] })
+    await driver.stopApp(APP)
+    expect(adbCalls.at(-1)).toBe(`shell am force-stop ${APP}`)
+    await expect(driver.stopApp('not a package; rm -rf /')).rejects.toThrow()
+  })
+
   it('hides the keyboard only when it is shown', async () => {
     const hidden = setup({ imeShown: false })
     await hidden.driver.hideKeyboard()
