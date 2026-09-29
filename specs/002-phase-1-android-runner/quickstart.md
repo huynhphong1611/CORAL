@@ -53,9 +53,9 @@ Kỳ vọng: `5/5 passed`.
 ## 4. Popup quyền không cấp trước (US4, SC-003)
 
 ```bash
-node scripts/phase1-e2e.mjs --apk ./mydemo.apk --testcase fixtures/testcases/mydemo-camera-permission.yaml --runs 5
+node scripts/phase1-e2e.mjs --apk ./mydemo.apk --testcase fixtures/testcases/mydemo-camera-permission.yaml --runs 5 --expect-popup android_permission
 ```
-Test case **không** có `grant_permissions`; `app_state: fresh`. Kỳ vọng: 5/5 pass; mỗi run có step với `popups_handled: [{ rule: "android_permission", … }]`.
+Test case **không** có `grant_permissions`; `app_state: fresh`. Kỳ vọng: 5/5 pass; mỗi run có step với `popups_handled: [{ rule: "android_permission", … }]` — `--expect-popup` đánh FAIL run nào thiếu, và in các popup đã xử lý của từng run.
 
 ## 5. Secret không lộ (US5, SC-008)
 

@@ -157,7 +157,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/runn
 - [x] T057 [P] [US4] `packages/shared/src/popups/match.ts`: so khớp luật (mọi khóa `match` cùng đúng; `package`, `alert_contains`, `text_contains`, `resource_id`), chọn nút theo thứ tự `tap_any`, lọc `never_tap` (không phân biệt hoa/thường, chuẩn hóa khoảng trắng); test `match.test.ts`
 - [x] T058 [US4] `packages/runner/src/core/popup-guard.ts` theo research R6: nhận diện popup (package khác app trừ `com.android.systemui`, panel dialog), gói permissioncontroller/packageinstaller, dialog crash/ANR → trả `APP_CRASHED`/`APP_NOT_RESPONDING` thay vì đóng, ngoại lệ "step đang nhắm popup", bỏ qua toast, tối đa 3 popup/step → `BLOCKED_BY_POPUP` (D25), ghi `popups_handled`; test `popup-guard.test.ts` trên `permission-dialog.xml`, `rate-app-dialog.xml`, `never-tap-only-dialog.xml`, `crash-dialog.xml`, `anr-dialog.xml`, chuỗi 4 popup
 - [x] T059 [US4] Gắn guard vào `packages/runner/src/core/run-testcase.ts` tại 3 điểm (sau launch, khi không thấy target, khi `expect` fail) + truyền luật từ `coral run` và `job.assign`; test `run-testcase.popup.test.ts` với `FakeDriver` chèn popup quyền giữa hai step
-- [ ] T060 [US4] 🔌 `fixtures/testcases/mydemo-camera-permission.yaml` (không `grant_permissions`, `app_state: fresh`) + chạy `scripts/phase1-e2e.mjs --runs 5` trên emulator → 5/5, mỗi run có `popups_handled` `android_permission` (SC-003)
+- [ ] T060 [US4] 🔌 `fixtures/testcases/mydemo-camera-permission.yaml` (không `grant_permissions`, `app_state: fresh`) + chạy `scripts/phase1-e2e.mjs --runs 5 --expect-popup android_permission` trên emulator → 5/5, mỗi run có `popups_handled` `android_permission` (SC-003)
 
 ---
 
