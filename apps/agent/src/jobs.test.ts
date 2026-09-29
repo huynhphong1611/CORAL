@@ -71,6 +71,7 @@ const assign = (items: string[] = [LOGIN]): protocol.Payload<'job.assign'> => ({
     test_case_id: RUN,
     commit: 'a1b2c3d',
     yaml,
+    assets: [],
   })),
   popups_yaml: 'schema: coral/popups@1\n',
   secrets: { TEST_USER: 'bob@example.com' },

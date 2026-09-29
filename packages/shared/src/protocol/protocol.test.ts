@@ -85,10 +85,24 @@ const valid: { [T in MessageType]: unknown } = {
   },
   'job.done': { run_id: runId, status: 'passed', summary: { passed: 1, failed: 0, skipped: 0 } },
   'job.cancel': { run_id: runId, reason: 'cancelled by user' },
+  'stream.start': { udid: 'emulator-5554', fps: 4 },
+  'stream.stop': { udid: 'emulator-5554' },
+  'device.command': {
+    command_id: newId(),
+    udid: 'emulator-5554',
+    command: { kind: 'tap', x: 540, y: 1200 },
+  },
+  'device.command_result': { command_id: newId(), ok: true },
   error: { code: 'invalid_message', message: 'bad' },
 }
 
-const needsRe = new Set(['agent.welcome', 'job.ack', 'job.reject', 'artifact.upload_url'])
+const needsRe = new Set([
+  'agent.welcome',
+  'job.ack',
+  'job.reject',
+  'artifact.upload_url',
+  'device.command_result',
+])
 
 describe('WS protocol (SPEC §15, D18, D33)', () => {
   it('covers every message type', () => {
@@ -146,5 +160,107 @@ describe('WS protocol (SPEC §15, D18, D33)', () => {
       ok: false,
       code: 'too_large',
     })
+  })
+})
+
+describe('Phase 2 agent messages (contracts/agent-ws-phase2.md)', () => {
+  const parse = (type: MessageType, payload: unknown, re?: string) =>
+    parseMessage(JSON.stringify(envelope(type, payload, re)))
+  const command = (command: unknown) =>
+    parse('device.command', { command_id: newId(), udid: 'emulator-5554', command })
+  const upload = (keys: string[]) =>
+    Object.fromEntries(keys.map((k) => [k, `http://localhost:9000/b/${k}?X-Amz-Signature=s`]))
+
+  it('fills stream.start defaults and bounds its parameters', () => {
+    const parsed = parse('stream.start', { udid: 'emulator-5554' })
+    expect(parsed.ok && parsed.message.payload).toEqual({
+      udid: 'emulator-5554',
+      fps: 4,
+      max_edge: 1280,
+      quality: 60,
+    })
+    expect(parse('stream.start', { udid: 'e', fps: 10 }).ok).toBe(false)
+    expect(parse('stream.start', { udid: 'e', quality: 95 }).ok).toBe(false)
+  })
+
+  it('sends typed text with the values to mask; restart_app names the package', () => {
+    const typed = command({
+      kind: 'type',
+      text: 's3cret',
+      redact: ['s3cret'],
+      secret: 'TEST_PASSWORD',
+    })
+    expect(typed.ok).toBe(true)
+    // The agent never receives a secret name without its value.
+    expect(command({ kind: 'type', secret: 'TEST_PASSWORD' }).ok).toBe(false)
+    expect(command({ kind: 'restart_app' }).ok).toBe(false)
+    expect(command({ kind: 'restart_app', package: 'com.saucelabs.mydemoapp.android' }).ok).toBe(
+      true,
+    )
+    expect(command({ kind: 'restart_app', package: 'rm -rf /' }).ok).toBe(false)
+  })
+
+  it('carries prepare, record and inspect with presigned uploads', () => {
+    const pkg = 'com.saucelabs.mydemoapp.android'
+    expect(
+      command({
+        kind: 'prepare',
+        package: pkg,
+        app_state: 'fresh',
+        popups_yaml: 'schema: coral/popups@1',
+        upload: upload(['screen', 'tree']),
+      }).ok,
+    ).toBe(true)
+    expect(
+      command({
+        kind: 'record',
+        action: { kind: 'tap', x: 1, y: 2 },
+        package: pkg,
+        popups_yaml: '',
+        upload: upload(['screen', 'tree', 'element']),
+      }).ok,
+    ).toBe(true)
+    expect(
+      command({
+        kind: 'record',
+        action: { kind: 'shell' },
+        package: pkg,
+        popups_yaml: '',
+        upload: upload(['screen', 'tree', 'element']),
+      }).ok,
+    ).toBe(false)
+    expect(command({ kind: 'inspect', x: 3, y: 4 }).ok).toBe(true)
+    expect(command({ kind: 'reboot' }).ok).toBe(false)
+  })
+
+  it('requires re on device.command_result', () => {
+    const payload = {
+      command_id: newId(),
+      ok: false,
+      error: { code: 'DRIVER_ERROR', message: 'x' },
+    }
+    expect(parse('device.command_result', payload).ok).toBe(false)
+    expect(parse('device.command_result', payload, newId()).ok).toBe(true)
+  })
+
+  it('defaults job.assign item assets to none and keeps their paths inside the repo', () => {
+    const assign = valid['job.assign'] as { items: Record<string, unknown>[] }
+    const parsed = parse('job.assign', assign)
+    expect(
+      parsed.ok && parsed.message.type === 'job.assign' && parsed.message.payload.items[0]?.assets,
+    ).toEqual([])
+    const withAsset = (path: string) => ({
+      ...assign,
+      items: [
+        {
+          ...assign.items[0],
+          assets: [{ path, sha256: 'b'.repeat(64), download_url: 'http://x/y' }],
+        },
+      ],
+    })
+    expect(parse('job.assign', withAsset('snap/login/s3/element.png')).ok).toBe(true)
+    for (const bad of ['../secrets.png', '/etc/passwd', 'snap/../../x.png', 'snap\\x.png']) {
+      expect(parse('job.assign', withAsset(bad)).ok, bad).toBe(false)
+    }
   })
 })

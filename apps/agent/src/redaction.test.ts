@@ -177,7 +177,9 @@ describe('secrets in agent outputs (SC-008)', () => {
           download_url: 'http://s3.test/build.apk',
           sha256: createHash('sha256').update(APK).digest('hex'),
         },
-        items: [{ run_item_id: ITEM, test_case_id: RUN, commit: 'a1b2c3d', yaml: TEST_CASE }],
+        items: [
+          { run_item_id: ITEM, test_case_id: RUN, commit: 'a1b2c3d', yaml: TEST_CASE, assets: [] },
+        ],
         popups_yaml: 'schema: coral/popups@1\n',
         secrets: { TEST_USER: USER, API_KEY },
         limits: { run_timeout_ms: 1_800_000, stable_timeout_ms: 3000 },

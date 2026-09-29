@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 /** Device pixels: the browser maps canvas clicks with the frame's device size (contracts/ui-ws.md). */
 const coord = z.number().int().min(0).max(100_000)
+export const coordSchema = coord
 export const pointSchema = z.object({ x: coord, y: coord })
 
 /** Names of secrets (`${secret:NAME}`, dev env `CORAL_SECRET_<NAME>`). */
@@ -15,20 +16,35 @@ export const secretNameSchema = z
  * (FR-009, P6). `type` carries either the text or the name of a secret the server fills in, so a
  * password never passes through the browser (FR-014).
  */
+export const tapCommandSchema = z.strictObject({ kind: z.literal('tap'), x: coord, y: coord })
+export const longPressCommandSchema = z.strictObject({
+  kind: z.literal('long_press'),
+  x: coord,
+  y: coord,
+  ms: z.number().int().min(100).max(10_000).optional(),
+})
+export const swipeCommandSchema = z.strictObject({
+  kind: z.literal('swipe'),
+  from: pointSchema,
+  to: pointSchema,
+  ms: z.number().int().min(50).max(10_000).optional(),
+})
+export const backCommandSchema = z.strictObject({ kind: z.literal('back') })
+export const homeCommandSchema = z.strictObject({ kind: z.literal('home') })
+export const hideKeyboardCommandSchema = z.strictObject({ kind: z.literal('hide_keyboard') })
+
+/** Commands that look the same from the browser and on the agent. */
+export const PLAIN_COMMAND_SCHEMAS = [
+  tapCommandSchema,
+  longPressCommandSchema,
+  swipeCommandSchema,
+  backCommandSchema,
+  homeCommandSchema,
+  hideKeyboardCommandSchema,
+] as const
+
 export const deviceCommandSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('tap'), x: coord, y: coord }),
-  z.strictObject({
-    kind: z.literal('long_press'),
-    x: coord,
-    y: coord,
-    ms: z.number().int().min(100).max(10_000).optional(),
-  }),
-  z.strictObject({
-    kind: z.literal('swipe'),
-    from: pointSchema,
-    to: pointSchema,
-    ms: z.number().int().min(50).max(10_000).optional(),
-  }),
+  ...PLAIN_COMMAND_SCHEMAS,
   z
     .strictObject({
       kind: z.literal('type'),
@@ -38,9 +54,6 @@ export const deviceCommandSchema = z.discriminatedUnion('kind', [
     .refine((c) => (c.text === undefined) !== (c.secret === undefined), {
       message: 'type carries exactly one of text or secret',
     }),
-  z.strictObject({ kind: z.literal('back') }),
-  z.strictObject({ kind: z.literal('home') }),
-  z.strictObject({ kind: z.literal('hide_keyboard') }),
   z.strictObject({ kind: z.literal('restart_app') }),
 ])
 export type DeviceCommand = z.infer<typeof deviceCommandSchema>

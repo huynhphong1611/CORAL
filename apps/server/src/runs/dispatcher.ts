@@ -284,6 +284,8 @@ export class RunDispatcher implements RunQueue {
         test_case_id: item.testCaseId,
         commit: item.commit,
         yaml: await read(pathInRepo, item.commit),
+        // Image locator assets arrive with US6 (T052).
+        assets: [],
       })),
     )
     const names = new Set<string>()
