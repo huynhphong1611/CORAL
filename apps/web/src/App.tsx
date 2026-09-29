@@ -1,3 +1,4 @@
+import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
 import { useEffect, useSyncExternalStore } from 'react'
 import { en } from './i18n/en'
@@ -26,5 +27,9 @@ export function App({
       </p>
     )
   }
-  return <RouterProvider router={router} />
+  return (
+    <QueryClientProvider client={context.queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
 }

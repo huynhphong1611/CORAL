@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ApiClient } from './api/client'
@@ -21,14 +21,14 @@ session.subscribe(() => {
 })
 void client.refresh()
 
-const context = { client, session, socket }
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+})
+const context = { client, session, socket, queryClient }
 const router = createAppRouter(context)
-const queryClient = new QueryClient()
 
 createRoot(container).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App router={router} context={context} />
-    </QueryClientProvider>
+    <App router={router} context={context} />
   </StrictMode>,
 )

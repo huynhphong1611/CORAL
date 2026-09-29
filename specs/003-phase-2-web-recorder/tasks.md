@@ -74,10 +74,10 @@ Monorepo (plan.md → Project Structure): `apps/web/src/`, `apps/server/src/`, `
 - [x] T019 [P] [US1] Server: `GET /devices` thêm `activity` (`idle|run|live|recording|offline`, `by`, `run_id`, `since` — từ lease mở); `GET /runs` thêm lọc `device_id`, `test_case_id`; test `devices.int.test.ts`, `runs-list.int.test.ts` ca mới
 - [x] T020 [US1] Server đẩy sự kiện: ingest (`runs/ingest.ts`) và dispatcher phát `run.updated` / `run.step` tới kết nối UI đã `run.watch` (cùng tenant); đổi lease/thiết bị → `devices.updated` cho cả tenant; test `ui-run-events.int.test.ts` (agent giả chạy run → UI client nhận đúng thứ tự; tenant khác không nhận)
 - [x] T021 [P] [US1] Web `routes/login.tsx`: form, lỗi chung "Invalid email or password", `next`; test component (submit, lỗi)
-- [ ] T022 [P] [US1] Web `routes/projects/*`: danh sách + tạo project ✍; trang project với tab Test cases, Runs, Recordings và danh sách app/build chỉ đọc (FR-003; tạo app, tải build ở US7); test component (loading/empty/error)
-- [ ] T023 [P] [US1] Web `routes/devices.tsx`: bảng thiết bị + trạng thái `activity`, cập nhật qua `devices.updated`; test component
-- [ ] T024 [US1] Web `routes/runs/*`: danh sách run (lọc, cập nhật trực tiếp) và chi tiết run: step (ảnh presigned, trạng thái, locator đã dùng + `degraded`, thời gian, popup, lỗi + device log, xem `tree.json` dạng cây), `run.watch`; test component với dữ liệu mẫu
-- [ ] T025 [US1] Web chạy test case: nút **Run** ✍ trên một test case, hoặc chọn nhiều test case ở tab Test cases (FR-004) → chọn build + thiết bị → `POST /runs` → chuyển tới chi tiết run; ẩn với viewer; test component
+- [x] T022 [P] [US1] Web `routes/projects/*`: danh sách + tạo project ✍; trang project với tab Test cases, Runs, Recordings và danh sách app/build chỉ đọc (FR-003; tạo app, tải build ở US7); test component (loading/empty/error)
+- [x] T023 [P] [US1] Web `routes/devices.tsx`: bảng thiết bị + trạng thái `activity`, cập nhật qua `devices.updated`; test component
+- [x] T024 [US1] Web `routes/runs/*`: danh sách run (lọc, cập nhật trực tiếp) và chi tiết run: step (ảnh presigned, trạng thái, locator đã dùng + `degraded`, thời gian, popup, lỗi + device log, xem `tree.json` dạng cây), `run.watch`; test component với dữ liệu mẫu
+- [x] T025 [US1] Web chạy test case: nút **Run** ✍ trên một test case, hoặc chọn nhiều test case ở tab Test cases (FR-004) → chọn build + thiết bị → `POST /runs` → chuyển tới chi tiết run; ẩn với viewer; test component
 - [ ] T026 [US1] E2E `e2e/us1-runs.e2e.ts`: đăng nhập, tạo run trên thiết bị giả, trang run tự cập nhật tới `passed`, ảnh step hiện; user tenant khác mở URL → Not found; SC-009: trang chi tiết run 10 step hiện đủ ảnh trong ≤ 3 s; chụp ảnh `e2e-results/us1-*.png`
 
 **Checkpoint**: US1 xong — web thay được việc gọi API tay.

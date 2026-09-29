@@ -6,18 +6,24 @@ import {
   redirect,
   type RouterHistory,
 } from '@tanstack/react-router'
+import type { QueryClient } from '@tanstack/react-query'
+import { api } from '@coral/shared'
 import type { ApiClient } from './api/client'
 import type { SessionStore } from './api/session'
 import type { UiSocket } from './api/ws'
 import { Layout } from './components/Layout'
-import { en } from './i18n/en'
+import { DevicesPage } from './routes/devices'
 import { LoginPage, safeNext } from './routes/login'
-import { Placeholder } from './routes/placeholder'
+import { ProjectsPage } from './routes/projects'
+import { PROJECT_TABS, ProjectPage, type ProjectTab } from './routes/projects/project'
+import { RunDetailPage } from './routes/runs/detail'
+import { RunsPage } from './routes/runs'
 
 export interface RouterContext {
   client: ApiClient
   session: SessionStore
   socket: UiSocket
+  queryClient: QueryClient
 }
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({ component: () => <Outlet /> })
@@ -55,24 +61,60 @@ const indexRoute = createRoute({
 const projectsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/projects',
-  component: () => <Placeholder title={en.nav.projects} />,
+  component: ProjectsPage,
+})
+
+const projectRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/projects/$projectId',
+  validateSearch: (search: Record<string, unknown>): { tab: ProjectTab } => ({
+    tab: PROJECT_TABS.find((t) => t === search.tab) ?? 'testcases',
+  }),
+  component: ProjectPage,
 })
 
 const devicesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/devices',
-  component: () => <Placeholder title={en.nav.devices} />,
+  component: DevicesPage,
 })
+
+const uuid = (value: unknown) =>
+  typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value) ? value : undefined
 
 const runsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/runs',
-  component: () => <Placeholder title={en.nav.runs} />,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): {
+    project_id?: string | undefined
+    status?: api.Run['status'] | undefined
+    device_id?: string | undefined
+  } => ({
+    project_id: uuid(search.project_id),
+    status: api.RUN_STATUSES.find((s) => s === search.status),
+    device_id: uuid(search.device_id),
+  }),
+  component: RunsPage,
+})
+
+const runRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/runs/$runId',
+  component: RunDetailPage,
 })
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
-  appRoute.addChildren([indexRoute, projectsRoute, devicesRoute, runsRoute]),
+  appRoute.addChildren([
+    indexRoute,
+    projectsRoute,
+    projectRoute,
+    devicesRoute,
+    runsRoute,
+    runRoute,
+  ]),
 ])
 
 /** The app's routes (contracts/web-ui.md); `history` is a memory history in tests. */
