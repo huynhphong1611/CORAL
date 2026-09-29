@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 // Phase 1 DoD check over the REST API (quickstart §3–§5, T055):
 //   node scripts/phase1-e2e.mjs --apk ./mydemo.apk --testcase fixtures/testcases/mydemo-login.yaml --runs 5
+//   node scripts/phase1-e2e.mjs --apk ./mydemo.apk --testcase fixtures/testcases/mydemo-camera-permission.yaml \
+//     --runs 5 --expect-popup android_permission
 //   node scripts/phase1-e2e.mjs --scan-secrets --run <run_id>
 // Logs in, creates (or reuses) project + app, uploads the build, saves the test case, waits for an
 // idle device, then runs it N times one after another and checks every run: passed, < 60 s, and
-// every step's screenshot + tree downloadable. Exit code 0 only when every check passed.
+// every step's screenshot + tree downloadable (and, with --expect-popup, that the popup guard
+// handled that rule in the run, SC-003). Exit code 0 only when every check passed.
 import { existsSync, readFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -24,8 +27,9 @@ import { parseArgs } from 'node:util'
  *   finished_at: string | null, items: RunItem[] }} Run
  */
 /**
- * @typedef {{ step_id: string, artifacts: { screenshot_url: string | null,
- *   tree_url: string | null, log_url: string | null } }} Step
+ * @typedef {{ step_id: string, popups_handled: { rule: string, button: string }[],
+ *   artifacts: { screenshot_url: string | null, tree_url: string | null,
+ *   log_url: string | null } }} Step
  */
 
 if (existsSync('.env')) process.loadEnvFile('.env')
@@ -43,6 +47,7 @@ const { values: opts } = parseArgs({
     device: { type: 'string' },
     'max-run-sec': { type: 'string', default: '60' },
     'scan-secrets': { type: 'boolean', default: false },
+    'expect-popup': { type: 'string' },
     run: { type: 'string' },
     help: { type: 'boolean', default: false },
   },
@@ -50,6 +55,7 @@ const { values: opts } = parseArgs({
 
 const usage = `usage:
   node scripts/phase1-e2e.mjs --apk <file.apk> --testcase <file.yaml> [--runs 5] [--app <package>] [--device <udid>] [--scan-secrets]
+      [--expect-popup <popup rule>]
   node scripts/phase1-e2e.mjs --scan-secrets --run <run_id>
 login: --email/--password or CORAL_SEED_EMAIL/CORAL_SEED_PASSWORD; server: --server or CORAL_SERVER_URL`
 
@@ -223,10 +229,13 @@ async function runOnce(ids) {
   const seconds = (Date.parse(run.finished_at ?? '') - Date.parse(run.started_at ?? '')) / 1000
   if (!(seconds < Number(opts['max-run-sec']))) problems.push(`took ${seconds.toFixed(1)} s`)
   let stepCount = 0
+  /** @type {{ step_id: string, rule: string, button: string }[]} */
+  const popups = []
   for (const item of run.items) {
     const steps = /** @type {Step[]} */ (await api('GET', `/runs/${run.id}/items/${item.id}/steps`))
     for (const step of steps) {
       stepCount += 1
+      for (const p of step.popups_handled) popups.push({ step_id: step.step_id, ...p })
       for (const [kind, url] of [
         ['screenshot', step.artifacts.screenshot_url],
         ['tree', step.artifacts.tree_url],
@@ -238,7 +247,11 @@ async function runOnce(ids) {
       }
     }
   }
-  return { run, seconds, stepCount, problems }
+  const wanted = opts['expect-popup']
+  if (wanted && !popups.some((p) => p.rule === wanted)) {
+    problems.push(`popup rule ${wanted} not handled`)
+  }
+  return { run, seconds, stepCount, popups, problems }
 }
 
 /**
@@ -310,8 +323,10 @@ for (let i = 1; i <= runs; i++) {
   const ok = result.problems.length === 0
   if (ok) passed += 1
   const why = ok ? '' : ` — ${result.problems.join('; ')}`
+  const handled = result.popups.map((p) => `${p.step_id} ${p.rule} → ${p.button}`).join(', ')
+  const popups = handled ? `, popups: ${handled}` : ''
   console.log(
-    `run ${i}/${runs} ${result.run.id}: ${ok ? 'PASS' : 'FAIL'} ${result.seconds.toFixed(1)} s, ${result.stepCount} steps${why}`,
+    `run ${i}/${runs} ${result.run.id}: ${ok ? 'PASS' : 'FAIL'} ${result.seconds.toFixed(1)} s, ${result.stepCount} steps${popups}${why}`,
   )
 }
 console.log(`${passed}/${runs} passed`)

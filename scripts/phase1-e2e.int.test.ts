@@ -17,7 +17,7 @@ const SCRIPT = new URL('./phase1-e2e.mjs', import.meta.url).pathname
 let server: RunServer
 let huynh: TestUser
 let dir = ''
-let stopAgent: (() => Promise<void>) | undefined
+const stopAgents: (() => Promise<void>)[] = []
 
 beforeAll(async () => {
   server = await startRunServer({ secrets: { TEST_USER: 'bob@example.com' } })
@@ -25,16 +25,23 @@ beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), 'coral-phase1-'))
   await writeFile(join(dir, 'app.apk'), Buffer.from(`apk ${newId()}`))
   await writeFile(join(dir, 'login.yaml'), LOGIN_YAML)
-  const token = (await server.newAgent(huynh, 'e2e')).token
-  const { agent } = startFakeDeviceAgent({
-    serverUrl: server.url,
-    token,
-    cacheDir: join(dir, 'cache'),
-  })
-  stopAgent = () => agent.stop()
+  // emulator-5554 plays the login flow; emulator-5556 also shows a permission dialog at launch.
+  for (const [udid, permissionPopup] of [
+    ['emulator-5554', false],
+    ['emulator-5556', true],
+  ] as const) {
+    const { agent } = startFakeDeviceAgent({
+      serverUrl: server.url,
+      token: (await server.newAgent(huynh, `e2e-${udid}`)).token,
+      cacheDir: join(dir, 'cache', udid),
+      udid,
+      permissionPopup,
+    })
+    stopAgents.push(() => agent.stop())
+  }
 })
 afterAll(async () => {
-  await stopAgent?.()
+  await Promise.all(stopAgents.map((stop) => stop()))
   await server?.close()
   if (dir) await rm(dir, { recursive: true, force: true })
 })
@@ -44,11 +51,10 @@ const env = {
   CORAL_SECRET_TEST_USER: 'bob@example.com',
 }
 
-describe('scripts/phase1-e2e.mjs', () => {
-  let lastRun = ''
-
-  it('passes 2/2 runs and checks artifacts and secrets', async () => {
-    const args = [
+const runLogin = (...extra: string[]) =>
+  run(
+    process.execPath,
+    [
       SCRIPT,
       '--server',
       server.url,
@@ -62,23 +68,52 @@ describe('scripts/phase1-e2e.mjs', () => {
       join(dir, 'login.yaml'),
       '--app',
       FAKE_APP,
-      '--runs',
-      '2',
-      '--scan-secrets',
-    ]
-    const { stdout } = await run(process.execPath, args, { cwd: dir, env, timeout: 90_000 })
-    expect(stdout).toMatch(/run 1\/2 \S+: PASS .*3 steps/)
+      ...extra,
+    ],
+    { cwd: dir, env, timeout: 90_000 },
+  )
+
+describe('scripts/phase1-e2e.mjs', () => {
+  let lastRun = ''
+
+  it('passes 2/2 runs and checks artifacts and secrets', async () => {
+    const args = ['--device', 'emulator-5554', '--runs', '2', '--scan-secrets']
+    const { stdout } = await runLogin(...args)
+    expect(stdout).toMatch(/run 1\/2 \S+: PASS .*3 steps$/m)
     expect(stdout).toMatch(/run 2\/2 \S+: PASS/)
     expect(stdout.trim().endsWith('2/2 passed')).toBe(true)
     lastRun = /run 2\/2 (\S+):/.exec(stdout)?.[1] ?? ''
 
     // Run again: project, app and test case are reused.
-    const again = await run(
-      process.execPath,
-      args.map((a) => (a === '2' ? '1' : a)),
-      { cwd: dir, env, timeout: 90_000 },
-    )
+    const again = await runLogin(...args.map((a) => (a === '2' ? '1' : a)))
     expect(again.stdout.trim().endsWith('1/1 passed')).toBe(true)
+  }, 120_000)
+
+  it('checks with --expect-popup that the popup guard handled the rule (SC-003)', async () => {
+    const handled = await runLogin(
+      '--device',
+      'emulator-5556',
+      '--expect-popup',
+      'android_permission',
+    )
+    expect(handled.stdout).toMatch(
+      /run 1\/1 \S+: PASS .*3 steps, popups: s1 android_permission → Allow$/m,
+    )
+    expect(handled.stdout.trim().endsWith('1/1 passed')).toBe(true)
+
+    const missing = await runLogin(
+      '--device',
+      'emulator-5554',
+      '--expect-popup',
+      'android_permission',
+    ).then(
+      () => undefined,
+      (e: { code: number; stdout: string }) => e,
+    )
+    expect(missing).toMatchObject({ code: 1 })
+    expect(missing?.stdout).toMatch(
+      /run 1\/1 \S+: FAIL .*3 steps — popup rule android_permission not handled$/m,
+    )
   }, 120_000)
 
   it('scans one run for secrets', async () => {
