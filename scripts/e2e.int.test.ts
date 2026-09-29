@@ -5,47 +5,18 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { api } from '@coral/shared'
-import { FakeClock, FakeDriver, el, windows } from '@coral/runner/testing'
+import type { FakeDriver } from '@coral/runner/testing'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { startAgent, type Agent } from '../apps/agent/src/agent'
-import type { RunnableDriver } from '../apps/agent/src/jobs'
+import type { Agent } from '../apps/agent/src/agent'
 import { startRunServer, type RunServer } from '../apps/server/src/testing/run-server'
 import type { TestUser } from '../apps/server/src/testing/test-server'
-
-const APP = 'com.example.app'
-const login = windows(
-  APP,
-  el({
-    bounds: [0, 0, 1080, 2400],
-    children: [
-      el({
-        platform_id: `${APP}:id/user`,
-        class: 'android.widget.EditText',
-        clickable: true,
-        bounds: [100, 100, 800, 120],
-      }),
-      el({
-        text: 'Login',
-        class: 'android.widget.Button',
-        clickable: true,
-        bounds: [100, 300, 800, 120],
-      }),
-    ],
-  }),
-)
-const home = windows(
-  APP,
-  el({
-    bounds: [0, 0, 1080, 2400],
-    children: [el({ text: 'Products', bounds: [0, 100, 1080, 100] })],
-  }),
-)
+import { startFakeDeviceAgent } from './fake-device-agent'
 
 let server: RunServer
 let agent: Agent
 let huynh: TestUser
 let cacheDir = ''
-const drivers: FakeDriver[] = []
+let drivers: FakeDriver[] = []
 
 beforeAll(async () => {
   server = await startRunServer({ secrets: { TEST_USER: 'bob@example.com' } })
@@ -71,34 +42,13 @@ const until = async <T>(read: () => Promise<T>, done: (v: T) => boolean, timeout
 describe('Phase 1 end to end', () => {
   it('runs a test case through server and agent, with every artifact downloadable', async () => {
     const fixture = await server.seed(huynh)
-    agent = startAgent({
-      wsUrl: `${server.url.replace(/^http/, 'ws')}/ws/agent`,
+    const started = startFakeDeviceAgent({
+      serverUrl: server.url,
       token: fixture.agent.token,
       cacheDir,
-      clock: new FakeClock(),
-      minBackoffMs: 50,
-      source: {
-        list: () => Promise.resolve([{ udid: 'emulator-5554', state: 'device' }]),
-        props: () =>
-          Promise.resolve({ model: 'sdk_gphone64', osVersion: '14', apiLevel: 34, emulator: true }),
-      },
-      createDriver: () => {
-        const driver = new FakeDriver({
-          screens: {
-            login: { frames: [login], taps: { Login: 'home' } },
-            home: { frames: [home] },
-          },
-          start: 'login',
-        })
-        drivers.push(driver)
-        return Promise.resolve(
-          Object.assign(driver, {
-            open: () => Promise.resolve(),
-            close: () => Promise.resolve(),
-          }) as unknown as RunnableDriver,
-        )
-      },
     })
+    agent = started.agent
+    drivers = started.drivers
 
     const device = await until(
       async () =>

@@ -11,6 +11,9 @@ import { identityRepo } from '../repos/identity'
 import { buildServer, type ServerDeps } from '../server'
 import { createArtifactStore } from '../storage/s3'
 
+/** Password of every user created by newUser(). */
+export const TEST_PASSWORD = 'correct horse battery'
+
 export interface TestUser {
   email: string
   token: string
@@ -43,7 +46,7 @@ export async function startTestServer(
   /** Seeds a user in a brand-new tenant and logs in. */
   async function newUser(name = 'Huynh'): Promise<TestUser> {
     const email = `${name.toLowerCase()}-${newId()}@coral.test`
-    const password = 'correct horse battery'
+    const password = TEST_PASSWORD
     const seeded = await identityRepo(database.db).seedOwner({
       email,
       passwordHash: await hashPassword(password),
