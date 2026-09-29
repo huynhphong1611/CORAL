@@ -1,5 +1,6 @@
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { Db } from '../db/client'
+import type { ROLES } from '../db/schema'
 import { memberships, refreshTokens, tenants, users } from '../db/schema'
 
 /**
@@ -99,6 +100,31 @@ export function identityRepo(db: Db) {
         if (!tenant || !user) throw new Error('seed failed')
         await tx.insert(memberships).values({ tenantId: tenant.id, userId: user.id, role: 'owner' })
         return { userId: user.id, tenantId: tenant.id, created: true }
+      })
+    },
+
+    /** A new user in an existing tenant (seed and tests; inviting people is a later phase). */
+    async addMember(input: {
+      tenantId: string
+      email: string
+      passwordHash: string
+      name: string
+      role: (typeof ROLES)[number]
+    }) {
+      return db.transaction(async (tx) => {
+        const [user] = await tx
+          .insert(users)
+          .values({
+            email: input.email.toLowerCase(),
+            passwordHash: input.passwordHash,
+            name: input.name,
+          })
+          .returning()
+        if (!user) throw new Error('user not created')
+        await tx
+          .insert(memberships)
+          .values({ tenantId: input.tenantId, userId: user.id, role: input.role })
+        return { userId: user.id }
       })
     },
   }

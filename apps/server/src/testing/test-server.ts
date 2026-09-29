@@ -75,6 +75,29 @@ export async function startTestServer(
     }
   }
 
+  /** Adds a user with `role` to the tenant of `of` and logs them in. */
+  async function teammate(
+    of: TestUser,
+    name: string,
+    role: 'owner' | 'admin' | 'member' | 'viewer',
+  ): Promise<TestUser> {
+    const email = `${name.toLowerCase()}-${newId()}@coral.test`
+    const { userId } = await identityRepo(database.db).addMember({
+      tenantId: of.tenantId,
+      email,
+      passwordHash: await hashPassword(TEST_PASSWORD),
+      name,
+      role,
+    })
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { email, password: TEST_PASSWORD },
+    })
+    const session = api.sessionSchema.parse(res.json())
+    return { email, token: session.access_token, tenantId: of.tenantId, userId }
+  }
+
   /** `app.inject` as a user; returns status and parsed JSON. */
   async function call(user: TestUser, options: InjectOptions & { url: string }) {
     const res = await app.inject({
@@ -117,6 +140,7 @@ export async function startTestServer(
     dataDir,
     deps,
     newUser,
+    teammate,
     newAgent,
     call,
     listen,
