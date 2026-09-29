@@ -20,7 +20,8 @@
     "test:device": "CORAL_DEVICE_TESTS=1 vitest run",
     "test:e2e": "playwright test",
     "check:boundaries": "node scripts/check-boundaries.mjs",
-    "coral": "tsx packages/cli/src/main.ts"
+    "coral": "tsx packages/cli/src/main.ts",
+    "dev:fake-device": "tsx --env-file-if-exists=.env scripts/dev-fake-device.ts"
   },
   "devDependencies": {
     "@coral/runner": "workspace:*",

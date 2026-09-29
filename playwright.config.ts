@@ -1,9 +1,11 @@
 import { defineConfig, devices } from '@playwright/test'
+import { E2E_SERVER_PORT, E2E_SERVER_URL, PREVIEW_PORT } from './e2e/env'
 
 // Browser E2E (Phase 2, research R14): `e2e/*.e2e.ts`, run with `pnpm test:e2e`. Chromium comes
 // from PLAYWRIGHT_BROWSERS_PATH (preinstalled in the dev container) or `playwright install
 // chromium` in CI; PLAYWRIGHT_CHROMIUM points at another build when the versions differ.
-const PREVIEW_PORT = 4173
+// Needs the compose services up and migrated (like `pnpm test:int`).
+const serverUrl = E2E_SERVER_URL
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM
 
 export default defineConfig({
@@ -23,11 +25,26 @@ export default defineConfig({
     ...(executablePath && { launchOptions: { executablePath } }),
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  // The built SPA, served the way a deployment would (vite preview keeps the /api proxy).
-  webServer: {
-    command: `pnpm --filter @coral/web build && pnpm --filter @coral/web exec vite preview --port ${PREVIEW_PORT} --strictPort`,
-    url: `http://localhost:${PREVIEW_PORT}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    // A real coral-server on its own port and data dir (the fixtures seed users and agents).
+    {
+      command: 'node --import tsx apps/server/src/main.ts',
+      url: `${serverUrl}/health/ready`,
+      env: {
+        CORAL_SERVER_PORT: String(E2E_SERVER_PORT),
+        CORAL_DATA_DIR: 'e2e-results/data',
+        CORAL_LOG_LEVEL: 'warn',
+      },
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    // The built SPA, served the way a deployment would (vite preview keeps the /api proxy).
+    {
+      command: `pnpm --filter @coral/web build && pnpm --filter @coral/web exec vite preview --port ${PREVIEW_PORT} --strictPort`,
+      url: `http://localhost:${PREVIEW_PORT}`,
+      env: { CORAL_SERVER_URL: serverUrl },
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 })

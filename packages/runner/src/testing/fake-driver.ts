@@ -68,6 +68,8 @@ export interface FakeDriverOptions {
   logs?: string
   /** screenshot() draws the current tree (renderTree) instead of returning a stub PNG. */
   renderScreens?: boolean | RenderOptions
+  /** Typed text shows up as the text of the field it went into (live view, Recorder). */
+  showTyped?: boolean
 }
 
 /**
@@ -105,7 +107,25 @@ export class FakeDriver implements DeviceDriver {
 
   private currentTree(): ElementNode[] {
     const { frames } = this.screen()
-    return frames[Math.min(this.frameIndex, frames.length - 1)] ?? []
+    const tree = frames[Math.min(this.frameIndex, frames.length - 1)] ?? []
+    return this.options.showTyped ? this.withTyped(tree) : tree
+  }
+
+  private typedView: { tree: ElementNode[]; key: string; view: ElementNode[] } | undefined
+
+  /** The tree with typed text written into its fields (same object while nothing changes). */
+  private withTyped(tree: ElementNode[]): ElementNode[] {
+    if (this.typed.size === 0) return tree
+    const key = JSON.stringify([...this.typed])
+    if (this.typedView?.tree === tree && this.typedView.key === key) return this.typedView.view
+    const fill = (node: ElementNode): ElementNode => ({
+      ...node,
+      text: this.typed.get(node.ref) ?? node.text,
+      children: node.children.map(fill),
+    })
+    const view = tree.map(fill)
+    this.typedView = { tree, key, view }
+    return view
   }
 
   private hit(point: Point): ElementNode | undefined {
@@ -235,6 +255,7 @@ export class FakeDriver implements DeviceDriver {
   resetApp(appId: string): Promise<void> {
     this.calls.push({ kind: 'resetApp', appId })
     this.appRunning = false
+    if (this.options.showTyped) this.typed.clear()
     return Promise.resolve()
   }
 

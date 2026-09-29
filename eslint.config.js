@@ -81,6 +81,12 @@ export default defineConfig(
     },
   },
 
+  {
+    // Playwright fixtures without dependencies are written `async ({}, use) => …`.
+    files: ['e2e/**/*.ts'],
+    rules: { 'no-empty-pattern': 'off' },
+  },
+
   // --- Dependency boundaries (SPEC P1, D08); pnpm check:boundaries covers package.json + lockfile.
   {
     files: ['apps/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'],

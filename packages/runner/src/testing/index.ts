@@ -2,3 +2,4 @@
 export { FakeClock } from './fake-clock'
 export { FakeDriver, el, windows, type FakeScreen } from './fake-driver'
 export { renderTree, type RenderOptions } from './render'
+export { SAMPLE_APP, sampleApp } from './sample-app'
