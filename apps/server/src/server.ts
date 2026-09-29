@@ -38,11 +38,18 @@ export interface ServerDeps {
 
 /** Creates the Fastify app without listening, so tests can use `app.inject()`. */
 export function buildServer(
-  config: Pick<ServerConfig, 'logLevel' | 'jwtSecret'>,
+  config: Pick<ServerConfig, 'logLevel' | 'jwtSecret'> & {
+    /** Where log lines go (default stdout); tests capture them. */
+    logStream?: { write(line: string): void }
+  },
   deps: ServerDeps = {},
 ): FastifyInstance {
   const app = Fastify({
-    logger: { level: config.logLevel, base: { service: 'coral-server' } },
+    logger: {
+      level: config.logLevel,
+      base: { service: 'coral-server' },
+      ...(config.logStream ? { stream: config.logStream } : {}),
+    },
   })
   registerErrorHandling(app)
   void app.register(cookie)

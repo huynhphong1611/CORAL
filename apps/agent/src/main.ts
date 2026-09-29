@@ -1,10 +1,11 @@
 import { android } from '@coral/runner'
-import { pino } from 'pino'
 import { startAgent } from './agent'
 import { loadConfig } from './config'
+import { SecretValues, createAgentLogger } from './log'
 
 const config = loadConfig(process.env)
-const log = pino({ level: config.logLevel, base: { service: 'coral-agent' } })
+const secrets = new SecretValues()
+const log = createAgentLogger({ level: config.logLevel, secrets })
 
 if (!config.agentToken) {
   log.error(
@@ -20,6 +21,7 @@ const agent = startAgent({
   cacheDir: config.cacheDir,
   devicePollMs: config.pollMs,
   log,
+  secrets,
   source: {
     list: () => adb.devices(),
     props: (udid) => adb.device(udid).props(),

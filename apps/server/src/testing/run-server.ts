@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { api, newId } from '@coral/shared'
+import { api, newId, type LogLevel } from '@coral/shared'
 import { AgentGateway } from '../agents/gateway'
 import { loadConfig } from '../config'
 import { RunDispatcher } from '../runs/dispatcher'
@@ -17,6 +17,8 @@ export interface RunServerOptions {
   retryMaxMs?: number
   /** Secret values the server knows (as CORAL_SECRET_<NAME>). */
   secrets?: Record<string, string>
+  /** Server log (default silent), wired to the gateway, dispatcher, ingest and sweeper as in main. */
+  logging?: { level?: LogLevel; stream?: { write(line: string): void } }
 }
 
 export const LOGIN_YAML = `schema: coral/testcase@1
@@ -72,10 +74,16 @@ export async function startRunServer(options: RunServerOptions = {}) {
     })
     registerIngest({ db, gateway, dispatcher, artifacts })
     return { gateway, runs: { dispatcher, secrets } }
-  })
+  }, options.logging)
   if (!gateway || !dispatcher) throw new Error('run server not wired')
+  dispatcher.attachLogger(server.app.log)
   const url = await server.listen()
-  const sweeper = startLeaseSweeper({ db: server.db, dispatcher, intervalMs: 60_000 })
+  const sweeper = startLeaseSweeper({
+    db: server.db,
+    dispatcher,
+    intervalMs: 60_000,
+    log: server.app.log,
+  })
 
   /** Project + app + build + one test case (+ an agent token) for `user`. */
   async function seed(user: TestUser, yaml = LOGIN_YAML) {

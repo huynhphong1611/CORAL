@@ -5,6 +5,7 @@ import type { Logger } from 'pino'
 import { AgentConnection } from './connection'
 import { DeviceWatcher, type DeviceSource } from './devices'
 import { JobManager, type RunnableDriver } from './jobs'
+import type { SecretValues } from './log'
 
 export interface AgentOptions {
   wsUrl: string
@@ -13,6 +14,8 @@ export interface AgentOptions {
   createDriver(input: { udid: string; appId: string }): Promise<RunnableDriver>
   cacheDir: string
   log?: Pick<Logger, 'info' | 'warn' | 'error' | 'debug'>
+  /** Secrets of the jobs, for the redacting logger (createAgentLogger). */
+  secrets?: SecretValues
   fetch?: typeof fetch
   clock?: Clock
   devicePollMs?: number
@@ -66,6 +69,7 @@ export function startAgent(options: AgentOptions) {
     ...(options.fetch ? { fetch: options.fetch } : {}),
     ...(options.clock ? { clock: options.clock } : {}),
     ...(options.log ? { log: options.log } : {}),
+    ...(options.secrets ? { secrets: options.secrets } : {}),
   })
   holder.jobs = jobs
   watcher.start()

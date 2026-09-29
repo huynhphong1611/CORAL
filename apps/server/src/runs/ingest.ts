@@ -23,6 +23,8 @@ export interface IngestDeps {
 export function registerIngest(deps: IngestDeps): void {
   const control = runControl(deps.db)
   const { gateway, dispatcher } = deps
+  // Registered before the app exists: fall back to the gateway's logger once it has one.
+  const log = () => deps.log ?? gateway.logger
 
   /** The run, when `ctx.agent` owns it; undefined otherwise. */
   async function ownRun(ctx: AgentContext, runId: string): Promise<RunRow | undefined> {
@@ -32,10 +34,7 @@ export function registerIngest(deps: IngestDeps): void {
       assignment.run.tenantId !== ctx.agent.tenantId ||
       assignment.device.agentId !== ctx.agent.id
     ) {
-      deps.log?.warn(
-        { agent: ctx.agent.id, run: runId },
-        'message for a run this agent does not hold',
-      )
+      log()?.warn({ agent: ctx.agent.id, run: runId }, 'message for a run this agent does not hold')
       ctx.reply('error', {
         code: 'unknown_run',
         message: `run ${runId} is not assigned to this agent`,
@@ -162,7 +161,7 @@ export function registerIngest(deps: IngestDeps): void {
       await control.finishRun(run.id, 'error', 'DEVICE_OFFLINE', 'DEVICE_OFFLINE')
       await control.releaseLease(runHolder(run.id), 'agent_offline')
       await dispatcher.clearTimeout(run.id)
-      deps.log?.warn({ run: run.id, agent: agent.id }, 'run ended: agent offline')
+      log()?.warn({ run: run.id, agent: agent.id }, 'run ended: agent offline')
     }
   })
 }

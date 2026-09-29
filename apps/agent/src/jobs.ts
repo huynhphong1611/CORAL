@@ -10,6 +10,7 @@ import {
 import { createPopupGuard, runTestCase, type Clock, type DeviceDriver } from '@coral/runner'
 import type { Logger } from 'pino'
 import type { AgentConnection } from './connection'
+import type { SecretValues } from './log'
 import { UploadSink } from './upload-sink'
 
 type Assign = protocol.Payload<'job.assign'>
@@ -30,6 +31,8 @@ export interface JobDeps {
   fetch?: typeof fetch
   clock?: Clock
   log?: Pick<Logger, 'info' | 'warn' | 'error'>
+  /** Every secret of every job is added here, so the agent's logger masks it (D19). */
+  secrets?: SecretValues
 }
 
 interface ActiveJob {
@@ -71,6 +74,7 @@ export class JobManager {
 
   private assign(messageId: string, job: Assign): void {
     const { connection } = this.deps
+    this.deps.secrets?.add(Object.values(job.secrets))
     if (this.active.has(job.device_udid)) {
       connection.send('job.reject', { run_id: job.run_id, reason: 'device busy' }, messageId)
       return

@@ -76,6 +76,11 @@ export class AgentGateway implements AgentConnections {
 
   constructor(private readonly options: GatewayOptions) {}
 
+  /** The server's logger, once register() ran. */
+  get logger(): FastifyBaseLogger | undefined {
+    return this.log
+  }
+
   get leaseTtlMs(): number {
     return this.options.leaseTtlMs ?? this.options.heartbeatMs * 4
   }

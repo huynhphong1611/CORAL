@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { api, newId } from '@coral/shared'
+import { api, newId, type LogLevel } from '@coral/shared'
 import type { InjectOptions } from 'fastify'
 import { hashPassword } from '../auth/password'
 import { DEV_JWT_SECRET, loadConfig } from '../config'
@@ -31,6 +31,7 @@ export async function startTestServer(
     | ((
         base: Required<Pick<ServerDeps, 'db' | 'store' | 'artifacts'>>,
       ) => Partial<ServerDeps>) = {},
+  logging: { level?: LogLevel; stream?: { write(line: string): void } } = {},
 ) {
   const config = loadConfig(process.env)
   const database = createDatabase(config.databaseUrl)
@@ -40,7 +41,14 @@ export async function startTestServer(
   await artifacts.ensureBucket()
   const base = { db: database.db, store, artifacts }
   const deps: ServerDeps = { ...base, ...(typeof extra === 'function' ? extra(base) : extra) }
-  const app = buildServer({ logLevel: 'silent', jwtSecret: DEV_JWT_SECRET }, deps)
+  const app = buildServer(
+    {
+      logLevel: logging.level ?? 'silent',
+      jwtSecret: DEV_JWT_SECRET,
+      ...(logging.stream ? { logStream: logging.stream } : {}),
+    },
+    deps,
+  )
   await app.ready()
 
   /** Seeds a user in a brand-new tenant and logs in. */
