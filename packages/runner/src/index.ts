@@ -17,7 +17,9 @@ export {
   nullSink,
   type ArtifactSink,
   type ItemResult,
+  type StepArtifactRefs,
   type StepFiles,
+  type StepRef,
   type StepResult,
 } from './core/artifacts'
 export {
