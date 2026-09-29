@@ -19,7 +19,10 @@ const aiPackages = (closure: Set<string>) =>
 describe('SC-010: no AI on the replay path', () => {
   // A package each closure must contain, so an empty walk cannot pass by accident.
   const cases = [
-    ['@coral/runner', ['@coral/shared', 'zod', 'fast-xml-parser']],
+    [
+      '@coral/runner',
+      ['@coral/shared', 'zod', 'fast-xml-parser', 'fast-png', '@techstark/opencv-js'],
+    ],
     ['@coral/agent', ['@coral/runner', 'ws', 'pino', 'fast-xml-parser']],
     ['@coral/cli', ['@coral/runner', 'commander', 'yaml']],
   ] as const

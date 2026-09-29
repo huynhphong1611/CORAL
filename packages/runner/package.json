@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@coral/shared": "workspace:*",
+    "@techstark/opencv-js": "5.0.0-release.1",
+    "fast-png": "^8.0.0",
     "fast-xml-parser": "^5.11.1",
     "fflate": "^0.8.3"
   },
