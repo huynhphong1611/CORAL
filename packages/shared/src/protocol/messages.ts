@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { FAILURE_CODES } from '../failure-codes'
 import { STEP_ID_PATTERN } from '../testcase/schema'
 import type { PROTOCOL_VERSION } from './envelope'
-import { MAX_MESSAGE_BYTES, envelopeSchema } from './envelope'
+import { MAX_MESSAGE_BYTES } from './envelope'
+import { parseEnvelope, type ParseFailure } from './parse'
 
 // ---- shared payload parts (contracts/ws-protocol.md) --------------------------------------------
 
@@ -175,57 +176,18 @@ export type Message = {
   }
 }[MessageType]
 
-export type ParseResult =
-  | { ok: true; message: Message }
-  | {
-      ok: false
-      code: 'too_large' | 'invalid_json' | 'invalid_message'
-      message: string
-      id?: string
-    }
+export type ParseResult = { ok: true; message: Message } | ParseFailure
 
-/** UTF-8 byte length without Node or DOM globals (this package runs in both). */
-function utf8Length(text: string): number {
-  let bytes = 0
-  for (const char of text) {
-    const code = char.codePointAt(0) ?? 0
-    bytes += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4
-  }
-  return bytes
-}
-
-/** Parses and validates one raw WebSocket text frame. Never throws. */
+/** Parses and validates one raw WebSocket text frame from/to an agent. Never throws. */
 export function parseMessage(raw: string): ParseResult {
-  if (utf8Length(raw) > MAX_MESSAGE_BYTES) {
-    return { ok: false, code: 'too_large', message: `message exceeds ${MAX_MESSAGE_BYTES} bytes` }
+  const parsed = parseEnvelope(raw, {
+    schemas: payloadSchemas,
+    replyTypes: REPLY_TYPES,
+    maxBytes: MAX_MESSAGE_BYTES,
+  })
+  if (!parsed.ok) return parsed
+  return {
+    ok: true,
+    message: { ...parsed.envelope, type: parsed.type, payload: parsed.payload } as Message,
   }
-  let json: unknown
-  try {
-    json = JSON.parse(raw)
-  } catch {
-    return { ok: false, code: 'invalid_json', message: 'message is not valid JSON' }
-  }
-  const env = envelopeSchema.safeParse(json)
-  if (!env.success) {
-    const id = (json as { id?: unknown } | null)?.id
-    return {
-      ok: false,
-      code: 'invalid_message',
-      message: z.prettifyError(env.error),
-      ...(typeof id === 'string' ? { id } : {}),
-    }
-  }
-  const { type, id, re } = env.data
-  if (!(type in payloadSchemas)) {
-    return { ok: false, code: 'invalid_message', message: `unknown type "${type}"`, id }
-  }
-  const messageType = type as MessageType
-  if (REPLY_TYPES.has(messageType) && !re) {
-    return { ok: false, code: 'invalid_message', message: `"${type}" must carry "re"`, id }
-  }
-  const payload = payloadSchemas[messageType].safeParse(env.data.payload)
-  if (!payload.success) {
-    return { ok: false, code: 'invalid_message', message: z.prettifyError(payload.error), id }
-  }
-  return { ok: true, message: { ...env.data, type: messageType, payload: payload.data } as Message }
 }
