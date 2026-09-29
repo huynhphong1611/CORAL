@@ -1,12 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: (template) → 1.0.0
-- Principles added: I. AI writes, scripts run (P1) · II. Locate, don't memorise coordinates (P2)
-  · III. No blind healing (P3) · IV. Provider-neutral knowledge (P4) · V. Tenant isolation from day one (P5)
-  · VI. Safe operation (P6)
-- Sections added: Engineering Constraints, Development Workflow, Governance
-- Templates: .specify/templates/plan-template.md ✅ (Constitution Check reads this file)
-  · spec-template.md ✅ · tasks-template.md ✅ — no edits required
+- Version change: 1.0.0 → 1.0.1 (PATCH: wording)
+- Engineering Constraints: device tests (`*.device.test.ts`) run on an Android emulator in the Device
+  workflow instead of "never in CI" (SPEC D37); principles unchanged
+- Templates: no edits required
 - Follow-up TODOs: none
 -->
 
@@ -56,7 +53,9 @@ reset, wiping data outside the app under test).
 - Zod validates everything entering from outside: YAML, WebSocket messages, API requests, LLM output,
   environment variables.
 - Wire formats (YAML, JSON API, WS, DB columns) use `snake_case`; TypeScript code uses `camelCase` (D12).
-- Tests use Vitest; tests needing a real device are named `*.device.test.ts` and never run in CI (D21).
+- Tests use Vitest; tests needing a real device are named `*.device.test.ts`: skipped by default and
+  in the regular CI jobs, they run on an Android emulator in the Device workflow
+  (`.github/workflows/device.yml`) and locally with `pnpm test:device` (D21, D37).
 - Database changes go through Drizzle migrations; an applied migration is never edited.
 - Code, identifiers, comments and commit messages are in English; conversation with the project owner
   is in Vietnamese.
@@ -81,4 +80,4 @@ reset, wiping data outside the app under test).
 - Every plan's Constitution Check MUST evaluate principles I–VI; violations need an entry in the
   plan's Complexity Tracking with the rejected simpler alternative.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-28 | **Last Amended**: 2026-09-28
+**Version**: 1.0.1 | **Ratified**: 2026-09-28 | **Last Amended**: 2026-09-29

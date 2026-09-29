@@ -171,13 +171,13 @@ Người dùng tạo app, tải build lên và tạo agent token ngay trên web 
 
 **Recorder**
 - **FR-010**: Phiên ghi MUST bắt đầu bằng việc giữ thiết bị, cài build đã chọn (nếu chưa có đúng bản), mở app ở trạng thái sạch và ghi step khởi động; `preconditions` mặc định `app_state: fresh`.
-- **FR-011**: Với mỗi chạm, Recorder MUST xác định element đích = element bấm được nhỏ nhất chứa điểm chạm trên cây element đọc sau khi màn hình ổn định (SPEC §11.1), rồi trích **toàn bộ** locator áp dụng được theo thứ tự ưu tiên §7.2 từ cây element (không bao giờ tự đặt locator), cắt ảnh element, lưu snapshot (ảnh màn hình + cây element) của step.
+- **FR-011**: Với mỗi chạm, Recorder MUST xác định element đích trên cây element đọc sau khi màn hình ổn định = element nhận chạm theo SPEC §8.4 (D36) nếu nó bấm được, không thì element bấm được nhỏ nhất chứa điểm chạm (SPEC §11.1), rồi trích **toàn bộ** locator áp dụng được theo thứ tự ưu tiên §7.2 từ cây element (không bao giờ tự đặt locator), cắt ảnh element, lưu snapshot (ảnh màn hình + cây element) của step.
 - **FR-012**: Chuỗi locator do Recorder tạo MUST: có ít nhất một locator xác định đúng element lúc ghi; tọa độ phần trăm chỉ ở cuối và chỉ khi không locator nào khác xác định được element duy nhất (P2); locator ảnh được thêm cho mọi step chạm.
 - **FR-013**: Recorder MUST ghi được các loại step: `launch`, `tap`, `long_press`, `swipe`, `type`, `back`, `hide_keyboard`, và thêm kỳ vọng (`visible_text`, `visible` theo element, `not_visible`) cho step vừa ghi bằng cách chọn trên màn hình. Mỗi lần gửi chuỗi từ ô nhập (FR-008) tạo đúng một step `type` nhắm vào ô đang chọn (target = chuỗi locator của ô đó).
 - **FR-013a**: Sau mỗi step chạm (hoặc chạm giữ, vuốt, Back), Recorder MUST đề xuất 1–3 kỳ vọng lấy từ màn hình mới đã ổn định, không dùng AI: ưu tiên chữ hoặc element vừa xuất hiện so với màn hình trước, và element vừa biến mất (`not_visible`); người dùng bấm để thêm từng đề xuất hoặc bỏ qua. Step chạm không có kỳ vọng nào được đánh dấu cảnh báo trong bản ghi và khi lưu (như cảnh báo `no_expect_after_tap` của `coral validate`), nhưng vẫn lưu được.
 - **FR-014**: Gõ chữ vào ô mật khẩu MUST lưu dạng `${secret:TÊN}` do người dùng chọn; giá trị đã gõ không bao giờ được lưu vào test case, snapshot hay log (P5, D19). Chữ trùng giá trị secret đã biết → đề xuất thay bằng tham chiếu secret.
 - **FR-015**: Thao tác vào popup mà luật popup của project xử lý được MUST được thực hiện nhưng không thành step; thao tác vào nút thuộc `never_tap` MUST kèm cảnh báo trên step.
-- **FR-016**: Bản ghi đang dở MUST không mất khi tải lại trang hoặc mất kết nối ngắn trên cùng trình duyệt; người dùng có thể xóa, sắp xếp lại step và sửa YAML trước khi lưu.
+- **FR-016**: Bản ghi đang dở MUST không mất khi tải lại trang hoặc mất kết nối ngắn trên cùng trình duyệt; trước khi lưu, người dùng có thể xóa, sắp xếp lại step, sửa tên, `intent` và kỳ vọng, xem trước YAML; sửa YAML tự do làm trong editor sau khi lưu (US5).
 - **FR-017**: Lưu bản ghi MUST: kiểm tra hợp lệ như `coral validate` (Phase 1); nếu hợp lệ, ghi test case + ảnh element + snapshot vào kho git của project thành **một** commit (§13); test case lỗi không được lưu.
 
 **Editor**
@@ -237,3 +237,4 @@ Người dùng tạo app, tải build lên và tạo agent token ngay trên web 
 - Q: Ai được giữ và điều khiển thiết bị, ghi và lưu test case từ web? → A: `owner`, `admin`, `member`; `viewer` chỉ xem (FR-002a).
 - Q: Khi ghi test, người dùng nhập chữ vào ô trên thiết bị bằng cách nào? → A: Ô nhập riêng trên web, gửi cả chuỗi một lần → một step `type` (FR-008, FR-013).
 - Q: Sau mỗi cú chạm khi ghi, Recorder xử lý kỳ vọng thế nào? → A: Đề xuất 1–3 kỳ vọng từ màn hình mới (không AI), người dùng chọn hoặc bỏ qua; step chạm không có kỳ vọng bị cảnh báo nhưng vẫn lưu được (FR-013a).
+- Q (từ `/speckit-analyze`): Có sửa YAML tự do trong Recorder trước khi lưu không? → A: Không; trước khi lưu chỉ sửa theo step (xóa, sắp xếp, tên, `intent`, kỳ vọng) và xem trước YAML; sửa YAML tự do trong editor sau khi lưu (FR-016). Huynh duyệt.

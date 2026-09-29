@@ -71,7 +71,7 @@ Mỗi mục: **Decision** / **Rationale** / **Alternatives**. Các điểm đã 
 
 ## R10. Bản ghi (recording) lưu ở đâu
 
-- **Decision**: server giữ bản ghi dở trong bảng `recordings` (steps jsonb) — không mất khi tải lại trang hoặc đổi máy (FR-016). Mỗi step ghi kèm snapshot tải lên S3 dưới `<tenant_id>/recordings/<recording_id>/<n>/{screen.jpg, tree.json, element.png}` bằng presigned URL do server sinh (như artifact Phase 1, T062). Bản ghi tự hết hạn sau 7 ngày không dùng (job dọn, xóa cả object S3). Người dùng sửa, xóa, sắp xếp step bằng API; YAML sinh ra từ steps + `intent`/tên người dùng nhập, có thể sửa tay trước khi lưu.
+- **Decision**: server giữ bản ghi dở trong bảng `recordings` (steps jsonb) — không mất khi tải lại trang hoặc đổi máy (FR-016). Mỗi step ghi kèm snapshot tải lên S3 dưới `<tenant_id>/recordings/<recording_id>/<n>/{screen.jpg, tree.json, element.png}` bằng presigned URL do server sinh (như artifact Phase 1, T062). Bản ghi tự hết hạn sau 7 ngày không dùng (job dọn, xóa cả object S3). Người dùng sửa, xóa, sắp xếp step bằng API; YAML sinh ra từ steps + `intent`/tên người dùng nhập, xem trước được; sửa YAML tự do làm trong editor sau khi lưu (FR-016).
 - **Rationale**: bản ghi sống lâu hơn một phiên trình duyệt; snapshot cần có trước khi lưu để editor xem trước.
 - **Alternatives**: chỉ `localStorage` (mất khi đổi máy, snapshot không có chỗ lưu).
 
