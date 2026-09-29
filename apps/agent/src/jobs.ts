@@ -1,8 +1,13 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { validateTestCaseSource, type FailureCode, type protocol } from '@coral/shared'
-import { runTestCase, type Clock, type DeviceDriver } from '@coral/runner'
+import {
+  validatePopupsSource,
+  validateTestCaseSource,
+  type FailureCode,
+  type protocol,
+} from '@coral/shared'
+import { createPopupGuard, runTestCase, type Clock, type DeviceDriver } from '@coral/runner'
 import type { Logger } from 'pino'
 import type { AgentConnection } from './connection'
 import { UploadSink } from './upload-sink'
@@ -114,6 +119,9 @@ export class JobManager {
     let failureCode: FailureCode | undefined
     let driver: RunnableDriver | undefined
     try {
+      // Rules at the run's pinned commit; the server validated them when they were saved.
+      const popups = validatePopupsSource(job.popups_yaml, 'popups.yaml').value
+      if (!popups) throw new Error('popups.yaml of the run is not valid')
       const apk = await this.build(job.build)
       driver = await this.deps.createDriver({ udid: job.device_udid, appId: job.build.package })
       await driver.open()
@@ -141,6 +149,7 @@ export class JobManager {
         const result = await runTestCase({
           driver,
           testCase: parsed.value,
+          popupGuard: createPopupGuard({ popups, driver }),
           appId: job.build.package,
           secrets: job.secrets,
           sink: new UploadSink(

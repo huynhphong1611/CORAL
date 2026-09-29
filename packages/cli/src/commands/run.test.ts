@@ -8,31 +8,46 @@ import { createProgram } from '../program'
 import { secretsFromEnv } from './run'
 
 const APP = 'com.example.app'
-const login = windows(
+const loginWindow = el({
+  bounds: [0, 0, 1080, 2400],
+  children: [
+    el({
+      platform_id: `${APP}:id/user`,
+      class: 'android.widget.EditText',
+      clickable: true,
+      bounds: [100, 100, 800, 120],
+    }),
+    el({
+      text: 'Login',
+      class: 'android.widget.Button',
+      clickable: true,
+      bounds: [100, 300, 800, 120],
+    }),
+  ],
+})
+const login = windows(APP, loginWindow)
+const homeWindow = el({
+  bounds: [0, 0, 1080, 2400],
+  children: [el({ text: 'Products', bounds: [0, 100, 1080, 100] })],
+})
+const home = windows(APP, homeWindow)
+
+const PERMISSION = 'com.google.android.permissioncontroller'
+const permission = windows(
   APP,
+  loginWindow,
   el({
+    package_or_bundle: PERMISSION,
     bounds: [0, 0, 1080, 2400],
     children: [
       el({
-        platform_id: `${APP}:id/user`,
-        class: 'android.widget.EditText',
-        clickable: true,
-        bounds: [100, 100, 800, 120],
-      }),
-      el({
-        text: 'Login',
+        package_or_bundle: PERMISSION,
+        text: 'While using the app',
         class: 'android.widget.Button',
         clickable: true,
-        bounds: [100, 300, 800, 120],
+        bounds: [120, 1200, 840, 120],
       }),
     ],
-  }),
-)
-const home = windows(
-  APP,
-  el({
-    bounds: [0, 0, 1080, 2400],
-    children: [el({ text: 'Products', bounds: [0, 100, 1080, 100] })],
   }),
 )
 
@@ -74,7 +89,9 @@ beforeAll(async () => {
 })
 afterAll(() => rm(dir, { recursive: true, force: true }))
 
-function setup(opts: { devices?: DeviceRow[]; env?: Record<string, string> } = {}) {
+function setup(
+  opts: { devices?: DeviceRow[]; env?: Record<string, string>; permissionPopup?: boolean } = {},
+) {
   const created: string[] = []
   let driver: FakeDriver | undefined
   const deps: CliDeps = {
@@ -96,7 +113,11 @@ function setup(opts: { devices?: DeviceRow[]; env?: Record<string, string> } = {
     createDriver: ({ udid }) => {
       created.push(udid)
       driver = new FakeDriver({
-        screens: { login: { frames: [login], taps: { Login: 'home' } }, home: { frames: [home] } },
+        screens: {
+          login: { frames: [login], taps: { Login: opts.permissionPopup ? 'permission' : 'home' } },
+          permission: { frames: [permission], taps: { 'While using the app': 'home' } },
+          home: { frames: [home] },
+        },
         start: 'login',
       })
       const runnable = Object.assign(driver, {
@@ -151,6 +172,19 @@ describe('coral run', () => {
       kind: 'type',
       text: 'bob@example.com',
     })
+  })
+
+  it('dismisses a permission popup with the bundled popup rules', async () => {
+    const result = await setup({ permissionPopup: true }).run([
+      'run',
+      join(dir, 'login.yaml'),
+      '--app',
+      APP,
+      '--out',
+      join(dir, 'out-popup'),
+    ])
+    expect(result.code).toBe(0)
+    expect(result.out).toMatch(/✓ s3 .*popups: android_permission/)
   })
 
   it('exits 1 when a test case fails', async () => {

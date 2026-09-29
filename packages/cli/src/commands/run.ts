@@ -10,6 +10,7 @@ import {
 } from '@coral/shared'
 import {
   LocalDirSink,
+  createPopupGuard,
   RunSetupError,
   missingSecrets,
   runTestCase,
@@ -129,8 +130,7 @@ export function runCommand(io: CliIo, deps: () => CliDeps): Command {
         }
         // Everything that can be checked without a device comes first.
         const testCases = await loadTestCases(files)
-        // Loaded and validated now; the popup guard that uses them arrives with US4.
-        await loadPopups(options.popups)
+        const popups = await loadPopups(options.popups)
         for (const testCase of testCases) {
           if (!testCase.platforms.includes('android')) {
             throw new UsageError(
@@ -165,6 +165,7 @@ export function runCommand(io: CliIo, deps: () => CliDeps): Command {
           const result = await runTestCase({
             driver,
             testCase,
+            popupGuard: createPopupGuard({ popups, driver }),
             appId: options.app,
             secrets,
             sink,

@@ -267,6 +267,21 @@ describe('JobManager', () => {
     expect(t.drivers[0]?.closed).toBe(1)
   })
 
+  it('ends with error when the popup rules of the run are not valid', async () => {
+    const t = setup()
+    t.manager.handle(
+      protocol.envelope('job.assign', {
+        ...assign(),
+        popups_yaml: 'schema: nope',
+      }),
+    )
+    await t.manager.drain()
+    expect(t.sent.at(-1)).toMatchObject({
+      type: 'job.done',
+      payload: { status: 'error', failure_code: 'DRIVER_ERROR' },
+    })
+  })
+
   it('ends with error when the build checksum does not match', async () => {
     const t = setup({ apk: Buffer.from('tampered') })
     await rm(join(cacheDir, 'builds'), { recursive: true, force: true })
