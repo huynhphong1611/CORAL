@@ -3,7 +3,16 @@ import { sql } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 import { loadConfig } from '../config'
 import { createDatabase } from './client'
-import { BUSINESS_TABLES, agents, devices, leases, tenants } from './schema'
+import {
+  BUSINESS_TABLES,
+  agents,
+  deviceCommands,
+  devices,
+  leases,
+  liveSessions,
+  tenants,
+  users,
+} from './schema'
 
 const database = createDatabase(loadConfig(process.env).databaseUrl)
 const { db } = database
@@ -37,11 +46,11 @@ async function seedDevice() {
   return { tenantId: tenant.id, deviceId: device.id }
 }
 
-const lease = (tenantId: string, deviceId: string) => ({
+const lease = (tenantId: string, deviceId: string, kind: 'run' | 'live' | 'recording' = 'run') => ({
   tenantId,
   deviceId,
-  kind: 'run' as const,
-  holderRef: `run:${newId()}`,
+  kind,
+  holderRef: `${kind}:${newId()}`,
   expiresAt: new Date(Date.now() + 60_000),
 })
 
@@ -78,5 +87,56 @@ describe('Phase 1 schema (data-model.md)', () => {
         sql`update devices set status = 'broken' where id = ${deviceId} and tenant_id = ${tenantId}`,
       ),
     ).rejects.toMatchObject({ cause: { constraint: 'devices_status' } })
+  })
+})
+
+describe('Phase 2 schema (specs/003-phase-2-web-recorder/data-model.md)', () => {
+  async function seedUser() {
+    const [user] = await db
+      .insert(users)
+      .values({ email: `u-${newId()}@coral.test`, passwordHash: 'x', name: 'Huynh' })
+      .returning()
+    if (!user) throw new Error('no user')
+    return user.id
+  }
+
+  it('never lets a control session or a recording share a device with a run (SC-006)', async () => {
+    for (const second of ['live', 'recording'] as const) {
+      const { tenantId, deviceId } = await seedDevice()
+      await db.insert(leases).values(lease(tenantId, deviceId, 'run'))
+      await expect(db.insert(leases).values(lease(tenantId, deviceId, second))).rejects.toThrow()
+    }
+  })
+
+  it('keeps one open live session per device', async () => {
+    const { tenantId, deviceId } = await seedDevice()
+    const userId = await seedUser()
+    const [held] = await db
+      .insert(leases)
+      .values(lease(tenantId, deviceId, 'live'))
+      .returning()
+    if (!held) throw new Error('no lease')
+    const session = { tenantId, deviceId, userId, leaseId: held.id }
+    await db.insert(liveSessions).values(session)
+    await expect(db.insert(liveSessions).values(session)).rejects.toThrow()
+  })
+
+  it('rejects unknown command kinds and statuses (FR-009)', async () => {
+    const { tenantId, deviceId } = await seedDevice()
+    const userId = await seedUser()
+    await expect(
+      db
+        .insert(deviceCommands)
+        .values({ tenantId, deviceId, userId, kind: 'tap', params: { x: 1, y: 2 } }),
+    ).resolves.toBeDefined()
+    await expect(
+      db.execute(
+        sql`insert into device_commands (id, tenant_id, device_id, user_id, kind) values (${newId()}, ${tenantId}, ${deviceId}, ${userId}, 'shell')`,
+      ),
+    ).rejects.toMatchObject({ cause: { constraint: 'device_commands_kind' } })
+    await db.insert(leases).values(lease(tenantId, deviceId, 'recording'))
+    await expect(
+      db.execute(sql`update leases set kind = 'party' where device_id = ${deviceId}`),
+    ).rejects.toMatchObject({ cause: { constraint: 'leases_kind' } })
   })
 })

@@ -190,13 +190,16 @@ export const devices = pgTable(
   ],
 )
 
-export const LEASE_KINDS = ['run', 'exploration', 'live'] as const
+export const LEASE_KINDS = ['run', 'exploration', 'live', 'recording'] as const
 export const LEASE_RELEASE_REASONS = [
   'done',
   'cancelled',
   'timeout',
   'agent_offline',
   'ack_timeout',
+  // Phase 2: a person let go of the device, or a recording took over their control session.
+  'released',
+  'replaced_by_recording',
 ] as const
 
 export const leases = pgTable(
@@ -390,6 +393,135 @@ export const auditLog = pgTable(
   (t) => [index().on(t.tenantId, t.createdAt.desc())],
 )
 
+// ---- Phase 2: live control and the Recorder (specs/003-phase-2-web-recorder/data-model.md) --------
+
+export const LIVE_END_REASONS = [
+  'released',
+  'idle_timeout',
+  'agent_offline',
+  'replaced_by_recording',
+] as const
+
+/** A person holding a device from the browser (lease kind `live`, research R7). */
+export const liveSessions = pgTable(
+  'live_sessions',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    deviceId: uuid()
+      .notNull()
+      .references(() => devices.id),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id),
+    leaseId: uuid()
+      .notNull()
+      .references(() => leases.id),
+    startedAt: createdAt(),
+    lastCommandAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp({ withTimezone: true }),
+    endReason: text({ enum: LIVE_END_REASONS }),
+  },
+  (t) => [
+    uniqueIndex('live_sessions_one_open_per_device')
+      .on(t.deviceId)
+      .where(sql`${t.endedAt} is null`),
+    check(
+      'live_sessions_end_reason',
+      sql`end_reason is null or ${oneOf('end_reason', LIVE_END_REASONS)}`,
+    ),
+  ],
+)
+
+export const RECORDING_STATUSES = ['recording', 'stopped', 'saved', 'discarded', 'expired'] as const
+
+/** A recording in progress (research R10): draft steps with snapshots, not yet a test case. */
+export const recordings = pgTable(
+  'recordings',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    projectId: uuid()
+      .notNull()
+      .references(() => projects.id),
+    appId: uuid()
+      .notNull()
+      .references(() => apps.id),
+    buildId: uuid()
+      .notNull()
+      .references(() => builds.id),
+    deviceId: uuid()
+      .notNull()
+      .references(() => devices.id),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id),
+    // Null once stopped: the device is free again, the recording can still be edited and saved.
+    leaseId: uuid().references(() => leases.id),
+    status: text({ enum: RECORDING_STATUSES }).notNull().default('recording'),
+    steps: jsonb().notNull().default([]),
+    intent: text().notNull().default(''),
+    slug: text().notNull(),
+    testCaseId: uuid().references(() => testCases.id),
+    createdAt: createdAt(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    savedAt: timestamp({ withTimezone: true }),
+    // updated_at + 7 days; the cleanup job expires it and deletes its objects.
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (t) => [
+    index().on(t.tenantId, t.projectId, t.updatedAt.desc()),
+    index().on(t.status, t.expiresAt),
+    check('recordings_status', oneOf('status', RECORDING_STATUSES)),
+  ],
+)
+
+export const DEVICE_COMMAND_KINDS = [
+  'tap',
+  'long_press',
+  'swipe',
+  'type',
+  'back',
+  'home',
+  'hide_keyboard',
+  'restart_app',
+  'prepare',
+  'record',
+  'inspect',
+] as const
+export const DEVICE_COMMAND_STATUSES = ['sent', 'ok', 'failed', 'rejected'] as const
+
+/**
+ * Audit of every command sent to a device from the browser (FR-009). `params` never holds typed
+ * text — only its length, and the secret's name for a password field (FR-014).
+ */
+export const deviceCommands = pgTable(
+  'device_commands',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    deviceId: uuid()
+      .notNull()
+      .references(() => devices.id),
+    liveSessionId: uuid().references(() => liveSessions.id),
+    recordingId: uuid().references(() => recordings.id),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id),
+    kind: text({ enum: DEVICE_COMMAND_KINDS }).notNull(),
+    params: jsonb().notNull().default({}),
+    status: text({ enum: DEVICE_COMMAND_STATUSES }).notNull().default('sent'),
+    error: text(),
+    createdAt: createdAt(),
+    finishedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    index().on(t.tenantId, t.deviceId, t.createdAt.desc()),
+    check('device_commands_kind', oneOf('kind', DEVICE_COMMAND_KINDS)),
+    check('device_commands_status', oneOf('status', DEVICE_COMMAND_STATUSES)),
+  ],
+)
+
 /** Tables that must carry tenant_id (P5); used by the schema test. */
 export const BUSINESS_TABLES = [
   'memberships',
@@ -405,4 +537,7 @@ export const BUSINESS_TABLES = [
   'run_items',
   'run_steps',
   'audit_log',
+  'live_sessions',
+  'recordings',
+  'device_commands',
 ] as const
