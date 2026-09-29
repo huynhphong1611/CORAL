@@ -66,6 +66,21 @@ describe('checkManifests', () => {
     expect(violations).toHaveLength(2)
   })
 
+  it('keeps Node-only packages out of the browser app', () => {
+    const violations = checkManifests([
+      pkg(
+        '@coral/web',
+        'apps/web',
+        { '@coral/shared': 'workspace:*' },
+        { '@coral/runner': 'workspace:*' },
+      ),
+      pkg('@coral/runner', 'packages/runner'),
+      pkg('@coral/shared', 'packages/shared'),
+    ])
+    expect(violations).toHaveLength(1)
+    expect(violations[0]).toContain('Node-only "@coral/runner"')
+  })
+
   it('rejects an app depending on another app', () => {
     const violations = checkManifests([
       pkg('@coral/server', 'apps/server'),

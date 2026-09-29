@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import { defineConfig } from 'eslint/config'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
-import { restrictedImports } from './scripts/boundaries.mjs'
+import { NODE_ONLY_PACKAGES, restrictedImports } from './scripts/boundaries.mjs'
 
 const APPS = ['@coral/server', '@coral/web', '@coral/agent']
 
@@ -27,6 +27,13 @@ const RUNNER_CORE = {
   groups: ['**/drivers', '**/drivers/**'],
   message:
     'D28: the runner core only talks to UiDriver/TargetLifecycle; driver code lives in drivers/.',
+}
+
+/** The web app runs in the browser: no Node built-ins, no Node-only workspace packages. */
+const BROWSER = {
+  names: NODE_ONLY_PACKAGES,
+  groups: ['node:*', ...NODE_ONLY_PACKAGES.map((name) => `${name}/*`)],
+  message: 'apps/web runs in the browser: no node:* modules or Node-only packages (@coral/runner).',
 }
 
 /** Constitution V: HTTP routes reach the database only through tenant-scoped repositories. */
@@ -76,6 +83,18 @@ export default defineConfig(
       'no-restricted-imports': [
         'error',
         restrictedImports({ llmSdks: true, brain: true, apps: APPS }),
+      ],
+    },
+  },
+  {
+    files: ['apps/web/src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        withExtraRestrictions(
+          restrictedImports({ llmSdks: true, brain: true, apps: APPS }),
+          BROWSER,
+        ),
       ],
     },
   },

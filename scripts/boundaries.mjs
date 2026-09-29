@@ -4,12 +4,17 @@
  *   1. Only `@coral/brain` may depend on an LLM SDK.
  *   2. Only `@coral/server` may depend on `@coral/brain`.
  *   3. Apps (`apps/*`) never depend on other apps.
+ *   4. The browser app (`@coral/web`) never depends on Node-only workspace packages such as the
+ *      runner: it reaches devices through the server (Phase 2 plan).
  * Rules 1–2 are also checked transitively through pnpm-lock.yaml, so a runtime
  * package cannot reach an LLM SDK through a workspace package or a third-party one.
  */
 
 export const BRAIN_PACKAGE = '@coral/brain'
 export const BRAIN_CONSUMERS = ['@coral/server']
+export const BROWSER_APP = '@coral/web'
+/** Workspace packages that need Node (processes, sockets, the file system). */
+export const NODE_ONLY_PACKAGES = ['@coral/runner', '@coral/cli']
 
 /** Exact names, or `@scope/*` for a whole scope. */
 export const LLM_SDK_PATTERNS = [
@@ -85,6 +90,11 @@ export function checkManifests(packages) {
         if (dep === BRAIN_PACKAGE && !BRAIN_CONSUMERS.includes(pkg.name)) {
           violations.push(
             `${pkg.name} (${field}) depends on ${BRAIN_PACKAGE} — only ${BRAIN_CONSUMERS.join(', ')} may.`,
+          )
+        }
+        if (pkg.name === BROWSER_APP && NODE_ONLY_PACKAGES.includes(dep)) {
+          violations.push(
+            `${pkg.name} (${field}) depends on Node-only "${dep}" — the web app runs in the browser.`,
           )
         }
         if (appNames.has(dep) && dep !== pkg.name) {

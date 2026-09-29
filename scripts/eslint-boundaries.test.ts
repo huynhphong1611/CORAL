@@ -56,6 +56,23 @@ describe('ESLint dependency boundaries', () => {
     expect(errors).toEqual([])
   })
 
+  it('keeps the web app off Node built-ins and the runner (browser)', async () => {
+    const file = `${root}/apps/web/src/__eslint_probe__.ts`
+    for (const code of [
+      "import { readFileSync } from 'node:fs'\nexport const x = readFileSync\n",
+      "import { resolve } from '@coral/runner'\nexport const x = resolve\n",
+    ]) {
+      const errors = await restrictedImportErrors(code, file)
+      expect(errors.join('\n')).toContain('apps/web runs in the browser')
+    }
+    expect(
+      await restrictedImportErrors(
+        "import { parseYaml } from '@coral/shared'\nexport const x = parseYaml\n",
+        file,
+      ),
+    ).toEqual([])
+  })
+
   it('forbids routes from importing the database layer (constitution V)', async () => {
     const file = `${root}/apps/server/src/routes/__eslint_probe__.ts`
     const errors = await restrictedImportErrors(
