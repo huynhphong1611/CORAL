@@ -79,7 +79,7 @@ export function ControlPanel({
           {en.control.youControl}
           {releaseAt !== undefined && (
             <span className="block text-xs text-slate-500" data-testid="auto-release">
-              {en.control.autoRelease(clock(releaseAt - now))}
+              {en.control.autoRelease(clock(Math.min(releaseAt - now, mine.idle_timeout_ms)))}
             </span>
           )}
         </p>

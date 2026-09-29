@@ -42,8 +42,14 @@ export async function accessToken(account: Account): Promise<string> {
   return session.access_token
 }
 
-/** An owner in a brand-new tenant, created with the server's own db:seed. */
-export async function seedAccount(): Promise<Account> {
+/**
+ * An owner in a brand-new tenant, created with the server's own db:seed — or, with `teamOf`, a
+ * second person in that account's tenant with `role`.
+ */
+export async function seedAccount(teamOf?: {
+  account: Account
+  role: 'admin' | 'member' | 'viewer'
+}): Promise<Account> {
   const account = {
     email: `e2e-${randomBytes(4).toString('hex')}@coral.test`,
     password: `e2e-${randomBytes(12).toString('hex')}`,
@@ -53,10 +59,14 @@ export async function seedAccount(): Promise<Account> {
       ...process.env,
       CORAL_SEED_EMAIL: account.email,
       CORAL_SEED_PASSWORD: account.password,
+      ...(teamOf ? { CORAL_SEED_TEAM_OF: teamOf.account.email, CORAL_SEED_ROLE: teamOf.role } : {}),
     },
   })
   return account
 }
+
+/** The name the server shows for a seeded account (its email's local part). */
+export const nameOf = (account: Account) => account.email.split('@')[0] ?? account.email
 
 /**
  * Worker fixtures: `account` is an owner in a brand-new tenant, `fakeDevice` a coral-agent

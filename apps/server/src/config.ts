@@ -23,6 +23,9 @@ const envSchema = z.object({
   CORAL_JWT_SECRET: z.string().min(32, 'must be at least 32 characters').optional(),
   CORAL_SEED_EMAIL: z.email().optional(),
   CORAL_SEED_PASSWORD: z.string().min(8).optional(),
+  /** db:seed adds the user to this existing user's tenant (dev, E2E) instead of a new one. */
+  CORAL_SEED_TEAM_OF: z.email().optional(),
+  CORAL_SEED_ROLE: z.enum(['owner', 'admin', 'member', 'viewer']).default('member'),
   CORAL_HEARTBEAT_MS: z.coerce.number().int().min(100).default(15_000),
   CORAL_QUEUE_TIMEOUT_MS: z.coerce.number().int().min(1000).default(600_000),
   CORAL_RUN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(1_800_000),
@@ -46,7 +49,12 @@ export interface ServerConfig {
   dataDir: string
   maxBuildBytes: number
   jwtSecret: string
-  seed: { email?: string; password?: string }
+  seed: {
+    email?: string
+    password?: string
+    teamOf?: string
+    role: 'owner' | 'admin' | 'member' | 'viewer'
+  }
   timeouts: {
     heartbeatMs: number
     queueTimeoutMs: number
@@ -83,7 +91,12 @@ export function loadConfig(env: Record<string, string | undefined>): ServerConfi
     dataDir: e.CORAL_DATA_DIR,
     maxBuildBytes: e.CORAL_MAX_BUILD_MB * 1024 * 1024,
     jwtSecret: e.CORAL_JWT_SECRET ?? DEV_JWT_SECRET,
-    seed: { email: e.CORAL_SEED_EMAIL, password: e.CORAL_SEED_PASSWORD },
+    seed: {
+      email: e.CORAL_SEED_EMAIL,
+      password: e.CORAL_SEED_PASSWORD,
+      teamOf: e.CORAL_SEED_TEAM_OF,
+      role: e.CORAL_SEED_ROLE,
+    },
     timeouts: {
       heartbeatMs: e.CORAL_HEARTBEAT_MS,
       queueTimeoutMs: e.CORAL_QUEUE_TIMEOUT_MS,

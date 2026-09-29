@@ -189,8 +189,10 @@ export function LiveView({
           className={`block h-[70vh] max-h-[760px] w-auto touch-none select-none ${
             onGesture ? 'cursor-crosshair' : ''
           }`}
-          width={size?.width ?? 360}
-          height={size?.height ?? 780}
+          // Initial size only: drawFrame sizes the canvas to each frame. React must not set it
+          // again, since assigning width or height clears what was painted.
+          width={360}
+          height={780}
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
           onPointerCancel={() => (pointer.current = undefined)}
