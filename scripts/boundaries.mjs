@@ -126,6 +126,84 @@ function normalisePath(path) {
 }
 
 /**
+ * @typedef {object} Reached
+ * @property {string} name    real package name (the workspace name for `link:` entries)
+ * @property {string} alias   name the dependency is declared under (differs for npm aliases)
+ * @property {string[]} chain dependency names from the start package down to this one
+ */
+
+/**
+ * Walks the dependency closure of one workspace package through pnpm-lock.yaml (v9): workspace
+ * links and third-party snapshots alike, each package walked once. Every dependency entry met is
+ * returned; `stop(reached)` true keeps the walk from going below it.
+ * @param {Lockfile} lockfile
+ * @param {WorkspacePackage[]} packages
+ * @param {WorkspacePackage} start
+ * @param {{ dev: boolean, stop?: (reached: Reached) => boolean }} options  dev: include the
+ *   start package's devDependencies (never those of what it depends on)
+ * @returns {Reached[]}
+ */
+function walkLockfile(lockfile, packages, start, options) {
+  const importers = lockfile.importers ?? {}
+  const snapshots = lockfile.snapshots ?? {}
+  const nameByDir = new Map(packages.map((pkg) => [pkg.dir, pkg.name]))
+  const importer = importers[start.dir]
+  if (!importer) return []
+
+  /** @type {Reached[]} */
+  const reached = []
+  /** @type {Set<string>} */
+  const visited = new Set()
+  /** @type {Array<{ deps: LockDeps | Record<string, string>, fromDir: string | null, chain: string[] }>} */
+  const queue = [
+    { deps: importer.dependencies ?? {}, fromDir: start.dir, chain: [start.name] },
+    {
+      deps: options.dev ? (importer.devDependencies ?? {}) : {},
+      fromDir: start.dir,
+      chain: [start.name],
+    },
+    { deps: importer.optionalDependencies ?? {}, fromDir: start.dir, chain: [start.name] },
+  ]
+
+  while (queue.length > 0) {
+    const item = queue.shift()
+    if (!item) break
+    for (const [alias, entry] of Object.entries(item.deps)) {
+      const version = versionOf(entry)
+      const chain = [...item.chain, alias]
+
+      if (version.startsWith('link:')) {
+        const dir = normalisePath(`${item.fromDir ?? ''}/${version.slice('link:'.length)}`)
+        const hit = { name: nameByDir.get(dir) ?? alias, alias, chain }
+        reached.push(hit)
+        if (options.stop?.(hit) || visited.has(`link:${dir}`)) continue
+        visited.add(`link:${dir}`)
+        const linked = importers[dir]
+        if (linked) {
+          queue.push({ deps: linked.dependencies ?? {}, fromDir: dir, chain })
+          queue.push({ deps: linked.optionalDependencies ?? {}, fromDir: dir, chain })
+        }
+        continue
+      }
+
+      // Aliased dependencies store "real-name@version" as their version.
+      const key = snapshots[`${alias}@${version}`] ? `${alias}@${version}` : version
+      const at = key.indexOf('@', 1)
+      const hit = { name: at > 0 ? key.slice(0, at) : alias, alias, chain }
+      reached.push(hit)
+      if (options.stop?.(hit) || visited.has(key)) continue
+      visited.add(key)
+      const snapshot = snapshots[key]
+      if (snapshot) {
+        queue.push({ deps: snapshot.dependencies ?? {}, fromDir: null, chain })
+        queue.push({ deps: snapshot.optionalDependencies ?? {}, fromDir: null, chain })
+      }
+    }
+  }
+  return reached
+}
+
+/**
  * Walks the full dependency closure (workspace + third-party) of every workspace package
  * that is not allowed to reach an LLM SDK or @coral/brain, using pnpm-lock.yaml (v9).
  * @param {Lockfile} lockfile
@@ -133,69 +211,38 @@ function normalisePath(path) {
  * @returns {string[]}
  */
 export function checkLockfile(lockfile, packages) {
-  const importers = lockfile.importers ?? {}
-  const snapshots = lockfile.snapshots ?? {}
-  const nameByDir = new Map(packages.map((pkg) => [pkg.dir, pkg.name]))
+  /** @param {Reached} r */
+  const isSdk = (r) => isLlmSdk(r.name) || isLlmSdk(r.alias)
   /** @type {string[]} */
   const violations = []
-
   for (const pkg of packages) {
     if (pkg.name === BRAIN_PACKAGE || BRAIN_CONSUMERS.includes(pkg.name)) continue
-    const importer = importers[pkg.dir]
-    if (!importer) continue
-
-    /** @type {Set<string>} */
-    const visited = new Set()
-    /** @type {Array<{ deps: LockDeps | Record<string, string>, fromDir: string | null, chain: string[] }>} */
-    const queue = [
-      { deps: importer.dependencies ?? {}, fromDir: pkg.dir, chain: [pkg.name] },
-      { deps: importer.devDependencies ?? {}, fromDir: pkg.dir, chain: [pkg.name] },
-      { deps: importer.optionalDependencies ?? {}, fromDir: pkg.dir, chain: [pkg.name] },
-    ]
-
-    while (queue.length > 0) {
-      const item = queue.shift()
-      if (!item) break
-      for (const [name, entry] of Object.entries(item.deps)) {
-        const version = versionOf(entry)
-        const chain = [...item.chain, name]
-
-        if (version.startsWith('link:')) {
-          const dir = normalisePath(`${item.fromDir ?? ''}/${version.slice('link:'.length)}`)
-          const linkedName = nameByDir.get(dir) ?? name
-          if (linkedName === BRAIN_PACKAGE) {
-            violations.push(`${pkg.name} reaches ${BRAIN_PACKAGE}: ${chain.join(' → ')}`)
-            continue
-          }
-          if (visited.has(`link:${dir}`)) continue
-          visited.add(`link:${dir}`)
-          const linked = importers[dir]
-          if (linked) {
-            queue.push({ deps: linked.dependencies ?? {}, fromDir: dir, chain })
-            queue.push({ deps: linked.optionalDependencies ?? {}, fromDir: dir, chain })
-          }
-          continue
-        }
-
-        // Aliased dependencies store "real-name@version" as their version.
-        const key = snapshots[`${name}@${version}`] ? `${name}@${version}` : version
-        const at = key.indexOf('@', 1)
-        const realName = at > 0 ? key.slice(0, at) : name
-        if (isLlmSdk(name) || isLlmSdk(realName)) {
-          violations.push(`${pkg.name} reaches LLM SDK "${realName}": ${chain.join(' → ')}`)
-          continue
-        }
-        if (visited.has(key)) continue
-        visited.add(key)
-        const snapshot = snapshots[key]
-        if (snapshot) {
-          queue.push({ deps: snapshot.dependencies ?? {}, fromDir: null, chain })
-          queue.push({ deps: snapshot.optionalDependencies ?? {}, fromDir: null, chain })
-        }
+    const stop = (/** @type {Reached} */ r) => r.name === BRAIN_PACKAGE || isSdk(r)
+    for (const r of walkLockfile(lockfile, packages, pkg, { dev: true, stop })) {
+      if (r.name === BRAIN_PACKAGE) {
+        violations.push(`${pkg.name} reaches ${BRAIN_PACKAGE}: ${r.chain.join(' → ')}`)
+      } else if (isSdk(r)) {
+        violations.push(`${pkg.name} reaches LLM SDK "${r.name}": ${r.chain.join(' → ')}`)
       }
     }
   }
   return violations
+}
+
+/**
+ * Names (real and alias) of every package a workspace package needs at run time: its
+ * dependencies and optionalDependencies, transitively, per pnpm-lock.yaml (SC-010).
+ * @param {Lockfile} lockfile
+ * @param {WorkspacePackage[]} packages
+ * @param {string} name  workspace package name, e.g. "@coral/agent"
+ * @returns {Set<string>}
+ */
+export function runtimeClosure(lockfile, packages, name) {
+  const start = packages.find((pkg) => pkg.name === name)
+  if (!start || !lockfile.importers?.[start.dir]) throw new Error(`${name} is not in the lockfile`)
+  return new Set(
+    walkLockfile(lockfile, packages, start, { dev: false }).flatMap((r) => [r.name, r.alias]),
+  )
 }
 
 /**

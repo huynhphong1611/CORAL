@@ -176,7 +176,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/runn
 ## Phase 8: Polish & Cross-Cutting Concerns
 
 - [x] T064 [P] Đồng bộ tài liệu: SPEC §16 thêm `GET /testcases/:id/history`, `POST /agents/:id/revoke`, `GET /health/ready`; SPEC §20 Q3 ghi cần rà license `u2.jar` trước khi thương mại hóa (research R2); `CLAUDE.md` "Lệnh thường dùng" thêm `db:migrate`, `db:seed`, `test:int`, `coral validate|devices|run`; `README.md`
-- [ ] T065 [P] Kiểm tra SC-010: test `scripts/no-ai.test.ts` khẳng định closure phụ thuộc của `@coral/runner`, `@coral/agent`, `@coral/cli` trong lockfile không có LLM SDK hay MCP SDK
+- [x] T065 [P] Kiểm tra SC-010: test `scripts/no-ai.test.ts` khẳng định closure phụ thuộc của `@coral/runner`, `@coral/agent`, `@coral/cli` trong lockfile không có LLM SDK hay MCP SDK
 - [ ] T066 Chạy đủ cổng chất lượng + quickstart §1 và §6 trong container (format, lint, boundaries, typecheck, test, test:int, build); push; xác nhận CI xanh cả 3 job (`checks`, `infra`, `integration`)
 - [ ] T067 🔌 Sau khi Huynh chạy quickstart §2–§5, §7 trên máy thật: đánh dấu `[x]` Phase 1 trong `docs/ROADMAP.md`, báo cáo từng mục DoD, chuyển "Phase hiện tại" → Phase 2
 
