@@ -141,6 +141,24 @@ describe('AndroidDriver on a real device', () => {
     expect(png.length).toBeGreaterThan(10_000)
   })
 
+  it('streams a live-view frame: JPEG ≤ 300 KB within 1 s (research R4)', async () => {
+    await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    const started = Date.now()
+    const frame = await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    const elapsedMs = Date.now() - started
+    console.log(
+      `stream frame: ${frame.mime} ${frame.width}x${frame.height} of ` +
+        `${frame.deviceWidth}x${frame.deviceHeight}, ${frame.image.length} bytes in ${elapsedMs} ms`,
+    )
+    expect(frame.mime).toBe('image/jpeg')
+    expect(frame.image.length).toBeLessThanOrEqual(300 * 1024)
+    expect(elapsedMs).toBeLessThanOrEqual(1000)
+    expect(Math.max(frame.width, frame.height)).toBeLessThanOrEqual(1280)
+    // Same aspect ratio as the screen, so clicks map back within 1 % (US3).
+    expect(frame.width / frame.height).toBeCloseTo(frame.deviceWidth / frame.deviceHeight, 2)
+    expect(frame.rotation).toBe(0)
+  })
+
   it('taps through to the login form and types Vietnamese exactly', async () => {
     await tap([{ desc: 'View menu' }, { android_id: 'id/menuIV' }])
     await tap([{ text: 'Log In' }, { text_contains: 'Log In' }])

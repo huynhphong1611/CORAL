@@ -51,3 +51,27 @@ export interface TargetLifecycle {
 }
 
 export interface DeviceDriver extends UiDriver, TargetLifecycle {}
+
+export interface FrameOptions {
+  /** Longest edge of the image, in pixels (the device may send a smaller one). */
+  maxEdge: number
+  /** JPEG quality 1–100 (ignored when the device can only send PNG). */
+  quality: number
+}
+
+/** One live-view frame (research R4): the encoded image and the screen it maps to. */
+export interface LiveFrame {
+  image: Uint8Array
+  mime: 'image/jpeg' | 'image/png'
+  width: number
+  height: number
+  /** Screen size in tap units, current orientation: the browser maps clicks with it (R5). */
+  deviceWidth: number
+  deviceHeight: number
+  rotation: 0 | 90 | 180 | 270
+}
+
+/** A driver that can feed the live view (read-only: allowed while a job runs). */
+export interface FrameSource {
+  streamFrame(options: FrameOptions): Promise<LiveFrame>
+}

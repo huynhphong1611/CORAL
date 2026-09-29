@@ -1,9 +1,18 @@
 import type { ElementNode, Permission } from '@coral/shared'
-import type { DeviceDriver, Point, Size } from '../../core/driver'
+import type {
+  DeviceDriver,
+  FrameOptions,
+  FrameSource,
+  LiveFrame,
+  Point,
+  Size,
+} from '../../core/driver'
+import { imageInfo } from '../../core/image/size'
 import { Adb, AdbError, type AdbDeviceClient } from './adb'
 import { parseHierarchy, parseWindowLayers } from './hierarchy'
 import { AndroidLifecycle, type InstallRegistry } from './lifecycle'
 import { ensureU2Jar } from './u2-assets'
+import { U2RpcError } from './u2-client'
 import { U2Server, type Spawner } from './u2-server'
 
 /** u2 UiSelector matching the focused element (contracts/android-u2.md). */
@@ -19,7 +28,13 @@ const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47]
 interface DeviceInfo {
   displayWidth: number
   displayHeight: number
+  /** Surface rotation 0–3 (quarter turns). */
+  displayRotation?: number
 }
+
+const ROTATIONS = [0, 90, 180, 270] as const
+/** JSON-RPC "method not found": an older u2 server without takeScreenshot. */
+const METHOD_NOT_FOUND = -32601
 
 /** The part of U2Server the driver uses (a fake in unit tests). */
 export interface U2Rpc {
@@ -32,8 +47,10 @@ export interface U2Rpc {
  * Android DeviceDriver (SPEC §8.1, D27): UI through the u2 JSON-RPC server, everything else
  * through adb (research R7). Call open() before a run and close() after it.
  */
-export class AndroidDriver implements DeviceDriver {
+export class AndroidDriver implements DeviceDriver, FrameSource {
   readonly platform = 'android' as const
+  /** Set once the u2 server turned out to have no takeScreenshot: frames are PNG from then on. */
+  private pngFramesOnly = false
 
   constructor(
     readonly device: AdbDeviceClient,
@@ -74,6 +91,39 @@ export class AndroidDriver implements DeviceDriver {
       throw new AdbError('screencap did not return a PNG')
     }
     return png
+  }
+
+  /**
+   * A live-view frame (research R4): u2 takeScreenshot scales and compresses to JPEG on the
+   * device; without it (older server, or a screen it cannot capture) `screencap -p` sends a PNG.
+   */
+  async streamFrame({ maxEdge, quality }: FrameOptions): Promise<LiveFrame> {
+    const info = await this.u2.call<DeviceInfo>('deviceInfo')
+    const screen = {
+      deviceWidth: info.displayWidth,
+      deviceHeight: info.displayHeight,
+      rotation: ROTATIONS[info.displayRotation ?? 0] ?? 0,
+    }
+    if (!this.pngFramesOnly) {
+      const scale = Math.min(1, maxEdge / Math.max(info.displayWidth, info.displayHeight))
+      try {
+        const base64 = await this.u2.call<string | null>('takeScreenshot', [scale, quality])
+        if (typeof base64 === 'string') {
+          const image = new Uint8Array(Buffer.from(base64, 'base64'))
+          const size = imageInfo(image)
+          if (size?.mime === 'image/jpeg') {
+            return { image, mime: size.mime, width: size.width, height: size.height, ...screen }
+          }
+        }
+      } catch (error) {
+        if (!(error instanceof U2RpcError && error.code === METHOD_NOT_FOUND)) throw error
+        this.pngFramesOnly = true
+      }
+    }
+    const png = await this.screenshot()
+    const size = imageInfo(png)
+    if (!size) throw new AdbError('screencap returned an unreadable PNG')
+    return { image: png, mime: 'image/png', width: size.width, height: size.height, ...screen }
   }
 
   /** The u2 dump, with windows in the window manager's z-order (read alongside, research R5). */

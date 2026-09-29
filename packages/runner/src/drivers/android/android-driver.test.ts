@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { Adb, type ExecFn } from './adb'
 import { AndroidDriver, FOCUSED_SELECTOR, type U2Rpc } from './android-driver'
+import { encodeRgb } from '../../core/image/png'
+import { jpegHeader } from '../../testing/jpeg'
 import { AndroidLifecycle } from './lifecycle'
+import { U2RpcError } from './u2-client'
 
 const APP = 'com.saucelabs.mydemoapp.android'
 const LOGIN_XML = readFileSync(
@@ -11,7 +14,15 @@ const LOGIN_XML = readFileSync(
 )
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])
 
-function setup(opts: { imeShown?: boolean; screencap?: Buffer; windows?: string } = {}) {
+function setup(
+  opts: {
+    imeShown?: boolean
+    screencap?: Buffer
+    windows?: string
+    /** Answers a u2 method instead of the defaults (undefined → default). */
+    answer?: (method: string, params: unknown[]) => unknown
+  } = {},
+) {
   const rpc: { method: string; params: unknown[] }[] = []
   const u2: U2Rpc & { started: number; stopped: number } = {
     started: 0,
@@ -26,6 +37,9 @@ function setup(opts: { imeShown?: boolean; screencap?: Buffer; windows?: string 
     },
     call<T>(method: string, params: unknown[] = []) {
       rpc.push({ method, params })
+      const answer = opts.answer?.(method, params)
+      if (answer instanceof Error) return Promise.reject(answer)
+      if (answer !== undefined) return Promise.resolve(answer as T)
       const result =
         method === 'dumpWindowHierarchy'
           ? LOGIN_XML
@@ -146,5 +160,91 @@ describe('AndroidDriver', () => {
     expect(rpc.at(-1)).toEqual({ method: 'click', params: [1, 2] })
     // One server for both: opening the bound driver is not needed.
     expect(u2.started).toBe(1)
+  })
+})
+
+describe('AndroidDriver.streamFrame (research R4)', () => {
+  const screenPng = encodeRgb({ width: 1080, height: 2400, data: new Uint8Array(1080 * 2400 * 3) })
+
+  it('asks u2 for a JPEG scaled to max_edge, with the screen size and rotation', async () => {
+    const jpeg = jpegHeader(576, 1280)
+    const { driver, rpc, adbCalls } = setup({
+      answer: (method) =>
+        method === 'takeScreenshot'
+          ? Buffer.from(jpeg)
+              .toString('base64')
+              .replace(/(.{20})/g, '$1\n')
+          : method === 'deviceInfo'
+            ? { displayWidth: 1080, displayHeight: 2400, displayRotation: 0 }
+            : undefined,
+    })
+    const frame = await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    expect(frame).toMatchObject({
+      mime: 'image/jpeg',
+      width: 576,
+      height: 1280,
+      deviceWidth: 1080,
+      deviceHeight: 2400,
+      rotation: 0,
+    })
+    expect([...frame.image]).toEqual([...jpeg])
+    expect(rpc.find((r) => r.method === 'takeScreenshot')?.params).toEqual([1280 / 2400, 60])
+    expect(adbCalls).not.toContain('exec-out screencap -p')
+  })
+
+  it('never upscales and reports a rotated screen', async () => {
+    const { driver, rpc } = setup({
+      answer: (method) =>
+        method === 'takeScreenshot'
+          ? Buffer.from(jpegHeader(800, 480)).toString('base64')
+          : method === 'deviceInfo'
+            ? { displayWidth: 800, displayHeight: 480, displayRotation: 1 }
+            : undefined,
+    })
+    const frame = await driver.streamFrame({ maxEdge: 1280, quality: 40 })
+    expect(frame.rotation).toBe(90)
+    expect(rpc.find((r) => r.method === 'takeScreenshot')?.params).toEqual([1, 40])
+  })
+
+  it('falls back to screencap PNG for good when u2 has no takeScreenshot', async () => {
+    const { driver, rpc } = setup({
+      screencap: Buffer.from(screenPng),
+      answer: (method) =>
+        method === 'takeScreenshot' ? new U2RpcError('method not found', -32601) : undefined,
+    })
+    const first = await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    expect(first).toMatchObject({ mime: 'image/png', width: 1080, height: 2400 })
+    await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    expect(rpc.filter((r) => r.method === 'takeScreenshot')).toHaveLength(1)
+  })
+
+  it('sends one PNG frame when u2 cannot capture the screen, then tries JPEG again', async () => {
+    let captured = false
+    const { driver, rpc } = setup({
+      screencap: Buffer.from(screenPng),
+      answer: (method) => {
+        if (method !== 'takeScreenshot') return undefined
+        // u2 answers null when it cannot capture the screen.
+        const answer = captured ? Buffer.from(jpegHeader(576, 1280)).toString('base64') : null
+        captured = true
+        return answer
+      },
+    })
+    const first = await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    const second = await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    expect([first.mime, second.mime]).toEqual(['image/png', 'image/jpeg'])
+    expect(rpc.filter((r) => r.method === 'takeScreenshot')).toHaveLength(2)
+  })
+
+  it('does not hide other u2 failures', async () => {
+    const { driver } = setup({
+      answer: (method) =>
+        method === 'takeScreenshot'
+          ? new U2RpcError('UiAutomation not connected', -32001)
+          : undefined,
+    })
+    await expect(driver.streamFrame({ maxEdge: 1280, quality: 60 })).rejects.toThrow(
+      'UiAutomation not connected',
+    )
   })
 })

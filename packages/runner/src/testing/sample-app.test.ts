@@ -87,4 +87,21 @@ describe('sample app (My Demo App look-alike)', () => {
     await driver.resetApp(SAMPLE_APP)
     expect(driver.typed.size).toBe(0)
   })
+
+  it('streams the drawn screen as live-view frames without recording a call', async () => {
+    const driver = new FakeDriver({ ...sampleApp(), renderScreens: { scale: 0.5 } })
+    driver.show('menu')
+    const calls = driver.calls.length
+    const frame = await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    expect(frame).toMatchObject({
+      mime: 'image/png',
+      width: 540,
+      height: 1200,
+      deviceWidth: 1080,
+      deviceHeight: 2400,
+      rotation: 0,
+    })
+    expect(frame.image).toBe(await driver.screenshot())
+    expect(driver.calls.length).toBe(calls + 1)
+  })
 })

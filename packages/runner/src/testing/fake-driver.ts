@@ -1,5 +1,13 @@
 import { walkTree, type ElementNode, type Permission, type Platform } from '@coral/shared'
-import type { DeviceDriver, Point, Size } from '../core/driver'
+import type {
+  DeviceDriver,
+  FrameOptions,
+  FrameSource,
+  LiveFrame,
+  Point,
+  Size,
+} from '../core/driver'
+import { imageInfo } from '../core/image/size'
 import { renderTree, type RenderOptions } from './render'
 
 type NodeSpec = Partial<Omit<ElementNode, 'bounds' | 'children' | 'ref'>> & {
@@ -76,7 +84,7 @@ export interface FakeDriverOptions {
  * Scripted in-memory device for unit tests of the runner core (no adb, no emulator).
  * Taps hit the deepest visible node that contains the point, searching windows top-most first.
  */
-export class FakeDriver implements DeviceDriver {
+export class FakeDriver implements DeviceDriver, FrameSource {
   readonly platform: Platform
   readonly calls: FakeCall[] = []
   current: string
@@ -186,6 +194,25 @@ export class FakeDriver implements DeviceDriver {
       this.rendered = { tree, png: renderTree(tree, size, options) }
     }
     return this.rendered.png
+  }
+
+  /**
+   * The current screen drawn by renderTree, as a PNG at the `renderScreens` scale (`maxEdge` and
+   * `quality` are ignored). Not recorded in `calls`: the live view reads, it does not act.
+   */
+  streamFrame(_options: FrameOptions): Promise<LiveFrame> {
+    const image = this.render()
+    const info = imageInfo(image)
+    const size = this.options.size ?? { width: 1080, height: 2400 }
+    return Promise.resolve({
+      image,
+      mime: 'image/png',
+      width: info?.width ?? size.width,
+      height: info?.height ?? size.height,
+      deviceWidth: size.width,
+      deviceHeight: size.height,
+      rotation: 0,
+    })
   }
 
   tree(): Promise<ElementNode[]> {

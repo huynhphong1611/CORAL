@@ -4,7 +4,17 @@
  */
 export const RUNNER_PACKAGE = '@coral/runner'
 
-export type { DeviceDriver, Point, Size, TargetLifecycle, UiDriver } from './core/driver'
+export type {
+  DeviceDriver,
+  FrameOptions,
+  FrameSource,
+  LiveFrame,
+  Point,
+  Size,
+  TargetLifecycle,
+  UiDriver,
+} from './core/driver'
+export { imageInfo, type ImageInfo } from './core/image/size'
 export { realClock, AbortError, type Clock } from './core/clock'
 export { StepFailure, TargetCoveredError } from './core/errors'
 export { resolve, findAll, type Resolution, type ResolveContext } from './core/locator/resolve'
