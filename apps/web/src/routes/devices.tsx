@@ -1,7 +1,8 @@
+import { Link } from '@tanstack/react-router'
 import { useDevices } from '../api/queries'
 import { ActivityBadge } from '../components/activity'
 import { PageHeader } from '../components/Layout'
-import { QueryState, Table, Td, Th } from '../components/ui'
+import { buttonClass, QueryState, Table, Td, Th } from '../components/ui'
 import { en } from '../i18n/en'
 
 /** `/devices`: every device of the tenant and what it is doing, live (FR-003, T023). */
@@ -25,7 +26,15 @@ export function DevicesPage() {
             <tbody>
               {list.map((device) => (
                 <tr key={device.id} data-device-id={device.id} className="hover:bg-slate-50">
-                  <Td className="font-medium text-slate-900">{device.model}</Td>
+                  <Td className="font-medium text-slate-900">
+                    <Link
+                      to="/devices/$deviceId"
+                      params={{ deviceId: device.id }}
+                      className={buttonClass.link}
+                    >
+                      {device.model}
+                    </Link>
+                  </Td>
                   <Td className="text-slate-600">
                     Android {device.os_version}
                     {device.api_level !== null && (

@@ -12,6 +12,7 @@ import type { ApiClient } from './api/client'
 import type { SessionStore } from './api/session'
 import type { UiSocket } from './api/ws'
 import { Layout } from './components/Layout'
+import { DevicePage } from './routes/device'
 import { DevicesPage } from './routes/devices'
 import { LoginPage, safeNext } from './routes/login'
 import { ProjectsPage } from './routes/projects'
@@ -79,6 +80,12 @@ const devicesRoute = createRoute({
   component: DevicesPage,
 })
 
+const deviceRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/devices/$deviceId',
+  component: DevicePage,
+})
+
 const uuid = (value: unknown) =>
   typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value) ? value : undefined
 
@@ -112,6 +119,7 @@ const routeTree = rootRoute.addChildren([
     projectsRoute,
     projectRoute,
     devicesRoute,
+    deviceRoute,
     runsRoute,
     runRoute,
   ]),
