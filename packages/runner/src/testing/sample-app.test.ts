@@ -1,5 +1,11 @@
 import { readFileSync } from 'node:fs'
-import { DEFAULT_POPUPS_YAML, parseYaml, popupsSchema, validateTestCaseSource } from '@coral/shared'
+import {
+  DEFAULT_POPUPS_YAML,
+  parseYaml,
+  popupsSchema,
+  validateTestCaseSource,
+  walkTree,
+} from '@coral/shared'
 import { decode } from 'fast-png'
 import { describe, expect, it } from 'vitest'
 import { createPopupGuard } from '../core/popup-guard'
@@ -40,6 +46,14 @@ describe('sample app (My Demo App look-alike)', () => {
     // Structured locators match: no fallbacks needed.
     expect(result.steps.filter((s) => s.degraded)).toEqual([])
     expect(driver.current).toBe('catalog')
+    // What was typed stays in the login form: refs are index paths, the catalog has the same
+    // ones, and its screenshots must not show the password (SC-008).
+    const texts = [...walkTree(await driver.tree())].map((n) => n.text)
+    expect(texts).not.toContain('10203040')
+    expect(texts).not.toContain('bod@example.com')
+    driver.show('login')
+    const form = [...walkTree(await driver.tree())].map((n) => n.text)
+    expect(form).toContain('bod@example.com')
   })
 
   it('passes mydemo-camera-permission.yaml with the popup guard allowing the camera', async () => {

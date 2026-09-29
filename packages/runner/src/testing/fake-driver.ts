@@ -83,8 +83,10 @@ export class FakeDriver implements DeviceDriver {
   appRunning = false
   /** Text typed into each element ref (after clearText). */
   readonly typed = new Map<string, string>()
+  /** Screen of each typed ref: refs are index paths, the same one exists on other screens. */
+  private readonly typedOn = new Map<string, string>()
   private frameIndex = 0
-  private focusedRef: string | undefined
+  private focused: { ref: string; screen: string } | undefined
   private rendered: { tree: ElementNode[]; png: Uint8Array } | undefined
 
   constructor(private readonly options: FakeDriverOptions) {
@@ -116,11 +118,13 @@ export class FakeDriver implements DeviceDriver {
   /** The tree with typed text written into its fields (same object while nothing changes). */
   private withTyped(tree: ElementNode[]): ElementNode[] {
     if (this.typed.size === 0) return tree
-    const key = JSON.stringify([...this.typed])
+    const key = JSON.stringify([this.current, ...this.typed])
     if (this.typedView?.tree === tree && this.typedView.key === key) return this.typedView.view
     const fill = (node: ElementNode): ElementNode => ({
       ...node,
-      text: this.typed.get(node.ref) ?? node.text,
+      text:
+        (this.typedOn.get(node.ref) === this.current ? this.typed.get(node.ref) : undefined) ??
+        node.text,
       children: node.children.map(fill),
     })
     const view = tree.map(fill)
@@ -193,7 +197,7 @@ export class FakeDriver implements DeviceDriver {
   tapAt(point: Point): Promise<void> {
     const node = this.hit(point)
     this.calls.push({ kind: 'tap', point, ...(node ? { node } : {}) })
-    this.focusedRef = node?.ref
+    this.focused = node ? { ref: node.ref, screen: this.current } : undefined
     this.follow(node)
     return Promise.resolve()
   }
@@ -207,15 +211,26 @@ export class FakeDriver implements DeviceDriver {
 
   type(text: string): Promise<void> {
     this.calls.push({ kind: 'type', text })
-    if (this.focusedRef)
-      this.typed.set(this.focusedRef, (this.typed.get(this.focusedRef) ?? '') + text)
+    const ref = this.focusedHere()
+    if (ref) this.typedInto(ref, (this.typed.get(ref) ?? '') + text)
     return Promise.resolve()
   }
 
   clearText(): Promise<void> {
     this.calls.push({ kind: 'clearText' })
-    if (this.focusedRef) this.typed.set(this.focusedRef, '')
+    const ref = this.focusedHere()
+    if (ref) this.typedInto(ref, '')
     return Promise.resolve()
+  }
+
+  /** The focused field when it is still on screen (a tap that changed screens leaves no focus). */
+  private focusedHere(): string | undefined {
+    return this.focused?.screen === this.current ? this.focused.ref : undefined
+  }
+
+  private typedInto(ref: string, text: string): void {
+    this.typed.set(ref, text)
+    this.typedOn.set(ref, this.current)
   }
 
   swipe(from: Point, to: Point, ms: number): Promise<void> {
@@ -255,7 +270,10 @@ export class FakeDriver implements DeviceDriver {
   resetApp(appId: string): Promise<void> {
     this.calls.push({ kind: 'resetApp', appId })
     this.appRunning = false
-    if (this.options.showTyped) this.typed.clear()
+    if (this.options.showTyped) {
+      this.typed.clear()
+      this.typedOn.clear()
+    }
     return Promise.resolve()
   }
 
