@@ -45,6 +45,24 @@ export async function verifyAccessToken(
   }
 }
 
+/** Like verifyAccessToken, plus when the token expires (epoch ms) — for long-lived sockets. */
+export async function verifyAccessSession(
+  token: string,
+  secret: string,
+): Promise<(AccessClaims & { expiresAt: number }) | null> {
+  try {
+    const { payload } = await jwtVerify(token, key(secret), {
+      issuer: 'coral',
+      algorithms: ['HS256'],
+    })
+    const parsed = accessClaimsSchema.safeParse(payload)
+    if (!parsed.success || typeof payload.exp !== 'number') return null
+    return { ...parsed.data, expiresAt: payload.exp * 1000 }
+  } catch {
+    return null
+  }
+}
+
 /** Opaque high-entropy token (refresh tokens, agent tokens); store only its hash. */
 export function newOpaqueToken(prefix = ''): string {
   return `${prefix}${randomBytes(32).toString('base64url')}`

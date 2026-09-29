@@ -1,10 +1,11 @@
 import { randomBytes } from 'node:crypto'
 import { api, newId, type LogLevel } from '@coral/shared'
 import { AgentGateway } from '../agents/gateway'
-import { loadConfig } from '../config'
+import { DEV_JWT_SECRET, loadConfig } from '../config'
 import { RunDispatcher } from '../runs/dispatcher'
 import { registerIngest, startLeaseSweeper } from '../runs/ingest'
 import { envSecrets } from '../runs/secrets'
+import { UiGateway } from '../ui/gateway'
 import { multipart } from './multipart'
 import { startTestServer, type TestUser } from './test-server'
 
@@ -55,6 +56,8 @@ export async function startRunServer(options: RunServerOptions = {}) {
   )
   let gateway: AgentGateway | undefined
   let dispatcher: RunDispatcher | undefined
+  // Both sockets, as in production: agent tests also check they do not disturb each other.
+  let uiGateway: UiGateway | undefined
   const server = await startTestServer(({ db, store, artifacts }) => {
     gateway = new AgentGateway({ db, heartbeatMs: options.heartbeatMs ?? 15_000 })
     const secrets = envSecrets(secretEnv)
@@ -73,7 +76,8 @@ export async function startRunServer(options: RunServerOptions = {}) {
       retryMaxMs: options.retryMaxMs ?? 200,
     })
     registerIngest({ db, gateway, dispatcher, artifacts })
-    return { gateway, runs: { dispatcher, secrets } }
+    uiGateway = new UiGateway({ jwtSecret: DEV_JWT_SECRET })
+    return { gateway, uiGateway, runs: { dispatcher, secrets } }
   }, options.logging)
   if (!gateway || !dispatcher) throw new Error('run server not wired')
   dispatcher.attachLogger(server.app.log)
@@ -131,7 +135,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
     await server.close()
   }
 
-  return { ...server, url, gateway, dispatcher, sweeper, seed, close }
+  return { ...server, url, gateway, uiGateway, dispatcher, sweeper, seed, close }
 }
 
 export type RunServer = Awaited<ReturnType<typeof startRunServer>>

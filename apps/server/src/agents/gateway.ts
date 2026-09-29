@@ -1,4 +1,3 @@
-import websocket from '@fastify/websocket'
 import { protocol } from '@coral/shared'
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify'
 import type { WebSocket } from 'ws'
@@ -85,11 +84,11 @@ export class AgentGateway implements AgentConnections {
     return this.options.leaseTtlMs ?? this.options.heartbeatMs * 4
   }
 
-  /** Registers the WebSocket route (auth by agent token, not by user session). */
+  /** Adds the WebSocket route (auth by agent token, not by user session). */
   register(app: FastifyInstance): void {
     this.log = app.log
+    // The websocket plugin itself is registered once by buildServer (shared with /ws/ui).
     void app.register(async (instance) => {
-      await instance.register(websocket, { options: { maxPayload: protocol.MAX_MESSAGE_BYTES } })
       instance.get(
         '/ws/agent',
         { websocket: true, config: { public: true } },

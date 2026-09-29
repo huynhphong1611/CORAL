@@ -1,6 +1,7 @@
 import cookie from '@fastify/cookie'
 import multipart from '@fastify/multipart'
-import { CORAL_VERSION, type HealthResponse, type api } from '@coral/shared'
+import websocket from '@fastify/websocket'
+import { CORAL_VERSION, protocol, type HealthResponse, type api } from '@coral/shared'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { AgentGateway } from './agents/gateway'
 import { registerAuthGuard } from './auth/guard'
@@ -18,6 +19,7 @@ import { registerTestCaseRoutes } from './routes/testcases'
 import type { RunDispatcher } from './runs/dispatcher'
 import type { SecretSource } from './runs/secrets'
 import type { ArtifactStore } from './storage/s3'
+import type { UiGateway } from './ui/gateway'
 
 /** Omitted parts disable their routes (unit tests only exercise stateless routes). */
 export interface ServerDeps {
@@ -28,6 +30,8 @@ export interface ServerDeps {
   gateway?: AgentGateway
   /** Only for tests without a gateway. */
   connections?: AgentConnections
+  /** `WS /ws/ui`: browsers (run events, live view, control, Recorder). */
+  uiGateway?: UiGateway
   /** Run creation and dispatch (queue, leases, agent assignment). */
   runs?: { dispatcher: RunDispatcher; secrets: SecretSource }
   /** `GET /health/ready`: true when Postgres, Redis, S3 and the data dir are usable. */
@@ -81,7 +85,13 @@ export function buildServer(
   })
 
   if (deps.db) registerAuthRoutes(app, { db: deps.db, jwtSecret: config.jwtSecret })
+  if (deps.gateway || deps.uiGateway) {
+    // One plugin for both sockets: two would both handle every HTTP upgrade. Binary live-view
+    // frames are the largest messages (JSON is capped lower by each protocol's parser).
+    void app.register(websocket, { options: { maxPayload: protocol.MAX_FRAME_BYTES + 64 * 1024 } })
+  }
   deps.gateway?.register(app)
+  deps.uiGateway?.register(app)
   if (deps.db && deps.store) {
     const repos = createRepos({ db: deps.db, store: deps.store })
     registerProjectRoutes(app, { repos })

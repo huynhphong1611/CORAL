@@ -11,6 +11,7 @@ import { registerIngest, startLeaseSweeper } from './runs/ingest'
 import { envSecrets } from './runs/secrets'
 import type { ServerDeps } from './server'
 import { createArtifactStore } from './storage/s3'
+import { UiGateway } from './ui/gateway'
 
 /**
  * Everything coral-server needs besides the HTTP app: Postgres, S3 (bucket + lifecycle), the git
@@ -26,6 +27,7 @@ export async function startServices(
   const artifacts = createArtifactStore(config.s3)
   await artifacts.ensureBucket()
   const gateway = new AgentGateway({ db: database.db, heartbeatMs: config.timeouts.heartbeatMs })
+  const uiGateway = new UiGateway({ jwtSecret: config.jwtSecret })
   const secrets = envSecrets(env)
   const dispatcher = new RunDispatcher({
     db: database.db,
@@ -54,6 +56,7 @@ export async function startServices(
     store,
     artifacts,
     gateway,
+    uiGateway,
     runs: { dispatcher, secrets },
     readiness,
     maxBuildBytes: config.maxBuildBytes,
