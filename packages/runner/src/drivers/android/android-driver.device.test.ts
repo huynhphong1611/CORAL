@@ -41,7 +41,11 @@ async function waitForApp(timeoutMs = 30_000): Promise<ElementNode[]> {
   for (;;) {
     const tree = await stableTree()
     if ([...walkTree(tree)].some((n) => n.package_or_bundle === env.appId)) return tree
-    if (Date.now() > deadline) throw new Error(`${env.appId} not on screen after ${timeoutMs} ms`)
+    if (Date.now() > deadline) {
+      throw new Error(
+        `${env.appId} not on screen after ${timeoutMs} ms\n${await describeScreen(tree)}`,
+      )
+    }
     const screen = await driver.windowSize()
     await guard.handle(tree, {
       appId: env.appId,
@@ -51,6 +55,25 @@ async function waitForApp(timeoutMs = 30_000): Promise<ElementNode[]> {
     })
     await sleep(500)
   }
+}
+
+/** What is on screen instead of the app: windows, some texts, the focused window, the app's pid. */
+async function describeScreen(tree: readonly ElementNode[]): Promise<string> {
+  const shell = (args: string[]) => env.adb.device(env.udid).shell(args).catch(String)
+  const texts = [...walkTree(tree)]
+    .map((n) => n.text || n.desc)
+    .filter(Boolean)
+    .slice(0, 15)
+  const focus = (await shell(['dumpsys', 'window', 'windows']))
+    .split('\n')
+    .filter((line) => /mCurrentFocus|mFocusedApp/.test(line))
+    .map((line) => line.trim())
+  return [
+    `windows: ${tree.map((w) => `${w.package_or_bundle} ${JSON.stringify(w.bounds)}`).join(' | ')}`,
+    `texts: ${JSON.stringify(texts)}`,
+    ...focus,
+    `pidof ${env.appId}: ${(await shell(['pidof', env.appId])).trim() || 'none'}`,
+  ].join('\n')
 }
 
 async function tap(target: Locator[]): Promise<void> {
@@ -135,30 +158,6 @@ describe('AndroidDriver on a real device', () => {
     if (ime >= 0 && app >= 0) expect(ime).toBeGreaterThan(app)
   }, 60_000)
 
-  it('keeps working after a second UiAutomation server started', async () => {
-    const second = defaultSpawner(env.adb.path, [
-      '-s',
-      env.udid,
-      'shell',
-      U2_LAUNCH.replace('-p 9008', '-p 9019'),
-    ])
-    const deadline = Date.now() + 15_000
-    while (
-      Date.now() < deadline &&
-      !/already registered|listening/.test(second.output()) &&
-      !second.exited()
-    ) {
-      await sleep(250)
-    }
-    second.kill()
-    // Older Android refuses the second client at start ("already registered", reported as
-    // DRIVER_ERROR); Android 14 lets it start. Either way our server must still answer — the
-    // client restarts it once on "UiAutomation not connected" (contracts/android-u2.md).
-    expect(second.output()).toMatch(/already registered|listening/)
-    const tree = await waitForApp()
-    expect([...walkTree(tree)].some((n) => n.package_or_bundle === env.appId)).toBe(true)
-  }, 60_000)
-
   it('sees the camera permission dialog on top (window order, R5)', async () => {
     await driver.resetApp(env.appId)
     await driver.launch(env.appId)
@@ -191,4 +190,31 @@ describe('AndroidDriver on a real device', () => {
     }
     await driver.resetApp(env.appId)
   }, 90_000)
+
+  // Last: a second UiAutomation server disturbs ours (the client restarts it).
+  it('keeps working after a second UiAutomation server started', async () => {
+    await driver.launch(env.appId)
+    await waitForApp()
+    const second = defaultSpawner(env.adb.path, [
+      '-s',
+      env.udid,
+      'shell',
+      U2_LAUNCH.replace('-p 9008', '-p 9019'),
+    ])
+    const deadline = Date.now() + 15_000
+    while (
+      Date.now() < deadline &&
+      !/already registered|listening/.test(second.output()) &&
+      !second.exited()
+    ) {
+      await sleep(250)
+    }
+    second.kill()
+    // Older Android refuses the second client at start ("already registered", reported as
+    // DRIVER_ERROR); Android 14 lets it start. Either way our server must still answer — the
+    // client restarts it once on "UiAutomation not connected" (contracts/android-u2.md).
+    expect(second.output()).toMatch(/already registered|listening/)
+    const tree = await waitForApp()
+    expect([...walkTree(tree)].some((n) => n.package_or_bundle === env.appId)).toBe(true)
+  }, 60_000)
 })
