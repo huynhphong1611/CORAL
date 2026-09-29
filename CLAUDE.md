@@ -70,12 +70,19 @@ pnpm build                   # bundle server/agent/cli (tsdown) và web (vite)
 pnpm lint                    # ESLint toàn repo (type-aware)
 pnpm format                  # Prettier ghi đè;  pnpm format:check để chỉ kiểm tra
 pnpm typecheck               # tsc --noEmit từng gói + scripts
-pnpm test                    # Vitest toàn repo (bỏ qua *.device.test.ts)
+pnpm test                    # Vitest toàn repo (bỏ qua *.device.test.ts và *.int.test.ts)
+pnpm test:int                # thêm test tích hợp *.int.test.ts (cần docker compose đang chạy + db:migrate)
 pnpm test:device             # chỉ chạy test cần thiết bị thật
 pnpm check:boundaries        # kiểm tra luật phụ thuộc P1 (manifest + lockfile)
 pnpm coral --help            # chạy CLI từ source
+pnpm coral validate <file...>            # kiểm tra test case / popups.yaml (exit 0 hợp lệ, 1 có lỗi)
+pnpm coral devices                       # thiết bị Android đang kết nối (adb)
+pnpm coral run <tc.yaml> --app <package> [--device <udid>] [--apk <file>]   # chạy cục bộ, không cần server
+pnpm --filter @coral/server db:migrate   # áp migration Drizzle
+pnpm --filter @coral/server db:seed      # tạo owner từ CORAL_SEED_EMAIL / CORAL_SEED_PASSWORD
 pnpm --filter @coral/server test          # test một gói
+node scripts/phase1-e2e.mjs --help       # kiểm DoD Phase 1 qua REST API (5 run, artifact, --scan-secrets)
 docker compose up -d --wait  # postgres :5432, redis :6379, minio :9000 (console :9001)
 docker compose down          # dừng; thêm -v để xóa dữ liệu
 ```
-Cấu hình: chép `.env.example` thành `.env` ở gốc repo; server và agent tự đọc file này khi `pnpm dev`.
+Cấu hình: chép `.env.example` thành `.env` ở gốc repo; server và agent tự đọc file này khi `pnpm dev`. Agent cần `CORAL_AGENT_TOKEN` (tạo bằng `POST /agents`); secret cho test case đặt dạng `CORAL_SECRET_<NAME>` (chỉ dev, D19).

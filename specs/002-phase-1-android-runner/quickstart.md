@@ -62,7 +62,7 @@ Test case **không** có `grant_permissions`; `app_state: fresh`. Kỳ vọng: 5
 ```bash
 node scripts/phase1-e2e.mjs --scan-secrets --run <run_id>
 ```
-Tải mọi `tree.json`, `device.log`, `result.json` của run và log server/agent trong lúc chạy; đếm số lần xuất hiện giá trị `CORAL_SECRET_*`. Kỳ vọng: 0.
+Script đọc JSON run + step qua API và tải mọi `tree.json`, `device.log` của run; đếm số lần xuất hiện giá trị `CORAL_SECRET_*` (≥ 4 ký tự). Kỳ vọng: `0 hits`. Log server/agent: chạy `pnpm dev 2>&1 | tee dev.log` trong lúc chạy mục 3, rồi `grep -cF "$CORAL_SECRET_TEST_PASSWORD" dev.log` → 0. Trong CI, `redaction.test.ts` (runner, agent) và `secret-logs.int.test.ts` (server, log mức trace) kiểm cùng điều này (T061).
 
 ## 6. Tranh chấp thiết bị và mất kết nối (SC-007, SC-009)
 

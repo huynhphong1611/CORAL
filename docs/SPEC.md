@@ -609,6 +609,7 @@ JSON dùng tên trường `snake_case` như trong SPEC (D12).
 
 ```
 GET    /health                     (không cần auth)
+GET    /health/ready               (không cần auth; 200 khi Postgres, Redis, S3, thư mục dữ liệu dùng được, 503 nếu không)
 POST   /auth/register | /auth/login | /auth/refresh | /auth/logout
 GET    /me
 GET    /tenants/:id/members        POST /tenants/:id/invites
@@ -616,11 +617,13 @@ GET    /projects                   POST /projects
 GET    /projects/:id/apps          POST /projects/:id/apps
 POST   /apps/:id/builds            (upload)
 GET    /agents                     POST /agents   (trả token một lần)
+POST   /agents/:id/revoke          (thu hồi token, đóng kết nối WS của agent)
 GET    /devices
 GET    /projects/:id/testcases     POST /projects/:id/testcases
 POST   /projects/:id/testcases/generate   (từ prompt, §11.3)
 POST   /projects/:id/testcases/import     GET  /imports/:id
 GET    /testcases/:id              PUT  /testcases/:id
+GET    /testcases/:id/history      (các commit đã sửa test case, mới nhất trước — D31)
 POST   /runs                       GET  /runs   GET /runs/:id   POST /runs/:id/cancel
 GET    /runs/:id/items/:itemId/steps
 POST   /explorations               GET  /explorations/:id
@@ -706,7 +709,7 @@ POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
 | R11 | Giao thức JSON-RPC của `u2.jar` không có tài liệu chính thức, do một dự án cộng đồng duy trì | Ghim phiên bản `u2.jar`; bộ `*.device.test.ts` cho driver Android; interface `DeviceDriver` cho phép thay bằng Appium UiAutomator2 nếu cần (D27). |
 | Q1 | ~~Chốt tech stack §19~~ | Đã chốt 2026-09-28 (D07). |
 | Q2 | ~~Appium hay Maestro làm driver mặc định~~ | Android: UiAutomator2 trực tiếp (D27); iOS: Appium XCUITest. Giữ interface `DeviceDriver` để thêm Maestro sau. |
-| Q3 | Tên thương mại | `coral` là tên dự án; kiểm tra nhãn hiệu / tên miền trước khi thương mại hóa. |
+| Q3 | Tên thương mại và giấy phép | `coral` là tên dự án; kiểm tra nhãn hiệu / tên miền trước khi thương mại hóa. Rà đủ giấy phép của `u2.jar` (gói Python MIT, jar kèm `LICENSE-junit.txt` EPL) trước khi thương mại hóa — Phase 1 chỉ tải về lúc chạy, không phân phối lại (research Phase 1 R2). |
 | Q4 | Mở rộng sang test web UI | Vẫn ngoài phạm vi đến hết Phase 6 (§1.3). **Khám phá** (AI): Explorer điều khiển trình duyệt qua **Playwright MCP** (§14.5, D30); mỗi thao tác được ghi lại (snapshot + locator Playwright sinh ra, bổ sung `testid`/`css`) để Test writer viết YAML. **Chạy lại** (không AI): runner dùng thư viện Playwright trực tiếp, không qua MCP (P1). Driver Playwright cài `UiDriver` (cây từ accessibility tree/DOM, `launch` = mở URL, reset = browser context mới); locator web `testid`, `role` + name, `css` (gắn nền tảng `web`); luật popup web (banner cookie, modal, `alert/confirm`); fingerprint = URL + cấu trúc DOM; lease = slot trình duyệt. Playwright MCP chạy trên agent để vào được web nội bộ sau NAT, server gọi qua kênh WS của agent (chốt chi tiết ở Phase 7). Giữ đường mở bằng D28; ROADMAP Phase 7 (tùy chọn). |
 | Q5 | ~~coral làm MCP server cho AI bên ngoài~~ | Đã quyết: có, kèm cổng tới MCP server user tự cấu hình (§14.5, D32), Phase 6. |
 
