@@ -22,14 +22,21 @@ export interface TestUser {
  * A real server (Postgres, MinIO, git store in a temp dir) for *.int.test.ts, with helpers to
  * create users in fresh tenants and call the API as them.
  */
-export async function startTestServer(extra: Partial<ServerDeps> = {}) {
+export async function startTestServer(
+  extra:
+    | Partial<ServerDeps>
+    | ((
+        base: Required<Pick<ServerDeps, 'db' | 'store' | 'artifacts'>>,
+      ) => Partial<ServerDeps>) = {},
+) {
   const config = loadConfig(process.env)
   const database = createDatabase(config.databaseUrl)
   const dataDir = await mkdtemp(join(tmpdir(), 'coral-server-'))
   const store = new ProjectRepoStore(dataDir)
   const artifacts = createArtifactStore(config.s3)
   await artifacts.ensureBucket()
-  const deps: ServerDeps = { db: database.db, store, artifacts, ...extra }
+  const base = { db: database.db, store, artifacts }
+  const deps: ServerDeps = { ...base, ...(typeof extra === 'function' ? extra(base) : extra) }
   const app = buildServer({ logLevel: 'silent', jwtSecret: DEV_JWT_SECRET }, deps)
   await app.ready()
 
@@ -72,13 +79,38 @@ export async function startTestServer(extra: Partial<ServerDeps> = {}) {
     return { status: res.statusCode, body, res }
   }
 
+  /** Creates an agent through the API; returns its id and one-time token. */
+  async function newAgent(user: TestUser, name = 'agent') {
+    const res = await call(user, { method: 'POST', url: '/agents', payload: { name } })
+    return api.createdAgentSchema.parse(res.body)
+  }
+
+  /** Listens on a random local port (needed for WebSocket tests); returns the base URL. */
+  async function listen(): Promise<string> {
+    const address = await app.listen({ host: '127.0.0.1', port: 0 })
+    return address
+  }
+
   async function close() {
     await app.close()
     await database.close()
     await rm(dataDir, { recursive: true, force: true })
   }
 
-  return { app, db: database.db, store, artifacts, config, dataDir, newUser, call, close }
+  return {
+    app,
+    db: database.db,
+    store,
+    artifacts,
+    config,
+    dataDir,
+    deps,
+    newUser,
+    newAgent,
+    call,
+    listen,
+    close,
+  }
 }
 
 export type TestServer = Awaited<ReturnType<typeof startTestServer>>

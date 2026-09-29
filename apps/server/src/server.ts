@@ -2,6 +2,7 @@ import cookie from '@fastify/cookie'
 import multipart from '@fastify/multipart'
 import { CORAL_VERSION, type HealthResponse } from '@coral/shared'
 import Fastify, { type FastifyInstance } from 'fastify'
+import type { AgentGateway } from './agents/gateway'
 import { registerAuthGuard } from './auth/guard'
 import { registerAuthRoutes } from './auth/routes'
 import type { ServerConfig } from './config'
@@ -20,7 +21,9 @@ export interface ServerDeps {
   db?: Db
   store?: ProjectRepoStore
   artifacts?: ArtifactStore
-  /** Live agent WebSockets (gateway), so revoking an agent closes its connection. */
+  /** `WS /ws/agent`; also closes the connection of a revoked agent. */
+  gateway?: AgentGateway
+  /** Only for tests without a gateway. */
   connections?: AgentConnections
   /** Largest build upload (config CORAL_MAX_BUILD_MB). */
   maxBuildBytes?: number
@@ -50,14 +53,13 @@ export function buildServer(
   }))
 
   if (deps.db) registerAuthRoutes(app, { db: deps.db, jwtSecret: config.jwtSecret })
+  deps.gateway?.register(app)
   if (deps.db && deps.store) {
     const repos = createRepos({ db: deps.db, store: deps.store })
     registerProjectRoutes(app, { repos })
     registerTestCaseRoutes(app, { repos })
-    registerAgentRoutes(app, {
-      repos,
-      ...(deps.connections ? { connections: deps.connections } : {}),
-    })
+    const connections = deps.gateway ?? deps.connections
+    registerAgentRoutes(app, { repos, ...(connections ? { connections } : {}) })
     if (deps.artifacts) registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
   }
 
