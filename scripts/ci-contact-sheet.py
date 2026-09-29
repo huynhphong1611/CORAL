@@ -3,8 +3,9 @@
 
 Sheets `local-<slug>` for each `coral run` (`coral-run/<slug>/`) and `server-<slug>` for the
 latest run of each test case through the server (`server-runs/<run>/<slug>/`). A local run that did
-not pass also gets its last step's screen described in the log (windows, texts from `tree.json`). Step directories follow the local and
-downloaded layout `<slug>/<index>-<step_id>/screenshot.png`. The workflow stores each sheet as a
+not pass also gets its last step described in the log: windows and texts from `tree.json`, and
+the activity-manager lines of its `device.log`. Step directories follow the local and downloaded
+layout `<slug>/<index>-<step_id>/screenshot.png`. The workflow stores each sheet as a
 git blob (no ref, no commit) and logs its sha, so a report can fetch it through the API when the
 artifact's storage is out of reach.
 
@@ -21,6 +22,9 @@ from PIL import Image, ImageDraw
 TILE_WIDTH = 216
 LABEL_HEIGHT = 16
 STEP_DIR = re.compile(r"^(\d+)-(.+)$")
+LOG_OF_INTEREST = re.compile(
+    r"ActivityTaskManager|ActivityManager|AndroidRuntime|WindowManager|mydemoapp|SplashScreen|ANR"
+)
 
 
 def step_dirs(slug_dir: Path) -> list[tuple[int, str, Path]]:
@@ -74,6 +78,16 @@ def describe_failure(slug_dir: Path) -> None:
     for window in windows:
         print(f"    {window.get('package_or_bundle')} {json.dumps(window.get('bounds'))}")
     print(f"  texts: {json.dumps(texts, ensure_ascii=False)}")
+    log_file = png.parent / "device.log"
+    if log_file.is_file():
+        lines = [
+            line
+            for line in log_file.read_text(errors="replace").splitlines()
+            if LOG_OF_INTEREST.search(line)
+        ]
+        print(f"  device.log ({len(lines)} activity/app lines, last 40):")
+        for line in lines[-40:]:
+            print(f"    {line}")
 
 
 def sheet(slug_dir: Path) -> Image.Image:
