@@ -11,7 +11,7 @@
 ## User Scenarios & Testing *(mandatory)*
 
 Vai trò trong phase này:
-- **Người dùng web** (QA/dev, Huynh): thành viên của một tenant, đăng nhập bằng trình duyệt trên máy tính. Phase 2 chưa phân quyền chi tiết: mọi thành viên của tenant đều xem và điều khiển được thiết bị của tenant đó.
+- **Người dùng web** (QA/dev, Huynh): thành viên của một tenant, đăng nhập bằng trình duyệt trên máy tính. Vai trò `owner`, `admin`, `member` được điều khiển thiết bị, ghi và lưu test case, tạo run; `viewer` chỉ xem (live view, run, test case).
 - **Agent**: tiến trình trên máy có thiết bị Android (như Phase 1), nay thêm việc gửi hình màn hình và nhận lệnh điều khiển từ xa.
 
 ### User Story 1 - Xem project, thiết bị và kết quả run trên web (Priority: P1)
@@ -82,9 +82,10 @@ Người dùng chọn project, app, build và thiết bị rồi bắt đầu gh
 2. **Given** chạm vào vùng không phải element bấm được (ví dụ chữ bên trong một nút), **When** hit-test, **Then** step nhắm vào element bấm được nhỏ nhất chứa điểm chạm.
 3. **Given** element không có id, chữ hay mô tả, **When** ghi, **Then** chuỗi locator dùng vị trí tương đối / lớp + thứ tự / ảnh; tọa độ phần trăm chỉ xuất hiện ở cuối và chỉ khi không locator nào khác xác định được element duy nhất.
 4. **Given** gõ vào ô mật khẩu, **When** ghi step gõ chữ, **Then** YAML chứa `${secret:TÊN}` do người dùng chọn, không chứa giá trị đã gõ.
-5. **Given** một popup hệ thống (ví dụ xin quyền) mà luật popup của project xử lý được, **When** người dùng chạm vào nút của popup, **Then** thao tác được thực hiện nhưng không thành step (vì khi chạy lại guard tự xử lý), và giao diện nói rõ điều đó.
-6. **Given** bản ghi đã có các step, **When** lưu, **Then** test case được kiểm tra hợp lệ như Phase 1, lưu vào kho của project thành một commit kèm snapshot từng step; test case lỗi không được lưu và lỗi chỉ rõ step + trường.
-7. **Given** test case vừa ghi, **When** chạy lại 3 lần trên cùng thiết bị, **Then** cả 3 lần pass.
+5. **Given** vừa ghi một cú chạm làm mở màn hình mới, **When** màn hình ổn định, **Then** Recorder đề xuất 1–3 kỳ vọng (ví dụ chữ tiêu đề mới xuất hiện); bấm vào một đề xuất thì nó thành `expect` của step vừa ghi; bỏ qua hết thì step bị đánh dấu "không có kỳ vọng".
+6. **Given** một popup hệ thống (ví dụ xin quyền) mà luật popup của project xử lý được, **When** người dùng chạm vào nút của popup, **Then** thao tác được thực hiện nhưng không thành step (vì khi chạy lại guard tự xử lý), và giao diện nói rõ điều đó.
+7. **Given** bản ghi đã có các step, **When** lưu, **Then** test case được kiểm tra hợp lệ như Phase 1, lưu vào kho của project thành một commit kèm snapshot từng step; test case lỗi không được lưu và lỗi chỉ rõ step + trường.
+8. **Given** test case vừa ghi, **When** chạy lại 3 lần trên cùng thiết bị, **Then** cả 3 lần pass.
 
 ---
 
@@ -157,6 +158,7 @@ Người dùng tạo app, tải build lên và tạo agent token ngay trên web 
 **Truy cập web**
 - **FR-001**: Người dùng MUST đăng nhập bằng email + mật khẩu của tenant; phiên được duy trì an toàn qua lần mở lại trình duyệt trong thời hạn làm mới; đăng xuất hủy phiên.
 - **FR-002**: Mọi trang và mọi luồng dữ liệu (kể cả hình trực tiếp và lệnh điều khiển) MUST chỉ trả dữ liệu thuộc tenant của người dùng; truy cập tài nguyên của tenant khác trả về như không tồn tại (P5).
+- **FR-002a**: Giữ và điều khiển thiết bị, ghi, lưu hoặc sửa test case, tạo run MUST cần vai trò `owner`, `admin` hoặc `member`; `viewer` bị từ chối ở server (không chỉ ẩn nút trên giao diện) nhưng vẫn xem được live view, run và test case.
 - **FR-003**: Web MUST hiển thị: danh sách project; trong project: app, build, test case; danh sách thiết bị (trạng thái online/rảnh/bận/offline, model, phiên bản OS, agent); danh sách run (lọc theo project, trạng thái); chi tiết run như US1.
 - **FR-004**: Người dùng MUST tạo được run từ web (chọn build, thiết bị, một hay nhiều test case) và thấy trạng thái run cập nhật trực tiếp.
 
@@ -164,14 +166,15 @@ Người dùng tạo app, tải build lên và tạo agent token ngay trên web 
 - **FR-005**: Hệ thống MUST truyền hình màn hình của thiết bị được chọn tới mọi người đang xem với 2–5 khung/giây, chỉ trong lúc có người xem; xem không cần giữ thiết bị (D16).
 - **FR-006**: Điều khiển MUST cần giữ thiết bị bằng một phiên điều khiển độc quyền (lease loại `live`); tại một thời điểm tối đa một phiên giữ trên mỗi thiết bị, và không đồng thời với run hay exploration.
 - **FR-007**: Phiên điều khiển MUST tự kết thúc sau thời gian không thao tác (mặc định 10 phút, cấu hình được), khi người dùng thả, hoặc khi agent mất kết nối; run đang chờ thiết bị được chạy ngay sau đó.
-- **FR-008**: Khi giữ thiết bị, người dùng MUST thực hiện được: chạm, chạm giữ, vuốt, gõ chữ, Back, Home, ẩn bàn phím, mở lại / khởi động lại app đang test; vị trí chạm/vuốt được quy đổi từ tọa độ trên hình sang tọa độ thật của thiết bị.
+- **FR-008**: Khi giữ thiết bị, người dùng MUST thực hiện được: chạm, chạm giữ, vuốt, gõ chữ, Back, Home, ẩn bàn phím, mở lại / khởi động lại app đang test; vị trí chạm/vuốt được quy đổi từ tọa độ trên hình sang tọa độ thật của thiết bị. Gõ chữ: người dùng chạm vào ô trên live view, nhập cả chuỗi vào một ô nhập riêng trên web rồi gửi (Enter) — chuỗi được nhập vào ô đang chọn trên thiết bị trong một lần; không chuyển từng phím.
 - **FR-009**: Mọi lệnh điều khiển MUST được ghi nhận (ai, thiết bị nào, lệnh gì, khi nào) để tra cứu; lệnh ngoài danh sách FR-008 bị từ chối (P6).
 
 **Recorder**
 - **FR-010**: Phiên ghi MUST bắt đầu bằng việc giữ thiết bị, cài build đã chọn (nếu chưa có đúng bản), mở app ở trạng thái sạch và ghi step khởi động; `preconditions` mặc định `app_state: fresh`.
 - **FR-011**: Với mỗi chạm, Recorder MUST xác định element đích = element bấm được nhỏ nhất chứa điểm chạm trên cây element đọc sau khi màn hình ổn định (SPEC §11.1), rồi trích **toàn bộ** locator áp dụng được theo thứ tự ưu tiên §7.2 từ cây element (không bao giờ tự đặt locator), cắt ảnh element, lưu snapshot (ảnh màn hình + cây element) của step.
 - **FR-012**: Chuỗi locator do Recorder tạo MUST: có ít nhất một locator xác định đúng element lúc ghi; tọa độ phần trăm chỉ ở cuối và chỉ khi không locator nào khác xác định được element duy nhất (P2); locator ảnh được thêm cho mọi step chạm.
-- **FR-013**: Recorder MUST ghi được các loại step: `launch`, `tap`, `long_press`, `swipe`, `type`, `back`, `hide_keyboard`, và thêm kỳ vọng (`visible_text`, `visible` theo element, `not_visible`) cho step vừa ghi bằng cách chọn trên màn hình.
+- **FR-013**: Recorder MUST ghi được các loại step: `launch`, `tap`, `long_press`, `swipe`, `type`, `back`, `hide_keyboard`, và thêm kỳ vọng (`visible_text`, `visible` theo element, `not_visible`) cho step vừa ghi bằng cách chọn trên màn hình. Mỗi lần gửi chuỗi từ ô nhập (FR-008) tạo đúng một step `type` nhắm vào ô đang chọn (target = chuỗi locator của ô đó).
+- **FR-013a**: Sau mỗi step chạm (hoặc chạm giữ, vuốt, Back), Recorder MUST đề xuất 1–3 kỳ vọng lấy từ màn hình mới đã ổn định, không dùng AI: ưu tiên chữ hoặc element vừa xuất hiện so với màn hình trước, và element vừa biến mất (`not_visible`); người dùng bấm để thêm từng đề xuất hoặc bỏ qua. Step chạm không có kỳ vọng nào được đánh dấu cảnh báo trong bản ghi và khi lưu (như cảnh báo `no_expect_after_tap` của `coral validate`), nhưng vẫn lưu được.
 - **FR-014**: Gõ chữ vào ô mật khẩu MUST lưu dạng `${secret:TÊN}` do người dùng chọn; giá trị đã gõ không bao giờ được lưu vào test case, snapshot hay log (P5, D19). Chữ trùng giá trị secret đã biết → đề xuất thay bằng tham chiếu secret.
 - **FR-015**: Thao tác vào popup mà luật popup của project xử lý được MUST được thực hiện nhưng không thành step; thao tác vào nút thuộc `never_tap` MUST kèm cảnh báo trên step.
 - **FR-016**: Bản ghi đang dở MUST không mất khi tải lại trang hoặc mất kết nối ngắn trên cùng trình duyệt; người dùng có thể xóa, sắp xếp lại step và sửa YAML trước khi lưu.
@@ -188,7 +191,7 @@ Người dùng tạo app, tải build lên và tạo agent token ngay trên web 
 - **FR-023**: `coral run` cục bộ MUST dùng được locator `image` với ảnh nằm cạnh file test case.
 
 **Chung**
-- **FR-024**: Giao diện web MUST dùng được trên trình duyệt máy tính phổ biến (Chrome, Edge, Firefox bản mới); ngôn ngữ giao diện: [NEEDS CLARIFICATION: tiếng Việt, tiếng Anh, hay cả hai có nút chuyển?].
+- **FR-024**: Giao diện web MUST dùng được trên trình duyệt máy tính phổ biến (Chrome, Edge, Firefox bản mới); ngôn ngữ giao diện là **tiếng Anh** (thuật ngữ trùng với code và tài liệu: run, step, locator…); dữ liệu người dùng nhập (intent, tên test case, chữ trên app) giữ nguyên, kể cả tiếng Việt có dấu.
 - **FR-025**: Mọi thông tin mới đi vào hệ thống từ web và agent (lệnh điều khiển, khung hình, bản ghi) MUST được kiểm tra định dạng; khung hình lỗi bị bỏ qua, không làm hỏng phiên.
 
 ### Key Entities *(include if feature involves data)*
@@ -218,10 +221,19 @@ Người dùng tạo app, tải build lên và tạo agent token ngay trên web 
 
 - Chỉ Android trong Phase 2 (iOS từ Phase 5); dùng lại agent, runner, server, kho git project và giao thức của Phase 1.
 - Thiết bị để kiểm DoD là emulator Android 14 trong CI (`.github/workflows/device.yml`) hoặc emulator trên máy Huynh; các kiểm tra khác chạy bằng thiết bị giả lập như Phase 1.
-- Phase 2 chưa phân vai (owner/admin/member/viewer) chi tiết: mọi thành viên tenant đều xem và điều khiển thiết bị của tenant; phân quyền đầy đủ ở phase sau.
+- Phân quyền Phase 2 chỉ có hai mức: `viewer` (chỉ xem) và các vai trò còn lại (thao tác); quản lý thành viên/mời người để phase sau.
 - Chất lượng hình MVP là ảnh JPEG định kỳ 2–5 khung/giây (SPEC §19); truyền video mượt (scrcpy…) để sau.
 - Người dùng dùng máy tính (không tối ưu cho điện thoại/máy tính bảng).
 - Ảnh cắt và snapshot lưu trong kho git của project (§13 `snap/`); rủi ro repo phình to đã chấp nhận ở R9.
 - Thời gian chờ thả thiết bị mặc định 10 phút; ngưỡng locator ảnh mặc định 0,85 (§7.2).
 - Test writer (AI) không tham gia: Recorder không dùng AI (§11.1); `intent` do người dùng viết.
 - Chạy lại DoD 3/3 dùng cùng thiết bị và cùng build với lúc ghi.
+
+## Clarifications
+
+### Session 2026-09-29
+
+- Q: Giao diện web hiển thị bằng ngôn ngữ nào? → A: Tiếng Anh (FR-024).
+- Q: Ai được giữ và điều khiển thiết bị, ghi và lưu test case từ web? → A: `owner`, `admin`, `member`; `viewer` chỉ xem (FR-002a).
+- Q: Khi ghi test, người dùng nhập chữ vào ô trên thiết bị bằng cách nào? → A: Ô nhập riêng trên web, gửi cả chuỗi một lần → một step `type` (FR-008, FR-013).
+- Q: Sau mỗi cú chạm khi ghi, Recorder xử lý kỳ vọng thế nào? → A: Đề xuất 1–3 kỳ vọng từ màn hình mới (không AI), người dùng chọn hoặc bỏ qua; step chạm không có kỳ vọng bị cảnh báo nhưng vẫn lưu được (FR-013a).

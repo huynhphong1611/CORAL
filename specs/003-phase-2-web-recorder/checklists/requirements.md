@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -32,6 +32,8 @@
 ## Notes
 
 - Iteration 1 (2026-09-29): one open marker — FR-024 web UI language (Q1 to Huynh).
+- Clarify session 2026-09-29: 4 answers (English UI; viewer only watches; typing through a
+  separate input box; suggested expects the user accepts) → all items pass.
 - Terms kept from SPEC on purpose: lease `live` (D16), `${secret:NAME}` (D19), `coral validate`,
   project git repo `snap/` (§13). They name existing domain concepts, not implementation choices.
 - The requested "OpenCV WASM" and "JPEG over WS binary frames" are HOW decisions: left to
