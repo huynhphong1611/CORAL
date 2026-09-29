@@ -1,7 +1,7 @@
 import type { ElementNode, Permission } from '@coral/shared'
 import type { DeviceDriver, Point, Size } from '../../core/driver'
 import { Adb, AdbError, type AdbDeviceClient } from './adb'
-import { parseHierarchy } from './hierarchy'
+import { parseHierarchy, parseWindowLayers } from './hierarchy'
 import { AndroidLifecycle, type InstallRegistry } from './lifecycle'
 import { ensureU2Jar } from './u2-assets'
 import { U2Server, type Spawner } from './u2-server'
@@ -68,8 +68,13 @@ export class AndroidDriver implements DeviceDriver {
     return png
   }
 
+  /** The u2 dump, with windows in the window manager's z-order (read alongside, research R5). */
   async tree(): Promise<ElementNode[]> {
-    return parseHierarchy(await this.u2.call<string>('dumpWindowHierarchy', [false, 50]))
+    const [xml, layers] = await Promise.all([
+      this.u2.call<string>('dumpWindowHierarchy', [false, 50]),
+      this.device.shell(['dumpsys', 'window', 'windows']).then(parseWindowLayers, () => undefined),
+    ])
+    return parseHierarchy(xml, layers)
   }
 
   async tapAt(point: Point): Promise<void> {

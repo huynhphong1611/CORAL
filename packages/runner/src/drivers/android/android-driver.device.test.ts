@@ -15,6 +15,7 @@ import { createPopupGuard, findPopups } from '../../core/popup-guard'
 import { waitForStable } from '../../core/stability'
 import { deviceTestEnv } from '../../testing/device-env'
 import { createAndroidDriver, type AndroidDriver } from './android-driver'
+import { matchWindowLayers, parseWindowLayers } from './hierarchy'
 import { defaultSpawner, U2_LAUNCH } from './u2-server'
 
 // 🔌 Needs an Android device/emulator with the Sauce Labs My Demo App (quickstart §0, T039).
@@ -64,15 +65,27 @@ async function tap(target: Locator[]): Promise<void> {
 }
 
 /** Window order of the u2 dump next to the system's z-order (research R5), for the CI log. */
-async function logWindowOrder(label: string, tree: readonly ElementNode[]): Promise<void> {
-  const dump = tree.map((w, i) => `  ${i} ${w.package_or_bundle} ${JSON.stringify(w.bounds)}`)
-  const zOrder = (await env.adb.device(env.udid).shell(['dumpsys', 'window', 'windows']))
-    .split('\n')
-    .filter((line) => /^\s*Window #\d+/.test(line))
-    .map((line) => `  ${line.trim()}`)
-  console.log(
-    `[${label}] u2 dump order:\n${dump.join('\n')}\n[${label}] dumpsys z-order:\n${zOrder.join('\n')}`,
+/**
+ * Logs the tree's windows next to the window manager's z-order and checks that every dumped
+ * window matched a layer and that the tree is bottom-most first by it (research R5).
+ */
+async function checkWindowOrder(label: string, tree: readonly ElementNode[]): Promise<void> {
+  const layers = parseWindowLayers(
+    await env.adb.device(env.udid).shell(['dumpsys', 'window', 'windows']),
   )
+  const z = matchWindowLayers(
+    tree.map((w) => ({ package: w.package_or_bundle, bounds: w.bounds })),
+    layers,
+  )
+  const dumped = tree.map(
+    (w, i) => `  ${i} ${w.package_or_bundle} ${JSON.stringify(w.bounds)} → layer ${z?.[i] ?? '?'}`,
+  )
+  const wm = layers.map((l, i) => `  ${i} ${l.package} ${JSON.stringify(l.frame)}`)
+  console.log(
+    `[${label}] tree, bottom-most first:\n${dumped.join('\n')}\n[${label}] window manager, top-most first:\n${wm.join('\n')}`,
+  )
+  expect(z, `${label}: every dumped window has a window-manager layer`).toBeDefined()
+  expect(z).toEqual([...(z ?? [])].sort((a, b) => b - a))
 }
 
 beforeAll(async () => {
@@ -94,7 +107,7 @@ describe('AndroidDriver on a real device', () => {
     const tree = await stableTree()
     const packages = new Set([...walkTree(tree)].map((n) => n.package_or_bundle))
     expect(packages.has(env.appId)).toBe(true)
-    await logWindowOrder('app screen', tree)
+    await checkWindowOrder('app screen', tree)
     const size = await driver.windowSize()
     expect(size.width).toBeGreaterThan(0)
   })
@@ -116,7 +129,7 @@ describe('AndroidDriver on a real device', () => {
     const field = [...walkTree(tree)].find((n) => n.platform_id.endsWith(':id/nameET'))
     expect(field?.text).toBe(text)
     // With the keyboard open, its window (when the dump has it) must sit above the app's.
-    await logWindowOrder('keyboard', tree)
+    await checkWindowOrder('keyboard', tree)
     const ime = tree.findIndex((w) => /inputmethod|keyboard/i.test(w.package_or_bundle))
     const app = tree.findIndex((w) => w.package_or_bundle === env.appId)
     if (ime >= 0 && app >= 0) expect(ime).toBeGreaterThan(app)
@@ -157,14 +170,15 @@ describe('AndroidDriver on a real device', () => {
     do {
       tree = await stableTree()
     } while (findPopups(tree, env.appId).length === 0 && Date.now() < deadline)
-    await logWindowOrder('permission dialog', tree)
+    await checkWindowOrder('permission dialog', tree)
     const popup = findPopups(tree, env.appId)[0]
     expect(popup?.root.package_or_bundle).toMatch(/permissioncontroller/)
     const allow = popup?.nodes.find((n) => n.clickable)
     if (!allow) throw new Error('no button in the permission dialog')
     const point = center(allow.bounds)
     expect(touchTargetAt(tree, point)?.package_or_bundle).toMatch(/permissioncontroller/)
-    // The status bar is the top-most window; the app, if dumped at all, is below the dialog.
+    // The status bar is above the dialog (window manager z-order); the app, if dumped at all, is
+    // below it.
     expect(tree.at(-1)?.package_or_bundle).toBe('com.android.systemui')
     const dialog = tree.indexOf(popup?.root as ElementNode)
     const app = tree.findIndex((w) => w.package_or_bundle === env.appId)

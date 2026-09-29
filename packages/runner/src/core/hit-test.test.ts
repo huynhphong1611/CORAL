@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { APP, androidTree } from '../testing/android-fixtures'
 import { el, windows } from '../testing/fake-driver'
 import { checkHit, topNodeAt, touchTargetAt } from './hit-test'
-import { center } from './locator/geometry'
+import { center, contains } from './locator/geometry'
 
 const byId = (tree: ElementNode[], suffix: string) => {
   const node = [...walkTree(tree)].find((n) => n.platform_id === `${APP}:id/${suffix}`)
@@ -94,6 +94,30 @@ describe('hit-test', () => {
   it('treats a system dialog window as covering the app', () => {
     const tree = androidTree('permission-dialog')
     expect(topNodeAt(tree, { x: 540, y: 1200 })?.package_or_bundle).toMatch(/permissioncontroller/)
+  })
+
+  it('lets a dialog window take taps outside its bounds, but not the keyboard or status bar', () => {
+    // The dialog window has the dialog's size (as on the device); the app's toolbar is outside it.
+    for (const file of ['rate-app-dialog', 'permission-dialog', 'crash-dialog']) {
+      const tree = androidTree(file)
+      const dialog = tree.at(-2) as ElementNode
+      expect(dialog.bounds.h).toBeLessThan(2400)
+      const app = [...walkTree(tree)].find(
+        (n) =>
+          n.package_or_bundle === APP &&
+          n.clickable &&
+          n.visible &&
+          !contains(dialog.bounds, center(n.bounds)),
+      )
+      if (!app) throw new Error(`no app node outside the dialog in ${file}`)
+      const result = checkHit(tree, app, center(app.bounds))
+      expect(result.ok ? undefined : result.covering?.ref, file).toBe(dialog.ref)
+      // What is drawn there is still the app.
+      expect(topNodeAt(tree, center(app.bounds))?.package_or_bundle, file).toBe(APP)
+    }
+    const status = androidTree('login').at(-1) as ElementNode
+    expect(touchTargetAt(androidTree('login'), { x: 540, y: 1200 })?.package_or_bundle).toBe(APP)
+    expect(status.package_or_bundle).toBe('com.android.systemui')
   })
 
   it('returns undefined outside every window', () => {

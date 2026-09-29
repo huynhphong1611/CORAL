@@ -11,7 +11,7 @@ const LOGIN_XML = readFileSync(
 )
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])
 
-function setup(opts: { imeShown?: boolean; screencap?: Buffer } = {}) {
+function setup(opts: { imeShown?: boolean; screencap?: Buffer; windows?: string } = {}) {
   const rpc: { method: string; params: unknown[] }[] = []
   const u2: U2Rpc & { started: number; stopped: number } = {
     started: 0,
@@ -40,6 +40,11 @@ function setup(opts: { imeShown?: boolean; screencap?: Buffer } = {}) {
     const key = args.slice(2).join(' ')
     adbCalls.push(key)
     if (key === 'exec-out screencap -p') return Promise.resolve(opts.screencap ?? PNG)
+    if (key === 'shell dumpsys window windows') {
+      return opts.windows === undefined
+        ? Promise.reject(new Error('dumpsys failed'))
+        : Promise.resolve(Buffer.from(opts.windows))
+    }
     if (key === 'shell dumpsys input_method')
       return Promise.resolve(Buffer.from(`  mInputShown=${opts.imeShown ? 'true' : 'false'}\n`))
     return Promise.resolve(Buffer.from(''))
@@ -63,6 +68,26 @@ describe('AndroidDriver', () => {
       ['dumpWindowHierarchy', [false, 50]],
       ['deviceInfo', []],
     ])
+  })
+
+  it('orders windows by the window manager z-order read alongside the dump', async () => {
+    // Deliberately odd z-order (app above the status bar) to show that it is what decides.
+    const windows = [
+      `  Window #0 Window{1 u0 ${APP}/${APP}.Main}:`,
+      `    mOwnerUid=10190 showForAllUsers=false package=${APP} appop=NONE`,
+      '    Frames: parent=[0,0][1080,2400] display=[0,0][1080,2400] frame=[0,0][1080,2400]',
+      '  Window #1 Window{2 u0 StatusBar}:',
+      '    mOwnerUid=10120 showForAllUsers=true package=com.android.systemui appop=NONE',
+      '    Frames: parent=[0,0][1080,80] display=[0,0][1080,80] frame=[0,0][1080,80]',
+    ].join('\n')
+    const { driver, adbCalls } = setup({ windows })
+    expect((await driver.tree()).map((w) => w.package_or_bundle)).toEqual([
+      'com.android.systemui',
+      APP,
+    ])
+    expect(adbCalls).toContain('shell dumpsys window windows')
+    // dumpsys failing (setup default) falls back to window classes: status bar on top.
+    expect((await setup().driver.tree()).at(-1)?.package_or_bundle).toBe('com.android.systemui')
   })
 
   it('maps gestures and text input to u2 calls', async () => {

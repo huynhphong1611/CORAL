@@ -18,11 +18,25 @@ function topmostIn(node: ElementNode, point: Point): ElementNode {
   return top ? topmostIn(top, point) : node
 }
 
-/** The window a tap at `point` lands in: the last (topmost) visible window containing it. */
-function windowAt(tree: readonly ElementNode[], point: Point): ElementNode | undefined {
+// System bars and the keyboard take touches only inside their bounds. Any other window stacked
+// above the one under the point (an in-app dialog, a popup menu, a permission or crash dialog) is
+// touch-modal on Android: it takes every touch, outside its bounds too (research R5).
+const NOT_MODAL = /^com\.android\.systemui$|inputmethod|keyboard|honeyboard|swiftkey/i
+
+/**
+ * The topmost visible window containing `point`; with `modal`, the window a tap there goes to —
+ * a touch-modal window above it takes the tap instead.
+ */
+function windowAt(
+  tree: readonly ElementNode[],
+  point: Point,
+  modal = false,
+): ElementNode | undefined {
   for (let i = tree.length - 1; i >= 0; i -= 1) {
     const window = tree[i]
-    if (window?.visible && contains(window.bounds, point)) return window
+    if (!window?.visible) continue
+    if (contains(window.bounds, point)) return window
+    if (modal && i > 0 && !NOT_MODAL.test(window.package_or_bundle)) return window
   }
   return undefined
 }
@@ -46,12 +60,13 @@ function receiverIn(node: ElementNode, point: Point): ElementNode | undefined {
 }
 
 /**
- * The node that receives a tap at `point` (§8.4, research R5): in the topmost window containing
- * the point, the first clickable node in touch-dispatch order; the window itself when nothing in
- * it is clickable there (a window on top always takes the touch — keyboard, dialog, popup).
+ * The node that receives a tap at `point` (§8.4, research R5): in the window the tap goes to (the
+ * topmost one containing the point, or a touch-modal dialog above it), the first clickable node in
+ * touch-dispatch order; the window itself when nothing in it is clickable there (a window on top
+ * always takes the touch — keyboard, dialog, popup).
  */
 export function touchTargetAt(tree: readonly ElementNode[], point: Point): ElementNode | undefined {
-  const window = windowAt(tree, point)
+  const window = windowAt(tree, point, true)
   return window ? (receiverIn(window, point) ?? window) : undefined
 }
 
