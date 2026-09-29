@@ -1,7 +1,8 @@
 import { protocol } from '@coral/shared'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { useCoral } from '../api/queries'
 import { en } from '../i18n/en'
+import { gesture, toDevice } from './coords'
 
 type StreamState = protocol.UiPayload<'stream.status'>['state'] | 'unavailable'
 
@@ -41,10 +42,13 @@ export function LiveView({
   deviceId,
   draw = drawFrame,
   onFrameInfo,
+  onGesture,
 }: {
   deviceId: string
   draw?: DrawFrame
   onFrameInfo?: (info: FrameInfo) => void
+  /** Set while the viewer controls the device: clicks, holds and drags become commands (US3). */
+  onGesture?: (command: protocol.DeviceCommand) => void
 }) {
   const { socket } = useCoral()
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -54,6 +58,28 @@ export function LiveView({
   const [size, setSize] = useState<{ width: number; height: number } | undefined>()
   const infoCallback = useRef(onFrameInfo)
   infoCallback.current = onFrameInfo
+  // The screen of the frame on display: clicks map with its device size (contracts/ui-ws.md).
+  const screen = useRef<FrameInfo | undefined>(undefined)
+  const pointer = useRef<{ x: number; y: number; at: number } | undefined>(undefined)
+
+  const at = (event: PointerEvent<HTMLCanvasElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top, at: event.timeStamp, rect }
+  }
+  const onPointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (!onGesture || !screen.current || event.button !== 0) return
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    pointer.current = at(event)
+  }
+  const onPointerUp = (event: PointerEvent<HTMLCanvasElement>) => {
+    const down = pointer.current
+    pointer.current = undefined
+    const current = screen.current
+    if (!onGesture || !down || !current) return
+    const up = at(event)
+    const rendered = { width: up.rect.width, height: up.rect.height }
+    onGesture(gesture(down, up, (p) => toDevice(p, rendered, current)))
+  }
 
   useEffect(() => {
     let subscribeId: string | undefined
@@ -87,6 +113,7 @@ export function LiveView({
           deviceHeight: header.device_height,
           rotation: header.rotation,
         }
+        screen.current = info
         const key = JSON.stringify(info)
         if (key !== lastInfo) {
           lastInfo = key
@@ -148,7 +175,9 @@ export function LiveView({
   return (
     <figure className="flex flex-col items-center gap-2">
       <div
-        className="relative overflow-hidden rounded-xl bg-slate-900 shadow-sm"
+        className={`relative overflow-hidden rounded-xl bg-slate-900 shadow-sm ${
+          onGesture ? 'ring-2 ring-[#ff7f50] ring-offset-2' : ''
+        }`}
         style={
           size ? { aspectRatio: `${size.width} / ${size.height}` } : { aspectRatio: '9 / 19.5' }
         }
@@ -157,9 +186,14 @@ export function LiveView({
           ref={canvas}
           aria-label={en.live.canvas}
           data-testid="live-canvas"
-          className="block h-[70vh] max-h-[760px] w-auto"
+          className={`block h-[70vh] max-h-[760px] w-auto touch-none select-none ${
+            onGesture ? 'cursor-crosshair' : ''
+          }`}
           width={size?.width ?? 360}
           height={size?.height ?? 780}
+          onPointerDown={onPointerDown}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => (pointer.current = undefined)}
         />
         {overlay && (
           <div
