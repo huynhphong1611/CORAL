@@ -13,6 +13,8 @@ import { U2Server, U2StartError, U2_LAUNCH, type ServerProcess, type Spawner } f
 class FakeU2 {
   alive = false
   calls: { method: string; params: unknown[] }[] = []
+  /** Raw request bodies as received on the wire. */
+  bodies: Buffer[] = []
   failNext: string | undefined
   server: Server
   port = 0
@@ -27,10 +29,16 @@ class FakeU2 {
         res.end('pong')
         return
       }
-      let body = ''
-      req.on('data', (c: Buffer) => (body += c.toString()))
+      const chunks: Buffer[] = []
+      req.on('data', (c: Buffer) => chunks.push(c))
       req.on('end', () => {
-        const rpc = JSON.parse(body) as { id: number; method: string; params: unknown[] }
+        const raw = Buffer.concat(chunks)
+        this.bodies.push(raw)
+        const rpc = JSON.parse(raw.toString('utf8')) as {
+          id: number
+          method: string
+          params: unknown[]
+        }
         this.calls.push({ method: rpc.method, params: rpc.params })
         res.setHeader('content-type', 'application/json')
         if (this.failNext) {
@@ -77,6 +85,7 @@ afterAll(async () => {
 afterEach(() => {
   u2.alive = false
   u2.calls = []
+  u2.bodies = []
 })
 
 function setup(opts: { remoteMd5?: string; startOutput?: string; exits?: boolean } = {}) {
@@ -122,6 +131,17 @@ describe('U2Client', () => {
     expect(
       ((await client.call('setText', []).catch((e: unknown) => e)) as U2RpcError).needsRestart,
     ).toBe(false)
+  })
+
+  it('sends non-ASCII text as \\u escapes, so the server cannot garble it', async () => {
+    u2.alive = true
+    const client = new U2Client(`http://127.0.0.1:${u2.port}`)
+    const text = 'Nguyễn Văn Ánh ệ ữ ỷ 😀'
+    await client.call('setText', [{ focused: true }, text])
+    const raw = u2.bodies.at(-1) ?? Buffer.alloc(0)
+    expect([...raw].every((byte) => byte < 0x80)).toBe(true)
+    expect(raw.toString('ascii')).toContain('Nguy\\u1ec5n')
+    expect(u2.calls.at(-1)?.params[1]).toBe(text)
   })
 })
 

@@ -8,7 +8,7 @@ export type { DeviceDriver, Point, Size, TargetLifecycle, UiDriver } from './cor
 export { realClock, AbortError, type Clock } from './core/clock'
 export { StepFailure, TargetCoveredError } from './core/errors'
 export { resolve, findAll, type Resolution, type ResolveContext } from './core/locator/resolve'
-export { checkHit, topNodeAt } from './core/hit-test'
+export { checkHit, topNodeAt, touchTargetAt } from './core/hit-test'
 export { waitForStable, structureHash } from './core/stability'
 export { checkExpect, expectFailure } from './core/expect'
 export { createInterpolator, missingSecrets, referencedSecrets } from './core/interpolate'

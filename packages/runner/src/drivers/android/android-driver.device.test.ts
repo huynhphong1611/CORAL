@@ -8,8 +8,10 @@ import {
 } from '@coral/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { realClock } from '../../core/clock'
+import { checkHit, touchTargetAt } from '../../core/hit-test'
+import { center, contains } from '../../core/locator/geometry'
 import { resolve } from '../../core/locator/resolve'
-import { createPopupGuard } from '../../core/popup-guard'
+import { createPopupGuard, findPopups } from '../../core/popup-guard'
 import { waitForStable } from '../../core/stability'
 import { deviceTestEnv } from '../../testing/device-env'
 import { createAndroidDriver, type AndroidDriver } from './android-driver'
@@ -61,6 +63,18 @@ async function tap(target: Locator[]): Promise<void> {
   await driver.tapAt(found.point)
 }
 
+/** Window order of the u2 dump next to the system's z-order (research R5), for the CI log. */
+async function logWindowOrder(label: string, tree: readonly ElementNode[]): Promise<void> {
+  const dump = tree.map((w, i) => `  ${i} ${w.package_or_bundle} ${JSON.stringify(w.bounds)}`)
+  const zOrder = (await env.adb.device(env.udid).shell(['dumpsys', 'window', 'windows']))
+    .split('\n')
+    .filter((line) => /^\s*Window #\d+/.test(line))
+    .map((line) => `  ${line.trim()}`)
+  console.log(
+    `[${label}] u2 dump order:\n${dump.join('\n')}\n[${label}] dumpsys z-order:\n${zOrder.join('\n')}`,
+  )
+}
+
 beforeAll(async () => {
   env = await deviceTestEnv()
   driver = await createAndroidDriver({ udid: env.udid, appId: env.appId, adbPath: env.adb.path })
@@ -80,8 +94,7 @@ describe('AndroidDriver on a real device', () => {
     const tree = await stableTree()
     const packages = new Set([...walkTree(tree)].map((n) => n.package_or_bundle))
     expect(packages.has(env.appId)).toBe(true)
-    // Window order assumption of research R5 / fixtures README: system UI windows come last.
-    expect(tree.at(-1)?.package_or_bundle).not.toBe(env.appId)
+    await logWindowOrder('app screen', tree)
     const size = await driver.windowSize()
     expect(size.width).toBeGreaterThan(0)
   })
@@ -128,4 +141,32 @@ describe('AndroidDriver on a real device', () => {
     const tree = await waitForApp()
     expect([...walkTree(tree)].some((n) => n.package_or_bundle === env.appId)).toBe(true)
   }, 60_000)
+
+  it('sees the camera permission dialog as covering the app (window order, R5)', async () => {
+    await driver.resetApp(env.appId)
+    await driver.launch(env.appId)
+    await waitForApp()
+    await tap([{ desc: 'View menu' }, { android_id: 'id/menuIV' }])
+    await tap([{ text: 'QR Code Scanner' }])
+    let tree: ElementNode[]
+    const deadline = Date.now() + 15_000
+    do {
+      tree = await stableTree()
+    } while (findPopups(tree, env.appId).length === 0 && Date.now() < deadline)
+    await logWindowOrder('permission dialog', tree)
+    const popup = findPopups(tree, env.appId)[0]
+    expect(popup?.root.package_or_bundle).toMatch(/permissioncontroller/)
+    // Any point of the dialog is also on top of the app window: a tap there must not count as
+    // reaching the app element below.
+    const allow = popup?.nodes.find((n) => n.clickable)
+    if (!allow) throw new Error('no button in the permission dialog')
+    const point = center(allow.bounds)
+    const appNode = [...walkTree(tree)]
+      .filter((n) => n.package_or_bundle === env.appId && n.visible && contains(n.bounds, point))
+      .at(-1)
+    if (!appNode) throw new Error('no app node under the dialog')
+    expect(checkHit(tree, appNode, point)).toMatchObject({ ok: false })
+    expect(touchTargetAt(tree, point)?.package_or_bundle).toMatch(/permissioncontroller/)
+    await driver.resetApp(env.appId)
+  }, 90_000)
 })

@@ -33,6 +33,18 @@ interface RpcResponse {
   error?: { code?: number; message?: string; data?: unknown }
 }
 
+/**
+ * JSON with every non-ASCII character escaped as \uXXXX, like the Python client's default. The u2
+ * server decodes request bodies byte by byte: raw UTF-8 turned "Nguyễn" into "Nguy���n" on an
+ * Android 14 emulator.
+ */
+export function asciiJson(value: unknown): string {
+  return JSON.stringify(value).replace(
+    /[\u007f-￿]/g,
+    (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  )
+}
+
 export class U2Client {
   private nextId = 1
 
@@ -62,8 +74,8 @@ export class U2Client {
     try {
       const response = await this.fetch(`${this.baseUrl}/jsonrpc/0`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+        headers: { 'content-type': 'application/json; charset=utf-8' },
+        body: asciiJson({ jsonrpc: '2.0', id, method, params }),
         signal: AbortSignal.timeout(timeoutMs ?? this.options.timeoutMs ?? U2_CALL_TIMEOUT_MS),
       })
       body = (await response.json()) as RpcResponse

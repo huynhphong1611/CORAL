@@ -1,7 +1,8 @@
 import { walkTree, type ElementNode } from '@coral/shared'
 import { describe, expect, it } from 'vitest'
 import { APP, androidTree } from '../testing/android-fixtures'
-import { checkHit, topNodeAt } from './hit-test'
+import { el, windows } from '../testing/fake-driver'
+import { checkHit, topNodeAt, touchTargetAt } from './hit-test'
 import { center } from './locator/geometry'
 
 const byId = (tree: ElementNode[], suffix: string) => {
@@ -21,14 +22,62 @@ describe('hit-test', () => {
     expect(checkHit(login, tab, center(tab.bounds))).toEqual({ ok: true })
   })
 
-  it('detects a bottom sheet drawn over the target (higher drawing order)', () => {
+  it('detects a clickable bottom sheet drawn over the target (higher drawing order)', () => {
     const tree = androidTree('overlay-bottom-sheet')
     const checkout = byId(tree, 'cartBt')
+    const sheet = byId(tree, 'design_bottom_sheet')
+    sheet.clickable = true
     const result = checkHit(tree, checkout, center(checkout.bounds))
     expect(result.ok).toBe(false)
     expect(result.ok ? undefined : result.covering?.platform_id).toBe(
       `${APP}:id/design_bottom_sheet`,
     )
+    // A sheet that takes no touches lets the tap through, as on the device.
+    sheet.clickable = false
+    expect(topNodeAt(tree, center(checkout.bounds))?.platform_id).not.toBe(`${APP}:id/cartBt`)
+    expect(checkHit(tree, checkout, center(checkout.bounds))).toEqual({ ok: true })
+  })
+
+  it('ignores a non-clickable view drawn over a clickable one (logo over the menu icon)', () => {
+    // My Demo App 2.3.0 on Android 14: the header logo id/mTvTitle overlaps id/menuIV.
+    const tree = windows(
+      APP,
+      el({
+        bounds: [0, 0, 1080, 2400],
+        children: [
+          el({
+            platform_id: `${APP}:id/menuIV`,
+            desc: 'View menu',
+            clickable: true,
+            bounds: [30, 110, 120, 120],
+          }),
+          el({ platform_id: `${APP}:id/mTvTitle`, bounds: [0, 100, 1080, 150] }),
+        ],
+      }),
+    )
+    const menu = byId(tree, 'menuIV')
+    expect(topNodeAt(tree, center(menu.bounds))?.platform_id).toBe(`${APP}:id/mTvTitle`)
+    expect(touchTargetAt(tree, center(menu.bounds))?.platform_id).toBe(`${APP}:id/menuIV`)
+    expect(checkHit(tree, menu, center(menu.bounds))).toEqual({ ok: true })
+  })
+
+  it('accepts a label whose clickable row receives the tap', () => {
+    const tree = windows(
+      APP,
+      el({
+        bounds: [0, 0, 1080, 2400],
+        children: [
+          el({
+            clickable: true,
+            bounds: [0, 500, 1080, 120],
+            children: [el({ text: 'Log In', bounds: [40, 520, 400, 80] })],
+          }),
+        ],
+      }),
+    )
+    const label = [...walkTree(tree)].find((n) => n.text === 'Log In')
+    if (!label) throw new Error('no label')
+    expect(checkHit(tree, label, center(label.bounds))).toEqual({ ok: true })
   })
 
   it('detects the keyboard window over the bottom navigation', () => {

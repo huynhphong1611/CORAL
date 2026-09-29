@@ -48,7 +48,7 @@ Technical Context không còn mục NEEDS CLARIFICATION. Dưới đây là các 
 
 - **Decision**:
   - `waitForStable`: dump cây, băm cấu trúc `(class, platform_id, bounds làm tròn 4 px)` **bỏ qua text** (đồng hồ, bộ đếm không làm mất ổn định); hai lần liên tiếp cách 300 ms giống nhau là ổn định; tối đa 3000 ms rồi làm tiếp và gắn `unstable = true` cho step.
-  - Hit-test (§8.4): trong cây vừa dump, lấy các node chứa điểm tap; node trên cùng = thuộc cửa sổ sau cùng, rồi `drawing_order` lớn nhất, rồi sâu nhất. Hợp lệ nếu node đó là target hoặc nằm trong subtree của target. Không hợp lệ → gọi popup guard; vẫn bị che → `TARGET_NOT_FOUND` với lý do "covered".
+  - Hit-test (§8.4, D36): cửa sổ nhận chạm = cửa sổ sau cùng chứa điểm; trong đó node **nhận chạm** = node bấm được đầu tiên khi duyệt con chứa điểm từ trên xuống (`drawing_order` lớn nhất, rồi anh em sau) — cây con không có gì bấm được để chạm đi xuyên xuống; không có gì bấm được thì chính cửa sổ nhận. Hợp lệ nếu node nhận chạm là target, nằm trong target hoặc chứa target. Không hợp lệ → gọi popup guard; vẫn bị che → `TARGET_NOT_FOUND` với lý do "covered". (Bản đầu dùng node vẽ trên cùng; emulator Android 14 cho thấy logo không bấm được `id/mTvTitle` đè lên nút menu nên đã đổi.) Thứ tự cửa sổ trong dump u2 đang được kiểm bằng device test "permission dialog" (in cả thứ tự `dumpsys window`).
   - `checkExpect`: thăm dò mỗi 250 ms đến `timeout_ms` (mặc định 5000); mọi điều kiện trong danh sách phải đúng cùng lúc.
   - `expect.screen` và locator `image`: schema chấp nhận nhưng `coral validate` báo "chưa hỗ trợ ở Phase 1" (lỗi), để không có test case chạy sai âm thầm.
 - **Alternatives**: `sleep` cố định (trái §8.3); băm cả text (không bao giờ ổn định với đồng hồ).
