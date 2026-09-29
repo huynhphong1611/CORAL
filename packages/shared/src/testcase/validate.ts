@@ -4,6 +4,7 @@ import { formatPath } from '../path'
 import { isPermission } from '../permissions'
 import { parseYaml, type ParsedYaml } from './parse'
 import {
+  imageLocator,
   testCaseSchema,
   type ExpectCondition,
   type Locator,
@@ -23,6 +24,9 @@ export const VALIDATION_ERROR_CODES = [
   'point_pct_not_last',
   'duplicate_rule_name',
   'rule_taps_never_tap',
+  'image_path_invalid',
+  'image_in_expect',
+  'image_not_found',
 ] as const
 export const VALIDATION_WARNING_CODES = ['no_expect_after_tap'] as const
 export type ValidationCode =
@@ -56,14 +60,56 @@ interface RawIssue {
 
 const INTERPOLATION = /\$\{(secret|var):([^}]*)\}/g
 
+export interface TestCaseCheckOptions {
+  /**
+   * Whether a path of the project repo exists (the server: the repo at that commit; the CLI: its
+   * project root). Without it, `image_not_found` is not checked.
+   */
+  fileExists?: (path: string) => boolean
+}
+
 /** Validates YAML source text; errors carry line/column. */
-export function validateTestCaseSource(source: string, file: string): ValidationResult<TestCase> {
-  return validateParsed(parseYaml(source), file, checkTestCase)
+export function validateTestCaseSource(
+  source: string,
+  file: string,
+  options: TestCaseCheckOptions = {},
+): ValidationResult<TestCase> {
+  return validateParsed(parseYaml(source), file, (value) => checkTestCase(value, options))
 }
 
 /** Validates an already-parsed value (no positions). */
-export function validateTestCase(value: unknown, file = '<input>'): ValidationResult<TestCase> {
-  return finish(file, value, undefined, checkTestCase(value))
+export function validateTestCase(
+  value: unknown,
+  file = '<input>',
+  options: TestCaseCheckOptions = {},
+): ValidationResult<TestCase> {
+  return finish(file, value, undefined, checkTestCase(value, options))
+}
+
+/** A repo path an `image` locator may use: relative, no `..`, no backslash, a `.png` file. */
+export function isValidImagePath(path: string): boolean {
+  return (
+    !path.startsWith('/') &&
+    !/^[A-Za-z]:/.test(path) &&
+    !path.includes('\\') &&
+    !path.split('/').some((segment) => segment === '..' || segment === '') &&
+    /\.png$/i.test(path)
+  )
+}
+
+/** Paths of every image an `image` locator of the test case refers to (sorted, unique). */
+export function imagePaths(testCase: TestCase): string[] {
+  const paths = new Set<string>()
+  testCase.steps.forEach((step, i) => {
+    for (const [list, path] of locatorLists(step, ['steps', i])) {
+      list.forEach((locator, j) =>
+        walkLocator(locator, [...path, j], (inner) => {
+          if (inner.image !== undefined) paths.add(imageLocator(inner.image).path)
+        }),
+      )
+    }
+  })
+  return [...paths].sort()
 }
 
 // --- shared plumbing (also used by popups) --------------------------------------------------
@@ -143,14 +189,14 @@ export function schemaIssues(error: z.ZodError): RawIssue[] {
 
 // --- test case rules ------------------------------------------------------------------------
 
-function checkTestCase(value: unknown): CheckOutcome<TestCase> {
+function checkTestCase(value: unknown, options: TestCaseCheckOptions): CheckOutcome<TestCase> {
   const parsed = testCaseSchema.safeParse(value)
   if (!parsed.success) return { issues: schemaIssues(parsed.error) }
   const tc = parsed.data
-  return { value: tc, issues: semanticIssues(tc) }
+  return { value: tc, issues: semanticIssues(tc, options) }
 }
 
-function semanticIssues(tc: TestCase): RawIssue[] {
+function semanticIssues(tc: TestCase, options: TestCaseCheckOptions): RawIssue[] {
   const issues: RawIssue[] = []
   const declared = new Set(Object.keys(tc.variables ?? {}))
 
@@ -193,11 +239,27 @@ function semanticIssues(tc: TestCase): RawIssue[] {
       checkCoverage(list, path, tc.platforms, issues)
       list.forEach((locator, j) => {
         walkLocator(locator, [...path, j], (inner, innerPath) => {
-          if (inner.image !== undefined) {
+          if (inner.image === undefined) return
+          const imagePath = imageLocator(inner.image).path
+          const at = [...innerPath, 'image']
+          if (path.includes('expect') || path.includes('until')) {
             issues.push({
-              path: innerPath,
-              code: 'unsupported_in_phase',
-              message: 'image locators are not supported yet (Phase 2, D27)',
+              path: at,
+              code: 'image_in_expect',
+              message:
+                'image locators only find tap/type targets (Phase 2); use text or ids in expect',
+            })
+          } else if (!isValidImagePath(imagePath)) {
+            issues.push({
+              path: at,
+              code: 'image_path_invalid',
+              message: `"${imagePath}" must be a .png path inside the project repo (no "..", not absolute)`,
+            })
+          } else if (options.fileExists && !options.fileExists(imagePath)) {
+            issues.push({
+              path: at,
+              code: 'image_not_found',
+              message: `"${imagePath}" is not in the project repo`,
             })
           }
         })

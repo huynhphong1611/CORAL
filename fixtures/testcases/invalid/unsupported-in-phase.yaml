@@ -1,10 +1,8 @@
 schema: coral/testcase@1
 id: unsupported-in-phase
-intent: 'locator image chưa hỗ trợ ở Phase 1'
+intent: 'expect.screen cần bản đồ app (Phase 3)'
 platforms: [android]
 steps:
   - id: s1
-    action: tap
-    target:
-      - android_id: 'id/loginBtn'
-      - image: snap/s1_target.png
+    action: launch
+    expect: { screen: login }

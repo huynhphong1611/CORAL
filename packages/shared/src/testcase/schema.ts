@@ -54,8 +54,29 @@ export interface Locator {
   desc?: string | undefined
   rel?: RelLocator | undefined
   class_index?: ClassIndexLocator | undefined
-  image?: string | undefined
+  image?: string | ImageLocator | undefined
   point_pct?: [number, number] | undefined
+}
+
+/**
+ * Template-matching locator (SPEC §7.2, D27): an image in the project repo, the minimum
+ * similarity, and the screen width it was cut at (contracts/testcase-image-locator.md).
+ */
+export interface ImageLocator {
+  path: string
+  threshold?: number | undefined
+  screen_width?: number | undefined
+}
+
+/** Similarity an image match needs when the locator does not say (SPEC §7.2). */
+export const IMAGE_DEFAULT_THRESHOLD = 0.85
+
+/** The long form of an `image` locator, with the default threshold filled in. */
+export function imageLocator(
+  image: string | ImageLocator,
+): Required<Omit<ImageLocator, 'screen_width'>> & Pick<ImageLocator, 'screen_width'> {
+  const long = typeof image === 'string' ? { path: image } : image
+  return { ...long, threshold: long.threshold ?? IMAGE_DEFAULT_THRESHOLD }
 }
 
 export const LOCATOR_KINDS = [
@@ -102,7 +123,16 @@ export const locatorSchema: z.ZodType<Locator> = z.lazy(() =>
       desc: nonEmpty.optional(),
       rel: relSchema.optional(),
       class_index: classIndexSchema.optional(),
-      image: nonEmpty.optional(),
+      image: z
+        .union([
+          nonEmpty,
+          z.strictObject({
+            path: nonEmpty,
+            threshold: z.number().min(0.5).max(1).optional(),
+            screen_width: z.number().int().positive().optional(),
+          }),
+        ])
+        .optional(),
       point_pct: pointPct.optional(),
     })
     .superRefine(exactlyOne(LOCATOR_KINDS, 'locator')),

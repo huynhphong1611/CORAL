@@ -23,3 +23,10 @@ export const examples = load(
     import: 'default',
   }),
 )
+
+/** Files of the fixture "project repo" (fixtures/testcases/), repo-relative: images of image locators. */
+export const fixtureRepoFiles: ReadonlySet<string> = new Set(
+  Object.keys(import.meta.glob('../../../../fixtures/testcases/snap/**/*')).map((path) =>
+    path.replace(/^.*\/fixtures\/testcases\//, ''),
+  ),
+)
