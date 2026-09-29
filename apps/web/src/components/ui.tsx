@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { ApiError } from '../api/client'
 import { en } from '../i18n/en'
 
@@ -128,6 +128,17 @@ export function elapsed(from: string | null, to: string | null, now = Date.now()
 }
 
 export const shortId = (id: string) => id.slice(-8)
+
+/** The current time, ticking every `everyMs` while `active` (a running run's duration). */
+export function useNow(active: boolean, everyMs = 1000): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active) return undefined
+    const timer = setInterval(() => setNow(Date.now()), everyMs)
+    return () => clearInterval(timer)
+  }, [active, everyMs])
+  return now
+}
 
 /** Tab strip; the current tab is marked for assistive tech. */
 export function Tabs<T extends string>({

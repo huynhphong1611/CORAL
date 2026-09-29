@@ -70,7 +70,7 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 
 **Mục tiêu:** thao tác và ghi test từ trình duyệt.
 
-- [ ] Web: đăng nhập, projects, devices, runs (danh sách + chi tiết step có ảnh).
+- [x] Web: đăng nhập, projects, devices, runs (danh sách + chi tiết step có ảnh).
 - [ ] Live view MVP: stream JPEG 2–5 fps qua WS (§15 `stream.*`, frame nhị phân).
 - [ ] Click trên live view → quy đổi tỷ lệ → tap thật trên thiết bị (cần lease `live`).
 - [ ] Recorder (§11.1): hit-test element tại điểm click → trích đủ chuỗi locator + cắt ảnh + snapshot → thêm step vào editor.

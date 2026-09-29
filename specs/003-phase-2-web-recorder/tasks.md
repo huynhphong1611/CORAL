@@ -78,7 +78,7 @@ Monorepo (plan.md → Project Structure): `apps/web/src/`, `apps/server/src/`, `
 - [x] T023 [P] [US1] Web `routes/devices.tsx`: bảng thiết bị + trạng thái `activity`, cập nhật qua `devices.updated`; test component
 - [x] T024 [US1] Web `routes/runs/*`: danh sách run (lọc, cập nhật trực tiếp) và chi tiết run: step (ảnh presigned, trạng thái, locator đã dùng + `degraded`, thời gian, popup, lỗi + device log, xem `tree.json` dạng cây), `run.watch`; test component với dữ liệu mẫu
 - [x] T025 [US1] Web chạy test case: nút **Run** ✍ trên một test case, hoặc chọn nhiều test case ở tab Test cases (FR-004) → chọn build + thiết bị → `POST /runs` → chuyển tới chi tiết run; ẩn với viewer; test component
-- [ ] T026 [US1] E2E `e2e/us1-runs.e2e.ts`: đăng nhập, tạo run trên thiết bị giả, trang run tự cập nhật tới `passed`, ảnh step hiện; user tenant khác mở URL → Not found; SC-009: trang chi tiết run 10 step hiện đủ ảnh trong ≤ 3 s; chụp ảnh `e2e-results/us1-*.png`
+- [x] T026 [US1] E2E `e2e/us1-runs.e2e.ts`: đăng nhập, tạo run trên thiết bị giả, trang run tự cập nhật tới `passed`, ảnh step hiện; user tenant khác mở URL → Not found; SC-009: trang chi tiết run 10 step hiện đủ ảnh trong ≤ 3 s; chụp ảnh `e2e-results/us1-*.png`
 
 **Checkpoint**: US1 xong — web thay được việc gọi API tay.
 

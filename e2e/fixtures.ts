@@ -17,7 +17,7 @@ export interface FakeDevice {
   agentId: string
 }
 
-async function api<T>(
+export async function api<T>(
   path: string,
   init: { method?: string; token?: string; body?: unknown } = {},
 ): Promise<T> {
@@ -42,26 +42,31 @@ export async function accessToken(account: Account): Promise<string> {
   return session.access_token
 }
 
+/** An owner in a brand-new tenant, created with the server's own db:seed. */
+export async function seedAccount(): Promise<Account> {
+  const account = {
+    email: `e2e-${randomBytes(4).toString('hex')}@coral.test`,
+    password: `e2e-${randomBytes(12).toString('hex')}`,
+  }
+  await run('pnpm', ['-s', '--filter', '@coral/server', 'db:seed'], {
+    env: {
+      ...process.env,
+      CORAL_SEED_EMAIL: account.email,
+      CORAL_SEED_PASSWORD: account.password,
+    },
+  })
+  return account
+}
+
 /**
- * Worker fixtures: `account` is an owner in a brand-new tenant (seeded with the server's own
- * db:seed), `fakeDevice` a coral-agent (scripts/dev-fake-device.ts) whose device is the drawn
- * My Demo App look-alike, online for that tenant.
+ * Worker fixtures: `account` is an owner in a brand-new tenant, `fakeDevice` a coral-agent
+ * (scripts/dev-fake-device.ts) whose device is the drawn My Demo App look-alike, online for that
+ * tenant.
  */
 export const test = base.extend<object, { account: Account; fakeDevice: FakeDevice }>({
   account: [
     async ({}, use) => {
-      const account = {
-        email: `e2e-${randomBytes(4).toString('hex')}@coral.test`,
-        password: `e2e-${randomBytes(12).toString('hex')}`,
-      }
-      await run('pnpm', ['-s', '--filter', '@coral/server', 'db:seed'], {
-        env: {
-          ...process.env,
-          CORAL_SEED_EMAIL: account.email,
-          CORAL_SEED_PASSWORD: account.password,
-        },
-      })
-      await use(account)
+      await use(await seedAccount())
     },
     { scope: 'worker' },
   ],

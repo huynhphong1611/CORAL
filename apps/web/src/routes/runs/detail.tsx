@@ -25,6 +25,7 @@ import {
   QueryState,
   shortId,
   StatusBadge,
+  useNow,
 } from '../../components/ui'
 import { en } from '../../i18n/en'
 
@@ -56,6 +57,7 @@ function RunView({ run }: { run: api.Run }) {
   const project = projects.data?.find((p) => p.id === run.project_id)
   const device = devices.data?.find((d) => d.id === run.device_id)
   const active = isActive(run)
+  const now = useNow(active)
 
   return (
     <>
@@ -93,7 +95,7 @@ function RunView({ run }: { run: api.Run }) {
           <span className="font-mono">{shortId(run.build_id)}</span>
         </Meta>
         <Meta label={en.runs.duration}>
-          {run.started_at ? elapsed(run.started_at, run.finished_at) : '—'}
+          {run.started_at ? elapsed(run.started_at, run.finished_at, now) : '—'}
         </Meta>
         <Meta label={en.runs.queued}>{formatTime(run.queued_at)}</Meta>
         <Meta label={en.runs.started}>{formatTime(run.started_at)}</Meta>

@@ -34,6 +34,10 @@ export default defineConfig({
         CORAL_SERVER_PORT: String(E2E_SERVER_PORT),
         CORAL_DATA_DIR: 'e2e-results/data',
         CORAL_LOG_LEVEL: 'warn',
+        // Test cases log in to the drawn My Demo App with its public demo account unless .env
+        // says otherwise (dev-only secrets, D19).
+        CORAL_SECRET_TEST_USER: process.env.CORAL_SECRET_TEST_USER ?? 'bod@example.com',
+        CORAL_SECRET_TEST_PASSWORD: process.env.CORAL_SECRET_TEST_PASSWORD ?? '10203040',
       },
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

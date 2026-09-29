@@ -12,6 +12,7 @@ import {
   Table,
   Td,
   Th,
+  useNow,
 } from './ui'
 
 /** Runs matching `filters`, newest first; queued and running ones update live. */
@@ -61,6 +62,7 @@ export function RunsTable({ filters }: { filters: RunFilters }) {
 
 function RunRow({ run, device }: { run: api.Run; device: string }) {
   const slugs = run.items.map((item) => item.slug ?? shortId(item.test_case_id))
+  const now = useNow(isActive(run))
   return (
     <tr className="hover:bg-slate-50" data-run-id={run.id}>
       <Td>
@@ -81,7 +83,7 @@ function RunRow({ run, device }: { run: api.Run; device: string }) {
       <Td className="text-slate-600">{device}</Td>
       <Td className="text-slate-500">{formatTime(run.queued_at)}</Td>
       <Td className="text-slate-500">
-        {run.started_at ? elapsed(run.started_at, run.finished_at) : '—'}
+        {run.started_at ? elapsed(run.started_at, run.finished_at, now) : '—'}
       </Td>
     </tr>
   )
