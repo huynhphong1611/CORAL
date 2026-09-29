@@ -124,16 +124,22 @@ describe('run and device events on /ws/ui (T020)', () => {
         ? `step ${(m.payload as { step_id: string }).step_id}`
         : `run ${(m.payload as api.Run).status} ${(m.payload as api.Run).items[0]?.status}`,
     )
-    // Duplicates of one state are fine (the snapshot may repeat a change); the order is not.
-    const distinct = events.filter((e, i) => e !== events[i - 1])
-    expect(distinct.slice(distinct.indexOf('run running pending'))).toEqual([
-      'run running pending',
-      'run running running',
-      'step s1',
-      'step s2',
-      'run running passed',
-      'run passed passed',
-    ])
+    // Each run.updated carries the state read when it is sent, which may already include later
+    // changes: a state can repeat or be skipped, but never goes back, and the run ends last.
+    const LIFECYCLE = [
+      'queued pending',
+      'running pending',
+      'running running',
+      'running passed',
+      'passed passed',
+    ]
+    const ranks = events
+      .filter((e) => e.startsWith('run '))
+      .map((e) => LIFECYCLE.indexOf(e.slice(4)))
+    expect(ranks.every((r) => r >= 0)).toBe(true)
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b))
+    expect(events.at(-1)).toBe('run passed passed')
+    expect(events.filter((e) => e.startsWith('step '))).toEqual(['step s1', 'step s2'])
     const s2 = ofRun(watcher, runId).find(
       (m) => m.type === 'run.step' && (m.payload as { step_id: string }).step_id === 's2',
     )

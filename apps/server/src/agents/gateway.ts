@@ -71,6 +71,8 @@ export class AgentGateway implements AgentConnections {
   >()
   private readonly offlineListeners: ((agent: AgentRef) => Promise<void> | void)[] = []
   private readonly deviceListeners: ((tenantId: string) => void)[] = []
+  private readonly onlineListeners: ((agent: AgentRef) => void)[] = []
+  private readonly binaryListeners: ((agent: AgentRef, bytes: Uint8Array) => void)[] = []
   private timer: NodeJS.Timeout | undefined
   private log: FastifyBaseLogger | undefined
 
@@ -111,6 +113,19 @@ export class AgentGateway implements AgentConnections {
   /** Called once per agent whose connection is gone (closed, timed out or revoked). */
   onAgentOffline(listener: (agent: AgentRef) => Promise<void> | void): void {
     this.offlineListeners.push(listener)
+  }
+
+  /** Called after an agent's hello was answered (first connection or reconnection). */
+  onAgentOnline(listener: (agent: AgentRef) => void): void {
+    this.onlineListeners.push(listener)
+  }
+
+  /**
+   * Binary frames from agents that said hello (live view, research R4). Not queued behind the
+   * agent's JSON messages: frames are independent of each other and of step results.
+   */
+  onBinary(listener: (agent: AgentRef, bytes: Uint8Array) => void): void {
+    this.binaryListeners.push(listener)
   }
 
   /** Called after an agent's devices were stored or went offline (hello, device.update, gone). */
@@ -182,7 +197,14 @@ export class AgentGateway implements AgentConnections {
       if (connection) connection.queue = queue
     }
     socket.on('message', (data, isBinary) => {
-      const raw = isBinary ? '' : Buffer.from(data as Buffer).toString('utf8')
+      if (isBinary) {
+        if (!connection?.hello) return
+        connection.lastSeen = Date.now()
+        const bytes = new Uint8Array(data as Buffer)
+        for (const listener of this.binaryListeners) listener(connection.agent, bytes)
+        return
+      }
+      const raw = Buffer.from(data as Buffer).toString('utf8')
       // One message at a time per agent: step results must be stored in order.
       enqueue(async (c) => {
         c.lastSeen = Date.now()
@@ -275,6 +297,8 @@ export class AgentGateway implements AgentConnections {
         agent_id: connection.agent.id,
         heartbeat_ms: this.options.heartbeatMs,
       })
+      // After the welcome: the agent only acts on server messages once welcomed.
+      for (const listener of this.onlineListeners) listener(connection.agent)
       return
     }
     if (!connection.hello) {

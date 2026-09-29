@@ -5,6 +5,7 @@ import type { FastifyBaseLogger } from 'fastify'
 import { AgentGateway } from './agents/gateway'
 import type { ServerConfig } from './config'
 import { createDatabase } from './db/client'
+import { deviceLookup, StreamHub } from './live/stream-hub'
 import { ProjectRepoStore } from './git/project-repo-store'
 import { RunDispatcher } from './runs/dispatcher'
 import { registerIngest, startLeaseSweeper } from './runs/ingest'
@@ -17,7 +18,7 @@ import { RunEvents } from './ui/run-events'
 /**
  * Everything coral-server needs besides the HTTP app: Postgres, S3 (bucket + lifecycle), the git
  * store, the agent gateway, the BullMQ dispatcher, the result ingestion (T054) and the browser
- * socket with its run and device events (T020).
+ * socket with its run and device events (T020) and the live-view hub (T029).
  */
 export async function startServices(
   config: ServerConfig,
@@ -32,6 +33,11 @@ export async function startServices(
   const uiGateway = new UiGateway({ jwtSecret: config.jwtSecret })
   const notify = new RunEvents({ db: database.db, ui: uiGateway })
   gateway.onDevicesChanged((tenantId) => notify.devicesChanged(tenantId))
+  const streams = new StreamHub({
+    ui: uiGateway,
+    agents: gateway,
+    findDevice: deviceLookup(database.db, gateway),
+  })
   const secrets = envSecrets(env)
   const dispatcher = new RunDispatcher({
     db: database.db,
@@ -74,11 +80,13 @@ export async function startServices(
     start(log: FastifyBaseLogger) {
       dispatcher.attachLogger(log)
       notify.attachLogger(log)
+      streams.attachLogger(log)
       sweeper = startLeaseSweeper({ db: database.db, dispatcher, notify, log })
     },
     async close() {
       sweeper?.stop()
       notify.stop()
+      streams.stop()
       await dispatcher.close()
       await database.close()
     },
