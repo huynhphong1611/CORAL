@@ -1,7 +1,7 @@
 import { api } from '@coral/shared'
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { devices, leases, runSteps } from '../db/schema'
+import { devices, runSteps } from '../db/schema'
 import { fakeAgent } from '../testing/fake-agent'
 import { startRunServer, type RunServer } from '../testing/run-server'
 import type { TestUser } from '../testing/test-server'
@@ -66,11 +66,8 @@ describe('agent offline during a run', () => {
       failure_code: 'DEVICE_OFFLINE',
       items: [{ status: 'error', failure_code: 'DEVICE_OFFLINE' }],
     })
-    const [lease] = await server.db
-      .select()
-      .from(leases)
-      .where(eq(leases.holderRef, `run:${id}`))
-    expect(lease?.releaseReason).toBe('agent_offline')
+    const lease = await server.releasedLease(id)
+    expect(lease.releaseReason).toBe('agent_offline')
     const [after] = await server.db
       .select()
       .from(devices)

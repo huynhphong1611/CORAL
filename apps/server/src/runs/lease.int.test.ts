@@ -97,6 +97,7 @@ describe('dispatcher and device leases', () => {
       await until(async () => (await t.getRun(job.payload.run_id)).status === 'passed')
     }
     expect(order.sort()).toEqual([...ids].sort())
+    await until(async () => (await t.openLeases()).length === 0)
     const released = await t.allLeases()
     expect(released).toHaveLength(10)
     expect(released.every((l) => l.releasedAt !== null && l.releaseReason === 'done')).toBe(true)
@@ -152,6 +153,6 @@ describe('dispatcher and device leases', () => {
       failure_code: 'TIMEOUT',
       items: [{ status: 'error', failure_code: 'TIMEOUT' }],
     })
-    expect((await t.allLeases()).map((l) => l.releaseReason)).toEqual(['timeout'])
+    expect((await t.server.releasedLease(id)).releaseReason).toBe('timeout')
   }, 20_000)
 })

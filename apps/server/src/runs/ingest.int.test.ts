@@ -1,7 +1,7 @@
 import { api } from '@coral/shared'
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { auditLog, devices, leases, runSteps } from '../db/schema'
+import { auditLog, devices, runSteps } from '../db/schema'
 import { fakeAgent } from '../testing/fake-agent'
 import { startRunServer, type RunServer } from '../testing/run-server'
 import type { TestUser } from '../testing/test-server'
@@ -109,11 +109,8 @@ describe('ingest', () => {
     const shot = await fetch(steps[0]?.artifacts.screenshot_url ?? '')
     expect(shot.status).toBe(200)
 
-    const [lease] = await server.db
-      .select()
-      .from(leases)
-      .where(eq(leases.holderRef, `run:${id}`))
-    expect(lease?.releaseReason).toBe('done')
+    const lease = await server.releasedLease(id)
+    expect(lease.releaseReason).toBe('done')
     const [device] = await server.db.select().from(devices).where(eq(devices.id, deviceId))
     expect(device?.status).toBe('idle')
   })
@@ -148,11 +145,8 @@ describe('cancel', () => {
     agent.done(job.payload, 'cancelled')
     await until(async () => (await getRun(id)).status === 'cancelled')
     expect((await getRun(id)).items[0]?.status).toBe('skipped')
-    const [lease] = await server.db
-      .select()
-      .from(leases)
-      .where(eq(leases.holderRef, `run:${id}`))
-    expect(lease?.releaseReason).toBe('cancelled')
+    const lease = await server.releasedLease(id)
+    expect(lease.releaseReason).toBe('cancelled')
     const audit = await server.db.select().from(auditLog).where(eq(auditLog.target, id))
     expect(audit.map((a) => a.action)).toContain('run.cancel')
 

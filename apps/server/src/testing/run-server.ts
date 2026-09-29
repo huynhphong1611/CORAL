@@ -1,7 +1,9 @@
 import { randomBytes } from 'node:crypto'
 import { api, newId, type LogLevel } from '@coral/shared'
+import { eq } from 'drizzle-orm'
 import { AgentGateway } from '../agents/gateway'
 import { DEV_JWT_SECRET, loadConfig } from '../config'
+import { leases } from '../db/schema'
 import { RunDispatcher } from '../runs/dispatcher'
 import { registerIngest, startLeaseSweeper } from '../runs/ingest'
 import { envSecrets } from '../runs/secrets'
@@ -136,6 +138,23 @@ export async function startRunServer(options: RunServerOptions = {}) {
     return { project, app, build, apk, testCase, agent }
   }
 
+  /**
+   * The lease of a run once released. A run ends first and its lease is released right after,
+   * so a test that saw the run end waits here before looking at the lease or the device.
+   */
+  async function releasedLease(runId: string, timeoutMs = 5000) {
+    const deadline = Date.now() + timeoutMs
+    for (;;) {
+      const [lease] = await server.db
+        .select()
+        .from(leases)
+        .where(eq(leases.holderRef, `run:${runId}`))
+      if (lease?.releasedAt) return lease
+      if (Date.now() > deadline) throw new Error(`lease of run ${runId} not released`)
+      await new Promise((r) => setTimeout(r, 20))
+    }
+  }
+
   async function close() {
     sweeper.stop()
     events?.stop()
@@ -144,7 +163,17 @@ export async function startRunServer(options: RunServerOptions = {}) {
     await server.close()
   }
 
-  return { ...server, url, gateway, uiGateway, dispatcher, sweeper, seed, close }
+  return {
+    ...server,
+    url,
+    gateway,
+    uiGateway,
+    dispatcher,
+    sweeper,
+    seed,
+    releasedLease,
+    close,
+  }
 }
 
 export type RunServer = Awaited<ReturnType<typeof startRunServer>>
