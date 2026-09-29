@@ -21,7 +21,7 @@ Nguồn: SPEC §15, D18. Kết nối `WS /ws/agent` với header `Authorization:
 | S→A | `job.assign` | xem dưới | `job.ack` `{ run_id }` hoặc `job.reject` `{ run_id, reason }` |
 | A→S | `item.result` *(bổ sung)* | `{ run_id, run_item_id, status, failure_code?, failed_step_id?, started_at, finished_at }` | — |
 | A→S | `step.result` | `{ run_id, run_item_id, …StepResult }` (data-model §5) | — |
-| A→S | `artifact.request_upload` | `{ run_id, run_item_id, step_index, step_id, files: [{ name, content_type, size_bytes }] }` | `artifact.upload_url` `{ uploads: [{ name, url, key, expires_at }] }` |
+| A→S | `artifact.request_upload` | `{ run_id, run_item_id, step_index, step_id, files: [{ name, content_type, size_bytes }] }` — `step_id` (cả trong `step.result`) theo mẫu `[A-Za-z0-9_-]{1,64}` như test case, vì nằm trong key artifact; key do server sinh, chỉ cho run của tenant và agent đang giữ (T062) | `artifact.upload_url` `{ uploads: [{ name, url, key, expires_at }] }` |
 | A→S | `job.done` | `{ run_id, status: passed\|failed\|cancelled\|error, failure_code?, summary: { passed, failed, skipped } }` | — |
 | S→A | `job.cancel` | `{ run_id, reason }` | agent kết thúc bằng `job.done` status `cancelled` |
 | ↔ | `error` | `{ code, message }` | — |

@@ -109,6 +109,18 @@ describe('WS protocol (SPEC §15, D18, D33)', () => {
     })
   }
 
+  it('rejects step ids that could escape an artifact key (T062)', () => {
+    for (const type of ['step.result', 'artifact.request_upload'] as const) {
+      for (const step_id of ['../../other-tenant', 'a/b', '']) {
+        const payload = { ...(valid[type] as Record<string, unknown>), step_id }
+        expect(parseMessage(JSON.stringify(envelope(type, payload)))).toMatchObject({
+          ok: false,
+          code: 'invalid_message',
+        })
+      }
+    }
+  })
+
   it('requires "re" on replies', () => {
     const result = parseMessage(JSON.stringify(envelope('job.ack', { run_id: runId })))
     expect(result).toMatchObject({ ok: false, code: 'invalid_message' })

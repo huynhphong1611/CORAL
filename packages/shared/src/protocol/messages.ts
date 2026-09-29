@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { FAILURE_CODES } from '../failure-codes'
+import { STEP_ID_PATTERN } from '../testcase/schema'
 import type { PROTOCOL_VERSION } from './envelope'
 import { MAX_MESSAGE_BYTES, envelopeSchema } from './envelope'
 
@@ -18,9 +19,12 @@ export type DeviceInfo = z.infer<typeof deviceInfoSchema>
 
 export const failureCodeSchema = z.enum(FAILURE_CODES)
 
+/** Same rule as test case step ids; it becomes part of artifact keys (data-model §4). */
+const stepIdSchema = z.string().regex(STEP_ID_PATTERN, 'step id must match [A-Za-z0-9_-]{1,64}')
+
 export const stepResultSchema = z.object({
   step_index: z.number().int().nonnegative(),
-  step_id: z.string().min(1),
+  step_id: stepIdSchema,
   action: z.string().min(1),
   status: z.enum(['passed', 'failed']),
   locator_used_index: z.number().int().nonnegative().nullable(),
@@ -101,7 +105,7 @@ export const payloadSchemas = {
     run_id: z.uuid(),
     run_item_id: z.uuid(),
     step_index: z.number().int().nonnegative(),
-    step_id: z.string(),
+    step_id: stepIdSchema,
     files: z
       .array(
         z.object({

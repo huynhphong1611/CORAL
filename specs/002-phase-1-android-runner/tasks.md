@@ -168,7 +168,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/runn
 **Independent Test**: quét secret trên kết quả run giả (CI) và run thật (🔌) → 0 (SC-008).
 
 - [x] T061 [P] [US5] Che secret ở mọi đầu ra: sự kiện runner, `tree.json`, `device.log`, `result.json`, log pino của agent (formatter dùng redactor), server không bao giờ log payload `job.assign`; test `redaction.test.ts` (runner + agent) quét toàn bộ đầu ra của một run `FakeDriver` có secret → 0 lần xuất hiện
-- [ ] T062 [P] [US5] Ràng buộc tenant cho artifact: `artifact.request_upload` chỉ nhận run của tenant sở hữu agent, key luôn do server sinh; test `artifacts-tenant.int.test.ts` (agent tenant B xin upload cho run tenant A → `error`; liệt kê object chỉ trong prefix tenant)
+- [x] T062 [P] [US5] Ràng buộc tenant cho artifact: `artifact.request_upload` chỉ nhận run của tenant sở hữu agent, key luôn do server sinh; test `artifacts-tenant.int.test.ts` (agent tenant B xin upload cho run tenant A → `error`; liệt kê object chỉ trong prefix tenant)
 - [ ] T063 [US5] 🔌 `scripts/phase1-e2e.mjs --scan-secrets --run <id>` trên run thật của T056 → 0 (SC-008), ghi kết quả vào quickstart
 
 ---
