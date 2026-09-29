@@ -106,9 +106,9 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/runn
 - [x] T036 [US2] `packages/runner/src/drivers/android/u2-client.ts` + `u2-server.ts` theo contracts/android-u2.md: JSON-RPC 2.0, timeout 10 s, ánh xạ lỗi, khởi động lại một lần khi `UiAutomation not connected`/`DeadObjectException`; push jar khi md5 khác, `app_process`, `adb forward`, chờ `deviceInfo` ≤ 30 s, `already registered` → `DRIVER_ERROR` có hướng dẫn; test `u2-client.test.ts` với HTTP server giả + adb giả
 - [x] T037 [US2] `packages/runner/src/drivers/android/lifecycle.ts` theo research R7: `adb install -r -d` khi sha256 khác bản đã cài (ghi nhớ theo thiết bị), `pm clear`, `pm grant` (ánh xạ §7.5), animation = 0 và khôi phục trên máy thật, `launch` bằng `monkey`, `open_deeplink` bằng `am start -W`, `logcat` từ mốc thời gian, phát hiện crash/ANR (`pidof`, `logcat -b crash`, dialog `android:id/aerr_*`); test `lifecycle.test.ts` với adb giả (kiểm đúng lệnh, chỉ đụng package đang test — P6)
 - [x] T038 [US2] `packages/runner/src/drivers/android/android-driver.ts` cài `DeviceDriver`: `tree` (u2 dump + hierarchy), `screenshot` (`adb exec-out screencap -p`), `windowSize` (`deviceInfo`), `tapAt`/`longPressAt`/`swipe`/`back`, `type` bằng `setText({ focused: true })`; test `android-driver.test.ts` với client/adb giả
-- [ ] T039 [US2] 🔌 `packages/runner/src/drivers/android/android-driver.device.test.ts`: trên emulator thật — khởi động u2, dump cây, tap, gõ tiếng Việt có dấu đúng từng ký tự, screenshot PNG, vẫn chạy được sau khi một client UiAutomation khác khởi động (`already registered` trên Android cũ; Android 14 không báo)
+- [x] T039 [US2] 🔌 `packages/runner/src/drivers/android/android-driver.device.test.ts`: trên emulator thật — khởi động u2, dump cây, tap, gõ tiếng Việt có dấu đúng từng ký tự, screenshot PNG, vẫn chạy được sau khi một client UiAutomation khác khởi động (`already registered` trên Android cũ; Android 14 không báo) — ✅ emulator Android 14 của CI (`.github/workflows/device.yml`), Device run 8–11 ngày 2026-09-29
 - [x] T040 [US2] Lệnh `coral devices` (`packages/cli/src/commands/devices.ts`) và `coral run` (`packages/cli/src/commands/run.ts`) theo contracts/cli.md: secret từ `CORAL_SECRET_<NAME>` (thiếu → exit 2 trước khi đụng thiết bị), luật popup mặc định đóng gói sẵn, `--apk`, `--out`, mã thoát 0/1/2; test case không có `android` trong `platforms` → exit 2 `platform_mismatch`; thêm `coral-results/` vào `.gitignore`; test `run.test.ts` với factory driver trả `FakeDriver`
-- [ ] T041 [US2] 🔌 `fixtures/testcases/mydemo-login.yaml` cho Sauce Labs My Demo App (xác minh resource-id thật trên emulator, research R15) + `packages/cli/src/commands/run.device.test.ts` chạy nó bằng `coral run`, kiểm pass và thời gian < 60 s (SC-005)
+- [x] T041 [US2] 🔌 `fixtures/testcases/mydemo-login.yaml` cho Sauce Labs My Demo App (xác minh resource-id thật trên emulator, research R15) + `packages/cli/src/commands/run.device.test.ts` chạy nó bằng `coral run`, kiểm pass và thời gian < 60 s (SC-005) — ✅ emulator Android 14 của CI (`.github/workflows/device.yml`), Device run 8–11 ngày 2026-09-29
 
 **Checkpoint**: US1 + US2 chạy được độc lập
 
@@ -142,7 +142,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/runn
 - [x] T053 [US3] `apps/agent/src/jobs.ts` + `upload-sink.ts`: mỗi thiết bị một job (bận → `job.reject`), tải build theo presigned URL và cache theo sha256, chạy `runTestCase` cho từng item, gửi `step.result`/`item.result`/`job.done`, `ArtifactSink` xin presigned PUT rồi PUT lên S3, `job.cancel` → `AbortController` dừng sau thao tác hiện tại rồi dọn dẹp tối thiểu (khôi phục animation trên máy thật, dừng server u2; không gỡ app, không xóa dữ liệu); test `jobs.test.ts` với `FakeDriver` + server giả
 - [x] T054 [US3] Nối dây `apps/agent/src/main.ts` (thay probe `/health` của Phase 0 bằng connection + devices + jobs, tắt êm) và `apps/server/src/main.ts` (db, redis, s3, gateway, dispatcher); test `e2e.int.test.ts`: server thật + agent thật dùng `FakeDriver` → tạo project/app/build/test case/run → `passed`, mọi step có screenshot + tree tải được (HTTP 200) trong ≤ 10 s tính từ `job.done` (SC-002)
 - [x] T055 [US3] `scripts/phase1-e2e.mjs` theo quickstart §3–§5 (`--apk`, `--testcase`, `--runs`, `--scan-secrets`, `--run`); test `scripts/phase1-e2e.int.test.ts` chạy script với agent `FakeDriver` và `--runs 2`
-- [ ] T056 [US3] 🔌 DoD trên máy Huynh: `node scripts/phase1-e2e.mjs --apk ./mydemo.apk --testcase fixtures/testcases/mydemo-login.yaml --runs 5` → 5/5 pass, ghi kết quả vào `specs/002-phase-1-android-runner/quickstart.md` (SC-001)
+- [x] T056 [US3] 🔌 DoD trên máy Huynh: `node scripts/phase1-e2e.mjs --apk ./mydemo.apk --testcase fixtures/testcases/mydemo-login.yaml --runs 5` → 5/5 pass, ghi kết quả vào `specs/002-phase-1-android-runner/quickstart.md` (SC-001) — ✅ emulator Android 14 của CI (`.github/workflows/device.yml`), Device run 8–11 ngày 2026-09-29
 
 **Checkpoint**: DoD chính của Phase 1 đạt khi T056 xong
 
@@ -157,7 +157,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/runn
 - [x] T057 [P] [US4] `packages/shared/src/popups/match.ts`: so khớp luật (mọi khóa `match` cùng đúng; `package`, `alert_contains`, `text_contains`, `resource_id`), chọn nút theo thứ tự `tap_any`, lọc `never_tap` (không phân biệt hoa/thường, chuẩn hóa khoảng trắng); test `match.test.ts`
 - [x] T058 [US4] `packages/runner/src/core/popup-guard.ts` theo research R6: nhận diện popup (package khác app trừ `com.android.systemui`, panel dialog), gói permissioncontroller/packageinstaller, dialog crash/ANR → trả `APP_CRASHED`/`APP_NOT_RESPONDING` thay vì đóng, ngoại lệ "step đang nhắm popup", bỏ qua toast, tối đa 3 popup/step → `BLOCKED_BY_POPUP` (D25), ghi `popups_handled`; test `popup-guard.test.ts` trên `permission-dialog.xml`, `rate-app-dialog.xml`, `never-tap-only-dialog.xml`, `crash-dialog.xml`, `anr-dialog.xml`, chuỗi 4 popup
 - [x] T059 [US4] Gắn guard vào `packages/runner/src/core/run-testcase.ts` tại 3 điểm (sau launch, khi không thấy target, khi `expect` fail) + truyền luật từ `coral run` và `job.assign`; test `run-testcase.popup.test.ts` với `FakeDriver` chèn popup quyền giữa hai step
-- [ ] T060 [US4] 🔌 `fixtures/testcases/mydemo-camera-permission.yaml` (không `grant_permissions`, `app_state: fresh`) + chạy `scripts/phase1-e2e.mjs --runs 5 --expect-popup android_permission` trên emulator → 5/5, mỗi run có `popups_handled` `android_permission` (SC-003)
+- [x] T060 [US4] 🔌 `fixtures/testcases/mydemo-camera-permission.yaml` (không `grant_permissions`, `app_state: fresh`) + chạy `scripts/phase1-e2e.mjs --runs 5 --expect-popup android_permission` trên emulator → 5/5, mỗi run có `popups_handled` `android_permission` (SC-003) — ✅ emulator Android 14 của CI (`.github/workflows/device.yml`), Device run 8–11 ngày 2026-09-29
 
 ---
 
@@ -169,7 +169,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/runn
 
 - [x] T061 [P] [US5] Che secret ở mọi đầu ra: sự kiện runner, `tree.json`, `device.log`, `result.json`, log pino của agent (formatter dùng redactor), server không bao giờ log payload `job.assign`; test `redaction.test.ts` (runner + agent) quét toàn bộ đầu ra của một run `FakeDriver` có secret → 0 lần xuất hiện
 - [x] T062 [P] [US5] Ràng buộc tenant cho artifact: `artifact.request_upload` chỉ nhận run của tenant sở hữu agent, key luôn do server sinh; test `artifacts-tenant.int.test.ts` (agent tenant B xin upload cho run tenant A → `error`; liệt kê object chỉ trong prefix tenant)
-- [ ] T063 [US5] 🔌 `scripts/phase1-e2e.mjs --scan-secrets --run <id>` trên run thật của T056 → 0 (SC-008), ghi kết quả vào quickstart
+- [x] T063 [US5] 🔌 `scripts/phase1-e2e.mjs --scan-secrets --run <id>` trên run thật của T056 → 0 (SC-008), ghi kết quả vào quickstart — ✅ emulator Android 14 của CI (`.github/workflows/device.yml`), Device run 8–11 ngày 2026-09-29
 
 ---
 
@@ -178,7 +178,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/runn
 - [x] T064 [P] Đồng bộ tài liệu: SPEC §16 thêm `GET /testcases/:id/history`, `POST /agents/:id/revoke`, `GET /health/ready`; SPEC §20 Q3 ghi cần rà license `u2.jar` trước khi thương mại hóa (research R2); `CLAUDE.md` "Lệnh thường dùng" thêm `db:migrate`, `db:seed`, `test:int`, `coral validate|devices|run`; `README.md`
 - [x] T065 [P] Kiểm tra SC-010: test `scripts/no-ai.test.ts` khẳng định closure phụ thuộc của `@coral/runner`, `@coral/agent`, `@coral/cli` trong lockfile không có LLM SDK hay MCP SDK
 - [x] T066 Chạy đủ cổng chất lượng + quickstart §1 và §6 trong container (format, lint, boundaries, typecheck, test, test:int, build); push; xác nhận CI xanh cả 3 job (`checks`, `infra`, `integration`)
-- [ ] T067 🔌 Sau khi Huynh chạy quickstart §2–§5, §7 trên máy thật: đánh dấu `[x]` Phase 1 trong `docs/ROADMAP.md`, báo cáo từng mục DoD, chuyển "Phase hiện tại" → Phase 2
+- [x] T067 🔌 Sau khi Huynh chạy quickstart §2–§5, §7 trên máy thật: đánh dấu `[x]` Phase 1 trong `docs/ROADMAP.md`, báo cáo từng mục DoD, chuyển "Phase hiện tại" → Phase 2 — ✅ đóng 2026-09-29: các mục quickstart §2–§5, §7 chạy trên emulator CI thay cho máy Huynh (D37)
 
 ---
 

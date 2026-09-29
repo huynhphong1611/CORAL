@@ -2,7 +2,7 @@
 
 Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definition of Done (DoD)** đã đạt. Chi tiết kỹ thuật tham chiếu `docs/SPEC.md` (ký hiệu §, quyết định ký hiệu D). Mỗi phase là một feature Spec Kit trong `specs/` (D22).
 
-**Phase hiện tại:** Phase 2 — bắt đầu 2026-09-29 theo yêu cầu của Huynh (`specs/003-phase-2-web-recorder`). Phase 1 xong mọi task chạy được trong container/CI; các task 🔌 (T039, T041, T056, T060, T063) chạy bằng emulator trong CI (`.github/workflows/device.yml`), T067 đóng Phase 1 khi chúng xanh. (Phase 0 đạt DoD ngày 2026-09-28.)
+**Phase hiện tại:** Phase 2 — bắt đầu 2026-09-29 (`specs/003-phase-2-web-recorder`). Phase 1 đạt DoD ngày 2026-09-29 (các task 🔌 chạy trên emulator Android 14 trong CI — D37). Phase 0 đạt DoD ngày 2026-09-28.
 
 ---
 
@@ -46,19 +46,19 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 
 - [x] Tạo `packages/runner` (D09) — runner dùng chung cho `apps/agent` và `coral run`; interface `UiDriver` + `TargetLifecycle`, lõi không import driver cụ thể (§8.1, D28).
 - [x] Zod schema test case (SPEC §7, gồm §7.1 tham số action, §7.5 quyền trừu tượng) + `coral validate <file>`; `examples/*.yaml` phải validate được.
-- [ ] `DeviceDriver` bản Android gọi thẳng UiAutomator2 (`u2.jar`, JSON-RPC qua `adb forward` — SPEC §5.3, §8.1, D27), chuẩn hóa `ElementNode`.
-- [ ] Resolver chuỗi locator (§7.2): `android_id`, `text`, `text_contains`, `desc`, `rel`, `class_index`, `point_pct`. (`image` để Phase 2.)
-- [ ] `waitForStable`, `checkExpect`, hành động §7.1, kiểm tra element trên cùng trước khi tap (§8.4).
-- [ ] Chuẩn bị thiết bị: cài build, cấp quyền, tắt animation, reset app (§8.3, §9.1).
-- [ ] Popup guard lớp 2 với `popups.yaml` (§9.2), giới hạn 3 popup mỗi step (D25), tôn trọng `never_tap` (§9.4).
-- [ ] Artifact mỗi step, mã lỗi (§8.5, §8.6), đánh dấu `degraded` (§8.7); che giá trị secret (D19).
-- [ ] `coral run <testcase.yaml> --device <udid>` chạy cục bộ không cần server (để dev nhanh); secret đọc từ `CORAL_SECRET_<NAME>`.
-- [ ] Server: auth tối thiểu (1 user seed nhưng có `tenant_id` ở mọi bảng nghiệp vụ), projects, apps, builds, agents (token), devices, leases, test_cases, runs, run_items, run_steps; migration Drizzle.
-- [ ] Kho git project tối thiểu (§13.1, D15, D31): API thêm/sửa/xem test case và `popups.yaml` (validate khi lưu, mỗi lần sửa là một commit); run tham chiếu test case + commit.
-- [ ] WebSocket agent (§15): hello, device.update, job.assign/ack/done, step.result, artifact upload qua MinIO; envelope có `re` (D18).
-- [ ] Job queue + device lease (D16).
+- [x] `DeviceDriver` bản Android gọi thẳng UiAutomator2 (`u2.jar`, JSON-RPC qua `adb forward` — SPEC §5.3, §8.1, D27), chuẩn hóa `ElementNode`.
+- [x] Resolver chuỗi locator (§7.2): `android_id`, `text`, `text_contains`, `desc`, `rel`, `class_index`, `point_pct`. (`image` để Phase 2.)
+- [x] `waitForStable`, `checkExpect`, hành động §7.1, kiểm tra element trên cùng trước khi tap (§8.4).
+- [x] Chuẩn bị thiết bị: cài build, cấp quyền, tắt animation, reset app (§8.3, §9.1).
+- [x] Popup guard lớp 2 với `popups.yaml` (§9.2), giới hạn 3 popup mỗi step (D25), tôn trọng `never_tap` (§9.4).
+- [x] Artifact mỗi step, mã lỗi (§8.5, §8.6), đánh dấu `degraded` (§8.7); che giá trị secret (D19).
+- [x] `coral run <testcase.yaml> --device <udid>` chạy cục bộ không cần server (để dev nhanh); secret đọc từ `CORAL_SECRET_<NAME>`.
+- [x] Server: auth tối thiểu (1 user seed nhưng có `tenant_id` ở mọi bảng nghiệp vụ), projects, apps, builds, agents (token), devices, leases, test_cases, runs, run_items, run_steps; migration Drizzle.
+- [x] Kho git project tối thiểu (§13.1, D15, D31): API thêm/sửa/xem test case và `popups.yaml` (validate khi lưu, mỗi lần sửa là một commit); run tham chiếu test case + commit.
+- [x] WebSocket agent (§15): hello, device.update, job.assign/ack/done, step.result, artifact upload qua MinIO; envelope có `re` (D18).
+- [x] Job queue + device lease (D16).
 
-**DoD:**
+**DoD:** ✅ đạt 2026-09-29 trên emulator Android 14 của CI (Device run 8–11; chi tiết `specs/002-phase-1-android-runner/quickstart.md`).
 - Một test case đăng nhập viết tay trên app mẫu chạy qua server → pass **5/5 lần liên tiếp**.
 - Kết quả, screenshot từng step truy xuất được qua API.
 - Unit test cho resolver locator (có fixture cây element giả, không cần thiết bị).

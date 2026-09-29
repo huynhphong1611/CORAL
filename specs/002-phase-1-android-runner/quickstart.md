@@ -75,7 +75,20 @@ Script đọc JSON run + step qua API và tải mọi `tree.json`, `device.log` 
 
 ## Checklist DoD Phase 1
 
-- [ ] Test đăng nhập viết tay trên app mẫu chạy qua server pass 5/5 lần liên tiếp
-- [ ] Kết quả + screenshot từng step truy xuất được qua API
-- [ ] Unit test resolver locator với fixture cây element giả (chạy trong CI)
-- [ ] Popup quyền Android được guard xử lý khi không cấp quyền trước
+Kiểm trên emulator Android 14 (`google_apis` x86_64, pixel_6) của GitHub Actions — workflow `Device` (`.github/workflows/device.yml`, `scripts/ci-device.sh`), My Demo App 2.3.0, thay cho máy Huynh (D37). Ảnh từng step: artifact `device-results` (thư mục `sheets/` có ảnh ghép).
+
+- [x] Test đăng nhập viết tay trên app mẫu chạy qua server pass 5/5 lần liên tiếp — T056 xanh ở mọi Device run 5–11 (run 9: 5/5, 15,8–24,8 s mỗi run, 7 step)
+- [x] Kết quả + screenshot từng step truy xuất được qua API — `phase1-e2e.mjs --download` tải `screenshot.png`, `tree.json` của mọi step (HTTP 200)
+- [x] Unit test resolver locator với fixture cây element giả (chạy trong CI) — job `checks`
+- [x] Popup quyền Android được guard xử lý khi không cấp quyền trước — T060 5/5 qua server ở mọi run, mỗi run `popups_handled: android_permission → While using the app`
+
+Kết quả khác (Device run 8–11, 2026-09-29):
+
+| Task | Kiểm tra | Kết quả |
+|---|---|---|
+| T039 | `pnpm test:device` (driver + `coral run`) | 6/6 test (run 8–11) |
+| T041 | `coral run mydemo-login` cục bộ | pass mọi run, 16–30 s |
+| T063 | quét secret trong dữ liệu run + log server/agent | 0 lần xuất hiện (9 tài liệu, 2 secret) |
+| — | `coral run mydemo-camera-permission` cục bộ | pass ở run 5, 6, 8, 11; **lỗi ở run 9, 10**: sau `pm clear` + mở app, app đứng ở màn splash > 15 s (`EXPECT_FAILED` ở `s1`). Cùng test case qua server luôn 5/5. Đang theo dõi: CI in log activity manager của step lỗi (`scripts/ci-contact-sheet.py`). |
+
+Những gì emulator phát hiện mà thiết bị giả bỏ sót (D36): hit-test phải theo element **nhận chạm**; thứ tự cửa sổ phải lấy từ `dumpsys window windows` (dump u2 dùng HashSet); dialog/popup là cửa sổ modal; hộp thoại ANR của app khác (launcher) phải đóng bằng Close app; u2 giải mã sai JSON không phải ASCII.
