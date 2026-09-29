@@ -1,8 +1,8 @@
-import type { DeviceDriver } from '@coral/runner'
+import type { DeviceDriver, FrameSource } from '@coral/runner'
 import type { Logger } from 'pino'
 
 /** A device driver the agent opens once per device and shares (research R6). */
-export interface SessionDriver extends DeviceDriver {
+export interface SessionDriver extends DeviceDriver, Partial<FrameSource> {
   open(): Promise<void>
   /** Minimal cleanup (T053): restore animations on real devices, stop u2. No uninstall, no wipe. */
   close(): Promise<void>
@@ -11,7 +11,8 @@ export interface SessionDriver extends DeviceDriver {
 }
 
 export interface DeviceLease {
-  driver: DeviceDriver
+  /** Bound to the app when acquired with one; can stream frames when the platform can. */
+  driver: DeviceDriver & Partial<FrameSource>
   /** Gives the device back; the session closes once nobody uses it for `idleMs`. */
   release(): Promise<void>
 }

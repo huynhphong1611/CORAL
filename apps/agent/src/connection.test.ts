@@ -21,6 +21,7 @@ async function fakeServer(opts: { heartbeatMs?: number; rejectToken?: boolean } 
   const received: Received[] = []
   const auth: (string | undefined)[] = []
   const sockets: WebSocket[] = []
+  const binaries: Uint8Array[] = []
   wss.on('connection', (socket, request) => {
     auth.push(request.headers.authorization)
     if (opts.rejectToken) {
@@ -28,7 +29,11 @@ async function fakeServer(opts: { heartbeatMs?: number; rejectToken?: boolean } 
       return
     }
     sockets.push(socket)
-    socket.on('message', (data) => {
+    socket.on('message', (data, isBinary) => {
+      if (isBinary) {
+        binaries.push(new Uint8Array(data as Buffer))
+        return
+      }
       const message = JSON.parse(Buffer.from(data as Buffer).toString()) as Received
       received.push(message)
       if (message.type === 'agent.hello') {
@@ -53,6 +58,7 @@ async function fakeServer(opts: { heartbeatMs?: number; rejectToken?: boolean } 
   return {
     url,
     received,
+    binaries,
     auth,
     sockets,
     types: () => received.map((m) => m.type),
@@ -103,6 +109,17 @@ function connect(
 }
 
 describe('AgentConnection', () => {
+  it('sends binary frames once connected and never queues them', async () => {
+    const server = await fakeServer()
+    cleanup.push(server.close)
+    const { conn } = connect(server.url)
+    expect(await conn.sendBinary(Uint8Array.from([9, 9]))).toBe(false)
+    await until(() => conn.connected)
+    expect(await conn.sendBinary(Uint8Array.from([1, 2, 3]))).toBe(true)
+    await until(() => server.binaries.length === 1)
+    expect([...(server.binaries[0] ?? [])]).toEqual([1, 2, 3])
+  })
+
   it('sends the token, says hello, heartbeats at the server pace', async () => {
     const server = await fakeServer({ heartbeatMs: 50 })
     cleanup.push(server.close)

@@ -7,6 +7,7 @@ import { DeviceWatcher, type DeviceSource } from './devices'
 import { DeviceSessions, type SessionDriver } from './device-sessions'
 import { JobManager } from './jobs'
 import type { SecretValues } from './log'
+import { Streamer } from './streamer'
 
 export interface AgentOptions {
   wsUrl: string
@@ -31,16 +32,17 @@ export interface AgentOptions {
 export const SHUTDOWN_GRACE_MS = 10_000
 
 /**
- * coral-agent (SPEC §15): one WebSocket to the server, the adb device watcher and the job runner,
- * wired together. No AI here (P1).
+ * coral-agent (SPEC §15): one WebSocket to the server, the adb device watcher, the job runner and
+ * the live-view streamer, wired together. No AI here (P1).
  */
 export function startAgent(options: AgentOptions) {
-  const holder: { jobs?: JobManager } = {}
+  const holder: { jobs?: JobManager; streamer?: Streamer } = {}
   const watcher = new DeviceWatcher({
     source: options.source,
     busy: (udid) => holder.jobs?.busy(udid) ?? false,
     // While disconnected there is nothing to update: the next hello carries the full list.
     onUpdate: (update) => {
+      for (const udid of update.removed) void holder.streamer?.stop(udid)
       if (connection.connected) connection.send('device.update', update)
     },
     ...(options.devicePollMs ? { intervalMs: options.devicePollMs } : {}),
@@ -60,7 +62,11 @@ export function startAgent(options: AgentOptions) {
       }
     },
     heartbeat: () => ({ devices: watcher.statuses() }),
-    onMessage: (message) => holder.jobs?.handle(message),
+    onMessage: (message) => {
+      if (message.type === 'stream.start') holder.streamer?.start(message.payload)
+      else if (message.type === 'stream.stop') void holder.streamer?.stop(message.payload.udid)
+      else holder.jobs?.handle(message)
+    },
     ...(options.log ? { log: options.log } : {}),
     ...(options.minBackoffMs ? { minBackoffMs: options.minBackoffMs } : {}),
     ...(options.maxBackoffMs ? { maxBackoffMs: options.maxBackoffMs } : {}),
@@ -80,7 +86,14 @@ export function startAgent(options: AgentOptions) {
     ...(options.log ? { log: options.log } : {}),
     ...(options.secrets ? { secrets: options.secrets } : {}),
   })
+  const streamer = new Streamer({
+    sessions,
+    send: (frame) => connection.sendBinary(frame),
+    ...(options.clock ? { clock: options.clock } : {}),
+    ...(options.log ? { log: options.log } : {}),
+  })
   holder.jobs = jobs
+  holder.streamer = streamer
   watcher.start()
   connection.start()
 
@@ -88,6 +101,7 @@ export function startAgent(options: AgentOptions) {
     connection,
     jobs,
     sessions,
+    streamer,
     watcher,
     /** Graceful stop: running jobs are cancelled and get up to 10 s to report job.done. */
     async stop(): Promise<void> {
@@ -97,6 +111,7 @@ export function startAgent(options: AgentOptions) {
         jobs.drain(),
         new Promise((resolve) => setTimeout(resolve, SHUTDOWN_GRACE_MS).unref()),
       ])
+      await streamer.stopAll()
       await sessions.closeAll()
       await connection.stop()
     },

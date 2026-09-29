@@ -98,6 +98,18 @@ export class AgentConnection {
     return message.id
   }
 
+  /**
+   * Sends a binary frame (live view) and resolves once it is written to the socket, so the caller
+   * sends the next one only then (research R4). Never queued: false when not connected.
+   */
+  sendBinary(bytes: Uint8Array): Promise<boolean> {
+    const ws = this.ws
+    if (!this.ready || ws?.readyState !== WebSocket.OPEN) return Promise.resolve(false)
+    return new Promise((resolve) => {
+      ws.send(bytes, { binary: true }, (error) => resolve(!error))
+    })
+  }
+
   /** Sends a message and resolves with the server's reply (`re` = its id). */
   request<T extends MessageType>(type: T, payload: Payload<T>): Promise<Message> {
     const id = this.send(type, payload)
