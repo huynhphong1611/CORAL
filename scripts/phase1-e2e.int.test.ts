@@ -1,7 +1,7 @@
 // T055: scripts/phase1-e2e.mjs against a real server pipeline and the real agent code with a
 // FakeDriver (the 🔌 emulator run of T056 uses the same script).
 import { execFile } from 'node:child_process'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -84,9 +84,19 @@ describe('scripts/phase1-e2e.mjs', () => {
     expect(stdout.trim().endsWith('2/2 passed')).toBe(true)
     lastRun = /run 2\/2 (\S+):/.exec(stdout)?.[1] ?? ''
 
-    // Run again: project, app and test case are reused.
-    const again = await runLogin(...args.map((a) => (a === '2' ? '1' : a)))
+    // Run again: project, app and test case are reused; --download keeps the artifacts.
+    const downloads = join(dir, 'downloads')
+    const again = await runLogin(...args.map((a) => (a === '2' ? '1' : a)), '--download', downloads)
     expect(again.stdout.trim().endsWith('1/1 passed')).toBe(true)
+    const runId = /run 1\/1 (\S+):/.exec(again.stdout)?.[1] ?? ''
+    const step = (name: string) => join(downloads, runId, 'login', name)
+    expect((await readdir(join(downloads, runId, 'login'))).sort()).toEqual([
+      '0-s1',
+      '1-s2',
+      '2-s3',
+    ])
+    expect((await readFile(step('0-s1/screenshot.png'))).subarray(1, 4).toString()).toBe('PNG')
+    expect(JSON.parse(await readFile(step('2-s3/tree.json'), 'utf8'))).toBeInstanceOf(Array)
   }, 120_000)
 
   it('checks with --expect-popup that the popup guard handled the rule (SC-003)', async () => {

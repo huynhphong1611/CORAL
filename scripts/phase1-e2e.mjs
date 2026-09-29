@@ -7,9 +7,12 @@
 // Logs in, creates (or reuses) project + app, uploads the build, saves the test case, waits for an
 // idle device, then runs it N times one after another and checks every run: passed, < 60 s, and
 // every step's screenshot + tree downloadable (and, with --expect-popup, that the popup guard
-// handled that rule in the run, SC-003). Exit code 0 only when every check passed.
+// handled that rule in the run, SC-003). --download <dir> keeps every step's artifacts as
+// <dir>/<run_id>/<slug>/<index>-<step_id>/{screenshot.png,tree.json,device.log}.
+// Exit code 0 only when every check passed.
 import { existsSync, readFileSync } from 'node:fs'
-import { basename } from 'node:path'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 import { parseArgs } from 'node:util'
 
 /** @typedef {{ id: string, name: string }} Project */
@@ -27,7 +30,8 @@ import { parseArgs } from 'node:util'
  *   finished_at: string | null, items: RunItem[] }} Run
  */
 /**
- * @typedef {{ step_id: string, popups_handled: { rule: string, button: string }[],
+ * @typedef {{ step_index: number, step_id: string,
+ *   popups_handled: { rule: string, button: string }[],
  *   artifacts: { screenshot_url: string | null, tree_url: string | null,
  *   log_url: string | null } }} Step
  */
@@ -48,6 +52,7 @@ const { values: opts } = parseArgs({
     'max-run-sec': { type: 'string', default: '60' },
     'scan-secrets': { type: 'boolean', default: false },
     'expect-popup': { type: 'string' },
+    download: { type: 'string' },
     run: { type: 'string' },
     help: { type: 'boolean', default: false },
   },
@@ -55,7 +60,7 @@ const { values: opts } = parseArgs({
 
 const usage = `usage:
   node scripts/phase1-e2e.mjs --apk <file.apk> --testcase <file.yaml> [--runs 5] [--app <package>] [--device <udid>] [--scan-secrets]
-      [--expect-popup <popup rule>]
+      [--expect-popup <popup rule>] [--download <dir>]
   node scripts/phase1-e2e.mjs --scan-secrets --run <run_id>
 login: --email/--password or CORAL_SEED_EMAIL/CORAL_SEED_PASSWORD; server: --server or CORAL_SERVER_URL`
 
@@ -236,13 +241,23 @@ async function runOnce(ids) {
     for (const step of steps) {
       stepCount += 1
       for (const p of step.popups_handled) popups.push({ step_id: step.step_id, ...p })
-      for (const [kind, url] of [
-        ['screenshot', step.artifacts.screenshot_url],
-        ['tree', step.artifacts.tree_url],
-      ]) {
+      const dir = opts.download
+        ? join(opts.download, run.id, item.slug ?? item.id, `${step.step_index}-${step.step_id}`)
+        : undefined
+      /** @type {[string, string | null, boolean][]} file, URL, required */
+      const files = [
+        ['screenshot.png', step.artifacts.screenshot_url, true],
+        ['tree.json', step.artifacts.tree_url, true],
+        ['device.log', step.artifacts.log_url, false],
+      ]
+      for (const [file, url, required] of files) {
+        if (!url && !required) continue
         const res = url ? await fetch(url) : undefined
         if (res?.status !== 200) {
-          problems.push(`${step.step_id} ${kind}: HTTP ${res?.status ?? 'no url'}`)
+          problems.push(`${step.step_id} ${file}: HTTP ${res?.status ?? 'no url'}`)
+        } else if (dir) {
+          await mkdir(dir, { recursive: true })
+          await writeFile(join(dir, file), new Uint8Array(await res.arrayBuffer()))
         }
       }
     }
