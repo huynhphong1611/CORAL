@@ -1,0 +1,81 @@
+name: Device
+
+# 🔌 Phase 1 checks on a real Android 14 emulator (T039, T041, T056, T060, T063): GitHub-hosted
+# Linux runners have KVM. Runs on demand, and on pushes that touch the device path.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/device.yml
+      - scripts/ci-device.sh
+      - scripts/phase1-e2e.mjs
+      - packages/runner/**
+      - apps/agent/**
+      - fixtures/testcases/mydemo-*.yaml
+      - packages/shared/src/popups/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: device-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Sauce Labs My Demo App (research R15); release 2.3.0 = commit 3e51416.
+  MYDEMO_RELEASE: '2.3.0'
+
+jobs:
+  emulator:
+    name: Android 14 emulator (My Demo App)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Download My Demo App
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$MYDEMO_RELEASE" --repo saucelabs/my-demo-app-android --json assets -q '.assets[].name'
+          gh release download "$MYDEMO_RELEASE" --repo saucelabs/my-demo-app-android --pattern '*.apk' --dir apk
+          apk=$(ls apk/*.apk | grep -vi debug | head -1)
+          echo "CORAL_TEST_APK=$PWD/$apk" >> "$GITHUB_ENV"
+          sha256sum apk/*.apk
+      - run: docker compose up -d --wait --wait-timeout 180
+      - run: pnpm --filter @coral/server db:migrate
+      - name: Device checks on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          # The sample app's public demo account, printed on its login screen (research R15).
+          # Repository secrets of the same name take precedence.
+          CORAL_SECRET_TEST_USER: ${{ secrets.CORAL_SECRET_TEST_USER || 'bod@example.com' }}
+          CORAL_SECRET_TEST_PASSWORD: ${{ secrets.CORAL_SECRET_TEST_PASSWORD || '10203040' }}
+          CORAL_DEVICE_OUT: ${{ github.workspace }}/device-results
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          disable-animations: true
+          # The runner action executes each script line separately: keep it to one line.
+          script: bash scripts/ci-device.sh
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: device-results
+          path: device-results
+          if-no-files-found: warn
+      - if: always()
+        run: docker compose down -v
