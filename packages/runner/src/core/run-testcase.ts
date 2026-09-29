@@ -31,9 +31,16 @@ export interface HandledPopup {
   button: string
 }
 
+/** Why the guard is asked to look (§8.2): right after launch, or because the step is stuck. */
+export type PopupReason = 'launch' | 'target_not_found' | 'target_covered' | 'expect_failed'
+
 export interface PopupContext {
   appId: string
   step?: Step
+  reason: PopupReason
+  resolveCtx: ResolveContext
+  /** MAX_POPUPS_PER_STEP already handled: a further popup means BLOCKED_BY_POPUP (D25). */
+  limitReached: boolean
 }
 
 /**
@@ -168,13 +175,16 @@ export async function runTestCase(options: RunOptions): Promise<ItemResult> {
     let target: Resolution | undefined
 
     /** One more popup for this step; false when there is none on screen. */
-    const tryPopup = async (): Promise<boolean> => {
-      const handled = await guard.handle(tree, { appId, step })
+    const tryPopup = async (reason: PopupReason): Promise<boolean> => {
+      const handled = await guard.handle(tree, {
+        appId,
+        step,
+        reason,
+        resolveCtx,
+        limitReached: popups.length >= MAX_POPUPS_PER_STEP,
+      })
       if (!handled) return false
       popups.push(handled)
-      if (popups.length > MAX_POPUPS_PER_STEP) {
-        throw new StepFailure('BLOCKED_BY_POPUP', `more than ${MAX_POPUPS_PER_STEP} popups`)
-      }
       ;({ tree } = await stable())
       return true
     }
@@ -186,7 +196,8 @@ export async function runTestCase(options: RunOptions): Promise<ItemResult> {
       if (needsResolvedTarget(step) && 'target' in step && step.target) {
         const chain = step.target
         target = resolve(chain, tree, resolveCtx)
-        while (!target && (await tryPopup())) target = resolve(chain, tree, resolveCtx)
+        while (!target && (await tryPopup('target_not_found')))
+          target = resolve(chain, tree, resolveCtx)
         if (!target) throw new StepFailure('TARGET_NOT_FOUND', 'no locator of the target matched')
       }
 
@@ -206,7 +217,9 @@ export async function runTestCase(options: RunOptions): Promise<ItemResult> {
           if (outcome.target) target = outcome.target
           break
         } catch (error) {
-          if (!(error instanceof TargetCoveredError) || !(await tryPopup())) throw error
+          if (!(error instanceof TargetCoveredError) || !(await tryPopup('target_covered'))) {
+            throw error
+          }
           if ('target' in step && step.target) target = resolve(step.target, tree, resolveCtx)
           if (!target) throw new StepFailure('TARGET_NOT_FOUND', 'target gone after popup')
         }
@@ -215,14 +228,14 @@ export async function runTestCase(options: RunOptions): Promise<ItemResult> {
       // Popups right after launch (D25).
       if (step.action === 'launch') {
         ;({ tree } = await stable())
-        while (await tryPopup());
+        while (await tryPopup('launch'));
       }
 
       if (step.expect) {
         const expectOptions = signal ? { signal } : {}
         let outcome = await checkExpect(step.expect, driver, clock, resolveCtx, expectOptions)
         tree = outcome.tree
-        while (!outcome.ok && (await tryPopup())) {
+        while (!outcome.ok && (await tryPopup('expect_failed'))) {
           outcome = await checkExpect(step.expect, driver, clock, resolveCtx, expectOptions)
           tree = outcome.tree
         }

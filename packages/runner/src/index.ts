@@ -28,9 +28,12 @@ export {
   noPopupGuard,
   runTestCase,
   type HandledPopup,
+  type PopupContext,
   type PopupGuard,
+  type PopupReason,
   type RunEvent,
   type RunOptions,
 } from './core/run-testcase'
+export { createPopupGuard, findPopups, type Popup } from './core/popup-guard'
 export { LocalDirSink } from './sinks/local-dir'
 export * as android from './drivers/android'
