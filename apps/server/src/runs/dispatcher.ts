@@ -5,7 +5,7 @@ import type { AgentGateway } from '../agents/gateway'
 import type { Db } from '../db/client'
 import type { ProjectRepoStore } from '../git/project-repo-store'
 import { POPUPS_PATH } from '../repos/projects'
-import { runControl, runHolder, type RunControl } from '../repos/run-control'
+import { runControl, runHolder, type RunControl, type RunNotifier } from '../repos/run-control'
 import type { RunRow } from '../repos/runs'
 import type { ArtifactStore } from '../storage/s3'
 import type { RunQueue } from './create'
@@ -42,6 +42,8 @@ export interface DispatcherOptions {
   retryMaxMs?: number
   stableTimeoutMs?: number
   leaseTtlMs?: number
+  /** Pushes run and device changes to browsers (T020). */
+  notify?: RunNotifier
   log?: FastifyBaseLogger
 }
 
@@ -71,7 +73,7 @@ export class RunDispatcher implements RunQueue {
   private readonly acks = new Map<string, (result: AckResult) => void>()
 
   constructor(private readonly options: DispatcherOptions) {
-    this.control = runControl(options.db)
+    this.control = runControl(options.db, options.notify)
     const common = {
       connection: redisConnection(options.redisUrl),
       ...(options.prefix ? { prefix: options.prefix } : {}),

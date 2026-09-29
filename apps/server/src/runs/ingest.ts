@@ -1,7 +1,7 @@
 import type { FastifyBaseLogger } from 'fastify'
 import type { AgentContext, AgentGateway, AgentRef } from '../agents/gateway'
 import type { Db } from '../db/client'
-import { runControl, runHolder } from '../repos/run-control'
+import { runControl, runHolder, type RunNotifier } from '../repos/run-control'
 import type { RunRow } from '../repos/runs'
 import { runItemResultKey, stepArtifactKey, stepPrefix } from '../storage/keys'
 import type { ArtifactStore } from '../storage/s3'
@@ -12,6 +12,8 @@ export interface IngestDeps {
   gateway: AgentGateway
   dispatcher: RunDispatcher
   artifacts: ArtifactStore
+  /** Pushes run and device changes to browsers (T020). */
+  notify?: RunNotifier
   log?: FastifyBaseLogger
 }
 
@@ -21,7 +23,7 @@ export interface IngestDeps {
  * the run ended — is ignored.
  */
 export function registerIngest(deps: IngestDeps): void {
-  const control = runControl(deps.db)
+  const control = runControl(deps.db, deps.notify)
   const { gateway, dispatcher } = deps
   // Registered before the app exists: fall back to the gateway's logger once it has one.
   const log = () => deps.log ?? gateway.logger
@@ -80,7 +82,7 @@ export function registerIngest(deps: IngestDeps): void {
     const owned = await ownItem(ctx, p.run_id, p.run_item_id)
     if (!owned || owned.run.status !== 'running') return
     await control.startItem(p.run_item_id, p.run_id)
-    await control.addStep({
+    await control.addStep(p.run_id, {
       tenantId: owned.run.tenantId,
       runItemId: p.run_item_id,
       stepIndex: p.step_index,
@@ -177,10 +179,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export function startLeaseSweeper(deps: {
   db: Db
   dispatcher?: Pick<RunDispatcher, 'clearTimeout'>
+  notify?: RunNotifier
   intervalMs?: number
   log?: FastifyBaseLogger
 }): { stop(): void; sweep(): Promise<number>; first: Promise<unknown> } {
-  const control = runControl(deps.db)
+  const control = runControl(deps.db, deps.notify)
   async function sweep(): Promise<number> {
     const expired = await control.expiredLeases(new Date())
     for (const lease of expired) {

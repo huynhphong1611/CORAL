@@ -6,6 +6,7 @@ import { RunDispatcher } from '../runs/dispatcher'
 import { registerIngest, startLeaseSweeper } from '../runs/ingest'
 import { envSecrets } from '../runs/secrets'
 import { UiGateway } from '../ui/gateway'
+import { RunEvents } from '../ui/run-events'
 import { multipart } from './multipart'
 import { startTestServer, type TestUser } from './test-server'
 
@@ -58,8 +59,13 @@ export async function startRunServer(options: RunServerOptions = {}) {
   let dispatcher: RunDispatcher | undefined
   // Both sockets, as in production: agent tests also check they do not disturb each other.
   let uiGateway: UiGateway | undefined
+  let events: RunEvents | undefined
   const server = await startTestServer(({ db, store, artifacts }) => {
     gateway = new AgentGateway({ db, heartbeatMs: options.heartbeatMs ?? 15_000 })
+    uiGateway = new UiGateway({ jwtSecret: DEV_JWT_SECRET })
+    const notify = new RunEvents({ db, ui: uiGateway })
+    events = notify
+    gateway.onDevicesChanged((tenantId) => notify.devicesChanged(tenantId))
     const secrets = envSecrets(secretEnv)
     dispatcher = new RunDispatcher({
       db,
@@ -74,17 +80,19 @@ export async function startRunServer(options: RunServerOptions = {}) {
       ackTimeoutMs: options.ackTimeoutMs ?? 30_000,
       retryMinMs: options.retryMinMs ?? 50,
       retryMaxMs: options.retryMaxMs ?? 200,
+      notify,
     })
-    registerIngest({ db, gateway, dispatcher, artifacts })
-    uiGateway = new UiGateway({ jwtSecret: DEV_JWT_SECRET })
+    registerIngest({ db, gateway, dispatcher, artifacts, notify })
     return { gateway, uiGateway, runs: { dispatcher, secrets } }
   }, options.logging)
   if (!gateway || !dispatcher) throw new Error('run server not wired')
   dispatcher.attachLogger(server.app.log)
+  events?.attachLogger(server.app.log)
   const url = await server.listen()
   const sweeper = startLeaseSweeper({
     db: server.db,
     dispatcher,
+    notify: events,
     intervalMs: 60_000,
     log: server.app.log,
   })
@@ -130,6 +138,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
 
   async function close() {
     sweeper.stop()
+    events?.stop()
     await dispatcher?.obliterate().catch(() => undefined)
     await dispatcher?.close()
     await server.close()

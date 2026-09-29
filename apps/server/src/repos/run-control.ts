@@ -11,12 +11,25 @@ type FinalRunStatus = Extract<RunRow['status'], 'passed' | 'failed' | 'cancelled
 
 export const runHolder = (runId: string) => `run:${runId}`
 
+/** Told about every state change, to push it to browsers (T020); calls must not throw. */
+export interface RunNotifier {
+  runChanged(runId: string): void
+  stepAdded(runId: string, step: typeof runSteps.$inferInsert): void
+  devicesChanged(tenantId: string): void
+}
+
+const NO_NOTIFIER: RunNotifier = {
+  runChanged: () => undefined,
+  stepAdded: () => undefined,
+  devicesChanged: () => undefined,
+}
+
 /**
  * State changes driven by the dispatcher, the agent channel and the sweepers. Not tenant-scoped
  * by itself: callers check that the agent that sent a message owns the run (P5).
  * Every transition is guarded by the current status, so late or duplicate messages are no-ops.
  */
-export function runControl(db: Db) {
+export function runControl(db: Db, notify: RunNotifier = NO_NOTIFIER) {
   return {
     async getRun(runId: string): Promise<RunRow | undefined> {
       const [row] = await db.select().from(runs).where(eq(runs.id, runId))
@@ -62,7 +75,7 @@ export function runControl(db: Db) {
       ttlMs: number
     }): Promise<string | undefined> {
       try {
-        return await db.transaction(async (tx) => {
+        const leaseId = await db.transaction(async (tx) => {
           const [lease] = await tx
             .insert(leases)
             .values({
@@ -79,6 +92,8 @@ export function runControl(db: Db) {
             .where(and(eq(devices.id, input.deviceId), eq(devices.status, 'idle')))
           return lease?.id
         })
+        notify.devicesChanged(input.tenantId)
+        return leaseId
       } catch (error) {
         if (isUniqueViolation(error, 'leases_one_open_per_device')) return undefined
         throw error
@@ -87,21 +102,25 @@ export function runControl(db: Db) {
 
     /** Releases the holder's open lease; the device goes back to idle unless it is offline. */
     async releaseLease(holderRef: string, reason: LeaseReason): Promise<boolean> {
-      return db.transaction(async (tx) => {
-        const released = await tx
+      const released = await db.transaction(async (tx) => {
+        const rows = await tx
           .update(leases)
           .set({ releasedAt: new Date(), releaseReason: reason })
           .where(and(eq(leases.holderRef, holderRef), isNull(leases.releasedAt)))
-          .returning({ deviceId: leases.deviceId })
-        const deviceIds = released.map((l) => l.deviceId)
+          .returning({ deviceId: leases.deviceId, tenantId: leases.tenantId })
+        const deviceIds = rows.map((l) => l.deviceId)
         if (deviceIds.length > 0) {
           await tx
             .update(devices)
             .set({ status: 'idle' })
             .where(and(inArray(devices.id, deviceIds), eq(devices.status, 'leased')))
         }
-        return released.length > 0
+        return rows
       })
+      for (const tenantId of new Set(released.map((l) => l.tenantId))) {
+        notify.devicesChanged(tenantId)
+      }
+      return released.length > 0
     },
 
     expiredLeases(now: Date) {
@@ -117,6 +136,7 @@ export function runControl(db: Db) {
         .set({ status: 'running', startedAt: now })
         .where(and(eq(runs.id, runId), eq(runs.status, 'queued')))
         .returning({ id: runs.id })
+      if (rows.length > 0) notify.runChanged(runId)
       return rows.length > 0
     },
 
@@ -130,7 +150,7 @@ export function runControl(db: Db) {
       failureCode: FailureCode | null,
       itemCode?: FailureCode,
     ): Promise<boolean> {
-      return db.transaction(async (tx) => {
+      const ended = await db.transaction(async (tx) => {
         const now = new Date()
         const ended = await tx
           .update(runs)
@@ -152,15 +172,19 @@ export function runControl(db: Db) {
           .where(and(eq(runItems.runId, runId), eq(runItems.status, 'pending')))
         return true
       })
+      if (ended) notify.runChanged(runId)
+      return ended
     },
 
     async startItem(itemId: string, runId: string): Promise<void> {
-      await db
+      const started = await db
         .update(runItems)
         .set({ status: 'running', startedAt: new Date() })
         .where(
           and(eq(runItems.id, itemId), eq(runItems.runId, runId), eq(runItems.status, 'pending')),
         )
+        .returning({ id: runItems.id })
+      if (started.length > 0) notify.runChanged(runId)
     },
 
     async finishItem(input: {
@@ -172,7 +196,7 @@ export function runControl(db: Db) {
       startedAt: Date
       finishedAt: Date
     }): Promise<void> {
-      await db
+      const finished = await db
         .update(runItems)
         .set({
           status: input.status,
@@ -188,15 +212,18 @@ export function runControl(db: Db) {
             inArray(runItems.status, ['pending', 'running']),
           ),
         )
+        .returning({ id: runItems.id })
+      if (finished.length > 0) notify.runChanged(input.runId)
     },
 
-    /** Stores one step result; a duplicate (run_item_id, step_index) is ignored. */
-    async addStep(step: typeof runSteps.$inferInsert): Promise<boolean> {
+    /** Stores one step result of `runId`; a duplicate (run_item_id, step_index) is ignored. */
+    async addStep(runId: string, step: typeof runSteps.$inferInsert): Promise<boolean> {
       const rows = await db
         .insert(runSteps)
         .values(step)
         .onConflictDoNothing({ target: [runSteps.runItemId, runSteps.stepIndex] })
         .returning({ id: runSteps.id })
+      if (rows.length > 0) notify.stepAdded(runId, step)
       return rows.length > 0
     },
 

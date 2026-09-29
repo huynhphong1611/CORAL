@@ -70,6 +70,7 @@ export class AgentGateway implements AgentConnections {
     (ctx: AgentContext, message: Message) => Promise<void> | void
   >()
   private readonly offlineListeners: ((agent: AgentRef) => Promise<void> | void)[] = []
+  private readonly deviceListeners: ((tenantId: string) => void)[] = []
   private timer: NodeJS.Timeout | undefined
   private log: FastifyBaseLogger | undefined
 
@@ -110,6 +111,11 @@ export class AgentGateway implements AgentConnections {
   /** Called once per agent whose connection is gone (closed, timed out or revoked). */
   onAgentOffline(listener: (agent: AgentRef) => Promise<void> | void): void {
     this.offlineListeners.push(listener)
+  }
+
+  /** Called after an agent's devices were stored or went offline (hello, device.update, gone). */
+  onDevicesChanged(listener: (tenantId: string) => void): void {
+    this.deviceListeners.push(listener)
   }
 
   isOnline(agentId: string): boolean {
@@ -216,7 +222,12 @@ export class AgentGateway implements AgentConnections {
     if (this.connections.get(connection.agent.id) !== connection) return
     this.connections.delete(connection.agent.id)
     await connection.session.offline()
+    this.devicesChanged(connection.agent)
     for (const listener of this.offlineListeners) await listener(connection.agent)
+  }
+
+  private devicesChanged(agent: AgentRef): void {
+    for (const listener of this.deviceListeners) listener(agent.tenantId)
   }
 
   private sendRaw(connection: Connection, type: MessageType, payload: unknown, re?: string): void {
@@ -259,6 +270,7 @@ export class AgentGateway implements AgentConnections {
         now: new Date(),
       })
       connection.hello = true
+      this.devicesChanged(connection.agent)
       ctx.reply('agent.welcome', {
         agent_id: connection.agent.id,
         heartbeat_ms: this.options.heartbeatMs,
@@ -280,6 +292,7 @@ export class AgentGateway implements AgentConnections {
         break
       case 'device.update':
         await connection.session.updateDevices({ ...message.payload, now: new Date() })
+        this.devicesChanged(connection.agent)
         break
       case 'error':
         this.log?.warn(

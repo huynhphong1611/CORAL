@@ -12,10 +12,12 @@ import { envSecrets } from './runs/secrets'
 import type { ServerDeps } from './server'
 import { createArtifactStore } from './storage/s3'
 import { UiGateway } from './ui/gateway'
+import { RunEvents } from './ui/run-events'
 
 /**
  * Everything coral-server needs besides the HTTP app: Postgres, S3 (bucket + lifecycle), the git
- * store, the agent gateway, the BullMQ dispatcher and the result ingestion (T054).
+ * store, the agent gateway, the BullMQ dispatcher, the result ingestion (T054) and the browser
+ * socket with its run and device events (T020).
  */
 export async function startServices(
   config: ServerConfig,
@@ -28,6 +30,8 @@ export async function startServices(
   await artifacts.ensureBucket()
   const gateway = new AgentGateway({ db: database.db, heartbeatMs: config.timeouts.heartbeatMs })
   const uiGateway = new UiGateway({ jwtSecret: config.jwtSecret })
+  const notify = new RunEvents({ db: database.db, ui: uiGateway })
+  gateway.onDevicesChanged((tenantId) => notify.devicesChanged(tenantId))
   const secrets = envSecrets(env)
   const dispatcher = new RunDispatcher({
     db: database.db,
@@ -38,8 +42,9 @@ export async function startServices(
     redisUrl: config.redisUrl,
     queueTimeoutMs: config.timeouts.queueTimeoutMs,
     runTimeoutMs: config.timeouts.runTimeoutMs,
+    notify,
   })
-  registerIngest({ db: database.db, gateway, dispatcher, artifacts })
+  registerIngest({ db: database.db, gateway, dispatcher, artifacts, notify })
 
   const readiness = async (): Promise<boolean> => {
     const checks = await Promise.allSettled([
@@ -68,10 +73,12 @@ export async function startServices(
     /** Call once the app (and its logger) exists. */
     start(log: FastifyBaseLogger) {
       dispatcher.attachLogger(log)
-      sweeper = startLeaseSweeper({ db: database.db, dispatcher, log })
+      notify.attachLogger(log)
+      sweeper = startLeaseSweeper({ db: database.db, dispatcher, notify, log })
     },
     async close() {
       sweeper?.stop()
+      notify.stop()
       await dispatcher.close()
       await database.close()
     },

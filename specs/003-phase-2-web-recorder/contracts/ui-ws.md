@@ -14,7 +14,7 @@ Nguồn: SPEC §15–§16, D18, research R3, R5, R7. Cùng envelope JSON với g
 | Hướng | type | payload | Ghi chú |
 |---|---|---|---|
 | C→S | `ui.auth` | `{ access_token }` | trả `ui.ready` |
-| C→S | `run.watch` / `run.unwatch` | `{ run_id }` | sau `watch`: `run.updated` và `run.step` khi có thay đổi |
+| C→S | `run.watch` / `run.unwatch` | `{ run_id }` | sau `watch`: ngay một `run.updated` (trạng thái hiện tại), rồi `run.updated` và `run.step` theo đúng thứ tự thay đổi; run không thuộc tenant → `error { code: "not_found" }`; tối đa 100 run/kết nối → `error { code: "too_many_watches" }` |
 | S→C | `run.updated` | `{ run_id, status, failure_code?, items: [{ id, status, failure_code?, failed_step_id? }], started_at?, finished_at? }` | |
 | S→C | `run.step` | `{ run_id, run_item_id, step_index, step_id, status, failure_code?, degraded, duration_ms }` | ảnh lấy qua REST (URL presigned) |
 | S→C | `devices.updated` | `{ devices: Device[] }` (như `GET /devices`, kèm `activity`) | gửi khi trạng thái/lease đổi; client không cần polling |
