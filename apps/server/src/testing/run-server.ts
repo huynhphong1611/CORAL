@@ -1,0 +1,129 @@
+import { randomBytes } from 'node:crypto'
+import { api, newId } from '@coral/shared'
+import { AgentGateway } from '../agents/gateway'
+import { loadConfig } from '../config'
+import { RunDispatcher } from '../runs/dispatcher'
+import { registerIngest, startLeaseSweeper } from '../runs/ingest'
+import { envSecrets } from '../runs/secrets'
+import { multipart } from './multipart'
+import { startTestServer, type TestUser } from './test-server'
+
+export interface RunServerOptions {
+  heartbeatMs?: number
+  ackTimeoutMs?: number
+  queueTimeoutMs?: number
+  runTimeoutMs?: number
+  retryMinMs?: number
+  retryMaxMs?: number
+  /** Secret values the server knows (as CORAL_SECRET_<NAME>). */
+  secrets?: Record<string, string>
+}
+
+export const LOGIN_YAML = `schema: coral/testcase@1
+id: login
+intent: 'Đăng nhập'
+platforms: [android]
+variables:
+  user: \${secret:TEST_USER}
+steps:
+  - id: s1
+    action: launch
+    expect: { visible_text: 'Login' }
+  - id: s2
+    action: type
+    target: [{ android_id: 'id/user' }]
+    value: \${var:user}
+  - id: s3
+    action: tap
+    target: [{ text: 'Login' }]
+    expect: { visible_text: 'Products' }
+`
+
+/**
+ * Integration server with the whole run pipeline: gateway, BullMQ dispatcher (own Redis prefix),
+ * ingest and lease sweeper — plus a helper that creates project, app, build, test case and agent.
+ */
+export async function startRunServer(options: RunServerOptions = {}) {
+  const config = loadConfig(process.env)
+  const secretEnv = Object.fromEntries(
+    Object.entries(options.secrets ?? { TEST_USER: 'bob@example.com' }).map(([k, v]) => [
+      `CORAL_SECRET_${k}`,
+      v,
+    ]),
+  )
+  let gateway: AgentGateway | undefined
+  let dispatcher: RunDispatcher | undefined
+  const server = await startTestServer(({ db, store, artifacts }) => {
+    gateway = new AgentGateway({ db, heartbeatMs: options.heartbeatMs ?? 15_000 })
+    const secrets = envSecrets(secretEnv)
+    dispatcher = new RunDispatcher({
+      db,
+      gateway,
+      artifacts,
+      store,
+      secrets,
+      redisUrl: config.redisUrl,
+      prefix: `coral-test-${newId()}`,
+      queueTimeoutMs: options.queueTimeoutMs ?? 600_000,
+      runTimeoutMs: options.runTimeoutMs ?? 1_800_000,
+      ackTimeoutMs: options.ackTimeoutMs ?? 30_000,
+      retryMinMs: options.retryMinMs ?? 50,
+      retryMaxMs: options.retryMaxMs ?? 200,
+    })
+    registerIngest({ db, gateway, dispatcher, artifacts })
+    return { gateway, runs: { dispatcher, secrets } }
+  })
+  if (!gateway || !dispatcher) throw new Error('run server not wired')
+  const url = await server.listen()
+  const sweeper = startLeaseSweeper({ db: server.db, dispatcher, intervalMs: 60_000 })
+
+  /** Project + app + build + one test case (+ an agent token) for `user`. */
+  async function seed(user: TestUser, yaml = LOGIN_YAML) {
+    const call = server.call
+    const project = api.projectSchema.parse(
+      (await call(user, { method: 'POST', url: '/projects', payload: { name: `p-${newId()}` } }))
+        .body,
+    )
+    const app = api.appSchema.parse(
+      (
+        await call(user, {
+          method: 'POST',
+          url: `/projects/${project.id}/apps`,
+          payload: { platform: 'android', package_or_bundle_id: 'com.example.app', name: 'App' },
+        })
+      ).body,
+    )
+    const apk = randomBytes(2048)
+    const build = api.buildSchema.parse(
+      (
+        await call(user, {
+          method: 'POST',
+          url: `/apps/${app.id}/builds`,
+          ...multipart({ version: '1.0.0' }, { name: 'app.apk', data: apk }),
+        })
+      ).body,
+    )
+    const testCase = api.savedTestCaseSchema.parse(
+      (
+        await call(user, {
+          method: 'POST',
+          url: `/projects/${project.id}/testcases`,
+          payload: { yaml },
+        })
+      ).body,
+    )
+    const agent = await server.newAgent(user, `agent-${newId()}`)
+    return { project, app, build, apk, testCase, agent }
+  }
+
+  async function close() {
+    sweeper.stop()
+    await dispatcher?.obliterate().catch(() => undefined)
+    await dispatcher?.close()
+    await server.close()
+  }
+
+  return { ...server, url, gateway, dispatcher, sweeper, seed, close }
+}
+
+export type RunServer = Awaited<ReturnType<typeof startRunServer>>

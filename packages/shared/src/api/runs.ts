@@ -72,3 +72,9 @@ export const runStepSchema = z.object({
 })
 
 export const readinessSchema = z.object({ status: z.enum(['ok', 'not_ready']) })
+
+export type CreateRun = z.infer<typeof createRunSchema>
+export type Run = z.infer<typeof runSchema>
+export type RunItem = z.infer<typeof runItemSchema>
+export type RunStep = z.infer<typeof runStepSchema>
+export type Readiness = z.infer<typeof readinessSchema>

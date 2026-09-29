@@ -5,6 +5,7 @@ import { audit, type AuditEntry } from './audit'
 import { buildsRepo } from './builds'
 import { identityRepo } from './identity'
 import { projectsRepo } from './projects'
+import { runsRepo } from './runs'
 import { testCasesRepo } from './test-cases'
 
 export interface RepoDeps {
@@ -27,6 +28,7 @@ export function createRepos({ db, store }: RepoDeps) {
         builds: buildsRepo(db, tenantId),
         agents: agentsRepo(db, tenantId),
         testCases: testCasesRepo(db, tenantId, store, projects),
+        runs: runsRepo(db, tenantId),
         audit: (entry: Omit<AuditEntry, 'tenantId'>) => audit(db, { tenantId, ...entry }),
       }
     },

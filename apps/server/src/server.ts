@@ -1,6 +1,6 @@
 import cookie from '@fastify/cookie'
 import multipart from '@fastify/multipart'
-import { CORAL_VERSION, type HealthResponse } from '@coral/shared'
+import { CORAL_VERSION, type HealthResponse, type api } from '@coral/shared'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { AgentGateway } from './agents/gateway'
 import { registerAuthGuard } from './auth/guard'
@@ -13,7 +13,10 @@ import { createRepos } from './repos'
 import { registerAgentRoutes, type AgentConnections } from './routes/agents'
 import { registerBuildRoutes } from './routes/builds'
 import { registerProjectRoutes } from './routes/projects'
+import { registerRunRoutes } from './routes/runs'
 import { registerTestCaseRoutes } from './routes/testcases'
+import type { RunDispatcher } from './runs/dispatcher'
+import type { SecretSource } from './runs/secrets'
 import type { ArtifactStore } from './storage/s3'
 
 /** Omitted parts disable their routes (unit tests only exercise stateless routes). */
@@ -25,6 +28,10 @@ export interface ServerDeps {
   gateway?: AgentGateway
   /** Only for tests without a gateway. */
   connections?: AgentConnections
+  /** Run creation and dispatch (queue, leases, agent assignment). */
+  runs?: { dispatcher: RunDispatcher; secrets: SecretSource }
+  /** `GET /health/ready`: true when Postgres, Redis, S3 and the data dir are usable. */
+  readiness?: () => Promise<boolean>
   /** Largest build upload (config CORAL_MAX_BUILD_MB). */
   maxBuildBytes?: number
 }
@@ -52,6 +59,20 @@ export function buildServer(
     uptime_sec: Math.round(performance.now() - startedAt) / 1000,
   }))
 
+  // Public, so it says nothing about which component failed (details go to the log only).
+  app.get('/health/ready', { config: { public: true } }, async (request, reply) => {
+    let ready: boolean
+    try {
+      ready = deps.readiness ? await deps.readiness() : true
+    } catch (error) {
+      request.log.error({ err: error }, 'readiness check failed')
+      ready = false
+    }
+    return reply
+      .status(ready ? 200 : 503)
+      .send({ status: ready ? 'ok' : 'not_ready' } satisfies api.Readiness)
+  })
+
   if (deps.db) registerAuthRoutes(app, { db: deps.db, jwtSecret: config.jwtSecret })
   deps.gateway?.register(app)
   if (deps.db && deps.store) {
@@ -60,7 +81,18 @@ export function buildServer(
     registerTestCaseRoutes(app, { repos })
     const connections = deps.gateway ?? deps.connections
     registerAgentRoutes(app, { repos, ...(connections ? { connections } : {}) })
-    if (deps.artifacts) registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
+    if (deps.artifacts) {
+      registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
+      if (deps.runs) {
+        registerRunRoutes(app, {
+          repos,
+          artifacts: deps.artifacts,
+          dispatcher: deps.runs.dispatcher,
+          queue: deps.runs.dispatcher,
+          secrets: deps.runs.secrets,
+        })
+      }
+    }
   }
 
   return app

@@ -1,32 +1,14 @@
-import type { TestCase } from '@coral/shared'
+import { referencedSecrets, type TestCase } from '@coral/shared'
 
 const PATTERN = /\$\{(secret|var):([^}]*)\}/g
+
+export { referencedSecrets }
 
 export class InterpolationError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'InterpolationError'
   }
-}
-
-function collectStrings(value: unknown, out: string[]): string[] {
-  if (typeof value === 'string') out.push(value)
-  else if (Array.isArray(value)) for (const item of value) collectStrings(item, out)
-  else if (value && typeof value === 'object') {
-    for (const item of Object.values(value)) collectStrings(item, out)
-  }
-  return out
-}
-
-/** Secret names a test case uses, in `variables` or directly in steps (sorted, unique). */
-export function referencedSecrets(testCase: TestCase): string[] {
-  const names = new Set<string>()
-  const strings = collectStrings([testCase.variables ?? {}, testCase.steps], [])
-  for (const text of strings) {
-    for (const [, kind, name] of text.matchAll(PATTERN))
-      if (kind === 'secret' && name) names.add(name)
-  }
-  return [...names].sort()
 }
 
 /** Secret names without a value; checked before the run touches the device (FR-012). */
