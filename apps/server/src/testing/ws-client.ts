@@ -86,6 +86,8 @@ export async function connectAgent(baseUrl: string, token: string | undefined) {
     send,
     next,
     heartbeat,
+    /** Simulates a frozen agent: the socket stays open but nothing is sent any more. */
+    stopHeartbeat: () => clearInterval(beat),
     close: () => {
       clearInterval(beat)
       ws.close()

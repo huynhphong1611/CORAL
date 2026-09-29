@@ -168,6 +168,7 @@ export function registerIngest(deps: IngestDeps): void {
 }
 
 export const LEASE_SWEEP_MS = 30_000
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * Releases leases past `expires_at` (e.g. after a server restart, when no heartbeat will ever
@@ -179,25 +180,30 @@ export function startLeaseSweeper(deps: {
   dispatcher?: Pick<RunDispatcher, 'clearTimeout'>
   intervalMs?: number
   log?: FastifyBaseLogger
-}): { stop(): void; sweep(): Promise<number> } {
+}): { stop(): void; sweep(): Promise<number>; first: Promise<unknown> } {
   const control = runControl(deps.db)
   async function sweep(): Promise<number> {
     const expired = await control.expiredLeases(new Date())
     for (const lease of expired) {
-      const runId = lease.holderRef.startsWith('run:') ? lease.holderRef.slice(4) : undefined
-      if (runId) {
-        await control.finishRun(runId, 'error', 'DEVICE_OFFLINE', 'DEVICE_OFFLINE')
-        await deps.dispatcher?.clearTimeout(runId)
+      // One bad row must not stop the others from being released.
+      try {
+        const runId = lease.holderRef.startsWith('run:') ? lease.holderRef.slice(4) : ''
+        if (UUID.test(runId)) {
+          await control.finishRun(runId, 'error', 'DEVICE_OFFLINE', 'DEVICE_OFFLINE')
+          await deps.dispatcher?.clearTimeout(runId)
+        }
+        await control.releaseLease(lease.holderRef, 'timeout')
+        deps.log?.warn({ lease: lease.id, holder: lease.holderRef }, 'expired lease released')
+      } catch (error) {
+        deps.log?.error({ err: error, lease: lease.id }, 'cannot release expired lease')
       }
-      await control.releaseLease(lease.holderRef, 'timeout')
-      deps.log?.warn({ lease: lease.id, holder: lease.holderRef }, 'expired lease released')
     }
     return expired.length
   }
   const run = () =>
-    void sweep().catch((error: unknown) => deps.log?.error({ err: error }, 'lease sweep failed'))
-  run()
-  const timer = setInterval(run, deps.intervalMs ?? LEASE_SWEEP_MS)
+    sweep().catch((error: unknown) => deps.log?.error({ err: error }, 'lease sweep failed'))
+  const first = run()
+  const timer = setInterval(() => void run(), deps.intervalMs ?? LEASE_SWEEP_MS)
   timer.unref()
-  return { stop: () => clearInterval(timer), sweep }
+  return { stop: () => clearInterval(timer), sweep, first }
 }

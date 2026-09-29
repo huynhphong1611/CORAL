@@ -1,4 +1,4 @@
-import { api } from '@coral/shared'
+import { api, newId } from '@coral/shared'
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { agents, devices, leases } from '../db/schema'
@@ -89,7 +89,7 @@ describe('agent gateway', () => {
       tenantId: huynh.tenantId,
       deviceId: device?.id ?? '',
       kind: 'run',
-      holderRef: 'run:test',
+      holderRef: `run:${newId()}`,
       expiresAt: soon,
     })
     client.send('agent.heartbeat', { devices: [{ udid: 'emulator-5554', status: 'busy' }] })
