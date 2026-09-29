@@ -131,10 +131,15 @@ export function renderTree(
       canvas.frame(s(x), s(y), s(w), s(h), COLORS.dialogBorder, Math.max(1, Math.round(s(3))))
     const ink = isStatus ? COLORS.statusText : COLORS.appText
 
-    for (const node of walkTree([window])) {
-      if (!node.visible || node === window) continue
+    const overlaps = (a: ElementNode['bounds'], b: ElementNode['bounds']) =>
+      a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+    const draw = (node: ElementNode, parent: ElementNode, covers: boolean) => {
+      if (!node.visible) return
       const b = node.bounds
       const isField = /EditText/.test(node.class)
+      // A panel drawn over its earlier siblings (a drawer, a sheet) hides them.
+      if (covers && !node.clickable && !isField)
+        canvas.fill(s(b.x), s(b.y), s(b.w), s(b.h), background)
       if (isField) {
         canvas.fill(s(b.x), s(b.y), s(b.w), s(b.h), COLORS.field)
         canvas.frame(
@@ -155,22 +160,34 @@ export function renderTree(
         )
         canvas.frame(s(b.x), s(b.y), s(b.w), s(b.h), COLORS.border, Math.max(1, Math.round(s(2))))
       }
-      const raw =
-        node.android?.password && node.text
-          ? '*'.repeat(node.text.length)
-          : node.text || (node.clickable ? node.desc : '')
-      if (!raw) continue
-      const label = ascii(raw)
+      const padding = Math.max(2, s(16))
       const textHeight = 8 * fontScale
-      canvas.text(
-        s(b.x) + Math.max(2, s(16)),
-        s(b.y) + Math.max(0, (s(b.h) - textHeight) / 2),
-        label,
-        ink,
-        fontScale,
-        s(b.w) - Math.max(4, s(32)),
-      )
+      const x = s(b.x) + padding
+      const y = s(b.y) + Math.max(0, (s(b.h) - textHeight) / 2)
+      if (node.text) {
+        const text = ascii(node.android?.password ? '*'.repeat(node.text.length) : node.text)
+        // Labels often have tight bounds: they may run on to the right edge of their parent.
+        const right =
+          node.clickable || isField ? s(b.x + b.w) : s(parent.bounds.x + parent.bounds.w)
+        canvas.text(x, y, text, ink, fontScale, right - x - padding / 2)
+      } else if (node.clickable && node.desc && ![...walkTree(node.children)].some((n) => n.text)) {
+        // An icon: its description only when it fits whole (no "V~" for "View menu").
+        const desc = ascii(node.desc)
+        if (desc.length * 6 * fontScale <= s(b.w) - 2 * padding) {
+          canvas.text(x, y, desc, ink, fontScale, s(b.w) - 2 * padding)
+        }
+      }
+      drawChildren(node)
     }
+    const drawChildren = (parent: ElementNode) => {
+      parent.children.forEach((child, i) => {
+        const covers = parent.children
+          .slice(0, i)
+          .some((earlier) => overlaps(earlier.bounds, child.bounds))
+        draw(child, parent, covers)
+      })
+    }
+    drawChildren(window)
   })
   return encode({ width, height, data: canvas.data, channels: 3, depth: 8 })
 }
