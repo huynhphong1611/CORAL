@@ -153,7 +153,10 @@ describe('AndroidDriver on a real device', () => {
     expect(frame.mime).toBe('image/jpeg')
     expect(frame.image.length).toBeLessThanOrEqual(300 * 1024)
     expect(elapsedMs).toBeLessThanOrEqual(1000)
-    expect(Math.max(frame.width, frame.height)).toBeLessThanOrEqual(1280)
+    // u2 ignores the scale (research R4): max_edge is a hint, the frame may be full size.
+    expect(Math.max(frame.width, frame.height)).toBeLessThanOrEqual(
+      Math.max(frame.deviceWidth, frame.deviceHeight),
+    )
     // Same aspect ratio as the screen, so clicks map back within 1 % (US3).
     expect(frame.width / frame.height).toBeCloseTo(frame.deviceWidth / frame.deviceHeight, 2)
     expect(frame.rotation).toBe(0)

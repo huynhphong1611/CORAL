@@ -94,8 +94,9 @@ export class AndroidDriver implements DeviceDriver, FrameSource {
   }
 
   /**
-   * A live-view frame (research R4): u2 takeScreenshot scales and compresses to JPEG on the
-   * device; without it (older server, or a screen it cannot capture) `screencap -p` sends a PNG.
+   * A live-view frame (research R4): u2 takeScreenshot compresses to JPEG on the device (it
+   * ignores the scale on current servers, so `maxEdge` is a hint: the frame may be full size);
+   * without it (older server, or a screen it cannot capture) `screencap -p` sends a PNG.
    */
   async streamFrame({ maxEdge, quality }: FrameOptions): Promise<LiveFrame> {
     const info = await this.u2.call<DeviceInfo>('deviceInfo')

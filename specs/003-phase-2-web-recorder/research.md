@@ -27,7 +27,8 @@ Mỗi mục: **Decision** / **Rationale** / **Alternatives**. Các điểm đã 
 
 - **Decision**: agent gọi JSON-RPC `takeScreenshot(scale, quality)` của u2 (trả JPEG base64, máy tự nén) với `scale` sao cho cạnh dài ≤ 1280 px và `quality` 60; fallback khi phương thức không có: `adb exec-out screencap -p` (PNG, gửi nguyên). Kiểm bằng device test trong CI (T có 🔌 → emulator CI).
 - Nhịp: vòng lặp một khung một lúc — chụp → gửi → chờ `max(0, 1000/fps − thời gian đã tốn)`; mặc định 4 fps, tối thiểu 2 (SC-002). Không bao giờ xếp hàng khung cũ: nếu server/viewer chậm, khung mới thay khung chưa gửi.
-- **Rationale**: JPEG từ máy nhỏ ~40–80 KB (540×1200) so với PNG 1–2 MB; không cần thư viện nén ảnh trong Node.
+- **Kết quả đo (CI, emulator Android 14, T027)**: `takeScreenshot` của u2 bỏ qua `scale` — khung là JPEG đủ độ phân giải 1080×2400, q60 ≈ 100 KB, chụp ≈ 0,3 s. Vẫn trong ngân sách (≤ 300 KB, ≤ 1 s; 4 fps ≈ 400 KB/s mỗi thiết bị), nên agent **không** thu nhỏ lại (tránh giải/nén JPEG bằng JS); `max_edge` chỉ là gợi ý, trình duyệt co ảnh theo khung. Nếu băng thông thành vấn đề: thêm thu nhỏ phía agent (`jpeg-js`/`sharp`) hoặc H.264 (scrcpy) — để sau.
+- **Rationale**: JPEG từ máy nhỏ (~100 KB ở 1080×2400) so với PNG 1–2 MB; không cần thư viện nén ảnh trong Node.
 - **Alternatives**: `screencap` + nén JPEG bằng JS (`jpeg-js` — tốn CPU agent ~100 ms/khung); scrcpy/H.264 (tốt hơn nhưng để sau — SPEC §19).
 
 ## R5. Truyền khung hình: agent → server → trình duyệt
