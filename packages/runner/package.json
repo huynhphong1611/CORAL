@@ -17,7 +17,8 @@
     "@techstark/opencv-js": "5.0.0-release.1",
     "fast-png": "^8.0.0",
     "fast-xml-parser": "^5.11.1",
-    "fflate": "^0.8.3"
+    "fflate": "^0.8.3",
+    "jpeg-js": "^0.4.4"
   },
   "devDependencies": {
     "@types/node": "^24.19.0",

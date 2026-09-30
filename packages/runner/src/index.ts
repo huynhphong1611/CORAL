@@ -46,5 +46,9 @@ export {
   type RunOptions,
 } from './core/run-testcase'
 export { createPopupGuard, findPopups, type Popup } from './core/popup-guard'
+export { pickTarget } from './core/recorder/pick'
+export { extractLocators, type LocatorOptions } from './core/recorder/locators'
+export { MAX_SUGGESTIONS, suggestExpects } from './core/recorder/suggest'
+export { snapshotFromPng, type ScreenSnapshot } from './core/recorder/crop'
 export { LocalDirSink } from './sinks/local-dir'
 export * as android from './drivers/android'
