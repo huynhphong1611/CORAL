@@ -320,7 +320,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
   - Trace được giữ cùng kết quả exploration trong thời gian lưu artifact (30 ngày).
 
 **Test writer và xác thực**
-- **FR-028**: Test writer MUST nhận trace (từ exploration, prompt hoặc import) và chia thành các flow có ý nghĩa. Sau một exploration, Test writer tự chạy ngay khi exploration kết thúc (kể cả khi dừng vì hết ngân sách bước/thời gian) và viết tối đa N test case cho các flow đáng giá nhất (N mặc định 5, đặt khi bắt đầu; flow không được chọn được ghi trong kết quả). Chi phí AI của bước viết test tính vào ngân sách chi phí của exploration; hết ngân sách chi phí thì không viết thêm. Với mỗi flow, AI viết tên, `intent`, kỳ vọng, và chỉ tham chiếu **bước trong trace**. Chuỗi locator của mỗi step được hệ thống trích từ snapshot của bước đó (như Recorder, §11.1), không bao giờ lấy từ câu trả lời của AI (P2).
+- **FR-028**: Test writer MUST nhận trace (từ exploration, prompt hoặc import) và chia thành các flow có ý nghĩa. Sau một exploration, Test writer tự chạy ngay khi exploration kết thúc (kể cả khi dừng vì hết ngân sách bước/thời gian) và viết tối đa N test case cho các flow đáng giá nhất (N mặc định 5, đặt khi bắt đầu; flow không được chọn được ghi trong kết quả). Chi phí AI của bước viết test tính vào ngân sách chi phí của exploration; hết ngân sách chi phí thì không viết thêm. Mỗi test case MUST **tự chứa**: bắt đầu bằng mở app ở trạng thái sạch (`app_state: fresh`) và gồm mọi bước từ màn đầu tới hết flow, kể cả đăng nhập nếu flow cần (lấy từ trace/app map). Test case không tham chiếu test case khác. Với mỗi flow, AI viết tên, `intent`, kỳ vọng, và chỉ tham chiếu **bước trong trace**. Chuỗi locator của mỗi step được hệ thống trích từ snapshot của bước đó (như Recorder, §11.1), không bao giờ lấy từ câu trả lời của AI (P2).
 - **FR-029**: Kỳ vọng do AI đề xuất MUST được kiểm trên snapshot sau step. Kỳ vọng không thỏa trên snapshot bị loại. Step chạm không còn kỳ vọng được cảnh báo như `coral validate`.
 - **FR-030**: Test case do AI viết MUST hợp lệ theo `coral validate` trước khi lưu, và dùng `${secret:TÊN}` cho mọi giá trị secret. Mỗi test case được lưu thành một commit gồm YAML và snapshot từng step (`snap/<slug>/`), ghi nguồn (khám phá, prompt, import) và tham chiếu tới nguồn gốc. Slug không trùng test case đã có; flow trùng thao tác với test case đã có không tạo bản sao.
 - **FR-031**: Test case mới MUST được xác thực bằng 2 lần chạy liên tiếp, tất định và không dùng AI, trên cùng thiết bị và build (run loại `validation`).
@@ -342,7 +342,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 - **FR-035**: Test case thủ công MUST được lưu trong kho project ở định dạng trung lập `coral/manualcase@1` (`imports/<job>/`, P4) trước khi xử lý.
 - **FR-036**: Import MUST chạy thành job nền có ngân sách (chi phí, thời gian), tiến độ xem được, và hủy được. Với mỗi test case thủ công:
   1. Khám phá có hướng dẫn theo các bước viết tay.
-  2. Test writer viết YAML: `intent` từ tiêu đề và mô tả; kỳ vọng từ kết quả mong đợi; nguồn "import" trỏ về test case gốc.
+  2. Test writer viết YAML: `intent` từ tiêu đề và mô tả; kỳ vọng từ kết quả mong đợi; nguồn "import" trỏ về test case gốc. Tiền điều kiện (ví dụ "đã đăng nhập") thành các bước ở đầu test case (FR-028).
   3. Xác thực (FR-031).
 - **FR-037**: Test case import không thành `active` MUST có lý do thuộc `needs_human`, `ambiguous` hoặc `app_mismatch`, kèm bằng chứng. Hệ thống MUST NOT sửa kết quả mong đợi hay bỏ bước viết tay để test pass (P3).
 - **FR-038**: Kết thúc job, người dùng MUST nhận báo cáo: số test case `active`, số theo từng lý do, số chưa xử lý (nếu dừng sớm), liên kết từng test case thủ công tới test case được sinh.
@@ -440,6 +440,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 **Kiểm thử**
 - MCP server giả lập (trả OTP) và bộ 10 test case thủ công CSV của app mẫu là fixture của dự án, dùng để kiểm DoD.
 - Định dạng export của TestRail/Zephyr/Xray để sau (§11.3). Excel chỉ hỗ trợ `.xlsx`.
+- Chưa có cơ chế dùng lại bước giữa các test case (ví dụ khối "đăng nhập" chung): test case AI sinh ra lặp lại các bước cần thiết. Cơ chế dùng lại cần mở rộng `coral/testcase@1`, để phase sau.
 
 ## Clarifications
 
@@ -450,3 +451,4 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 - Q: Sau khi khám phá xong, Test writer tự viết test case ngay hay chờ người dùng chọn, và tối đa bao nhiêu test case mỗi lần? → A: Tự viết ngay khi exploration kết thúc, tối đa 5 test case (đổi được khi bắt đầu); AI chọn các flow đáng giá nhất (US3, FR-020, FR-028).
 - Q: Có lưu nội dung đã gửi cho AI và câu trả lời (đã che secret) để xem lại không? → A: Có, lưu 30 ngày (chữ gửi đi, ảnh thu nhỏ, câu trả lời, lý do AI đưa ra), xem được từ từng bước của trace trên web; sau đó chỉ còn số liệu (FR-006a, FR-039, Key Entities).
 - Q: Khi khám phá gặp ô nhập liệu, AI có được tự bịa dữ liệu rồi gửi form không? → A: Được gõ dữ liệu thử tự đặt; chỉ được gửi form khi dữ liệu lấy từ skill hoặc skill cho phép form đó; tìm kiếm/lọc luôn được (US2 kịch bản 10, FR-015, FR-022a).
+- Q: Test case AI sinh ra tự chứa mọi bước từ lúc mở app hay dùng lại khối "đăng nhập" chung? → A: Tự chứa: bắt đầu bằng mở app sạch, lặp lại các bước cần (kể cả đăng nhập); cơ chế dùng lại để phase sau (FR-028, FR-036, Assumptions).
