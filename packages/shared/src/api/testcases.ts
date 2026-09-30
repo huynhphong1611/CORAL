@@ -70,3 +70,6 @@ export const lastRunStepsSchema = z.array(
     finished_at: timestamp,
   }),
 )
+
+export type TestCaseSnapshots = z.infer<typeof testCaseSnapshotsSchema>
+export type LastRunSteps = z.infer<typeof lastRunStepsSchema>

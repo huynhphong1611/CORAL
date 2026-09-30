@@ -350,11 +350,11 @@ function SavePanel({
       setProblem(undefined)
       onErrors(new Map())
     },
-    onSuccess: () =>
+    // The saved test case opens in the editor, snapshots beside its steps (US5).
+    onSuccess: (saved) =>
       navigate({
-        to: '/projects/$projectId',
-        params: { projectId: recording.project_id },
-        search: { tab: 'testcases' },
+        to: '/projects/$projectId/testcases/$testCaseId',
+        params: { projectId: recording.project_id, testCaseId: saved.test_case_id },
       }),
     onError: (error) => {
       if (error instanceof ApiError && error.code === 'slug_exists') {

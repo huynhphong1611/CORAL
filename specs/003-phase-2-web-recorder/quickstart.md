@@ -32,7 +32,7 @@ Chạy một run (web: test case → **Run**, hoặc `scripts/phase1-e2e.mjs`). 
 
 1. Project → **Record**: chọn app My Demo App, build, emulator → bước `s1 launch` tự có.
 2. Click nút menu → click "Log In" → click ô Username, gõ `bod@example.com` (trùng giá trị secret nên được ghi thành `${secret:TEST_USER}`, trang báo "The text matched secret TEST_USER") → click ô Password, chọn secret `TEST_PASSWORD` → **Type secret** → click **Login**; sau chạm chọn một đề xuất kỳ vọng (chip "Add expectation …").
-3. Điền slug `recorded-login`, intent, **Preview YAML** → **Save as test case** → về tab test case của project, dòng `recorded-login` nguồn `recorder` (editor có ảnh từng step là US5).
+3. Điền slug `recorded-login`, intent, **Preview YAML** → **Save as test case** → editor của `recorded-login` mở, ảnh snapshot cạnh từng step (US5).
 4. **Run** 3 lần trên cùng emulator → 3/3 `passed`.
 
 Kiểm tra thêm: mọi step chạm có ≥ 2 locator, locator đầu khớp đúng element lúc ghi (unit test SC-004 + đọc YAML); YAML, `snap/`, log server/agent không có giá trị mật khẩu (`scripts/phase1-e2e.mjs --scan-secrets --run <id>` và grep log — SC-008).

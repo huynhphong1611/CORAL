@@ -129,6 +129,7 @@ function TestCasesTab({ projectId }: { projectId: string }) {
               {list.map((testCase) => (
                 <TestCaseRow
                   key={testCase.id}
+                  projectId={projectId}
                   testCase={testCase}
                   canWrite={canWrite}
                   selected={selected.has(testCase.id)}
@@ -152,12 +153,14 @@ function TestCasesTab({ projectId }: { projectId: string }) {
 }
 
 function TestCaseRow({
+  projectId,
   testCase,
   canWrite,
   selected,
   onToggle,
   onRun,
 }: {
+  projectId: string
   testCase: api.TestCaseSummary
   canWrite: boolean
   selected: boolean
@@ -176,7 +179,15 @@ function TestCaseRow({
           />
         </Td>
       )}
-      <Td className="font-mono text-slate-900">{testCase.slug}</Td>
+      <Td className="font-mono">
+        <Link
+          to="/projects/$projectId/testcases/$testCaseId"
+          params={{ projectId, testCaseId: testCase.id }}
+          className="text-slate-900 underline-offset-2 hover:underline"
+        >
+          {testCase.slug}
+        </Link>
+      </Td>
       <Td className="max-w-sm text-slate-700">{testCase.intent}</Td>
       <Td>
         <Badge tone={STATUS_TONES[testCase.status]}>{testCase.status}</Badge>

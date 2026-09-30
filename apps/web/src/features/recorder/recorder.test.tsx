@@ -234,6 +234,7 @@ describe('the Recorder (T044)', () => {
   it('shows save problems on their step, offers Replace for a taken slug, then saves', async () => {
     let attempt = 0
     const bodies: unknown[] = []
+    const savedId = newId()
     const { requests, router } = await open({
       save: (request) => {
         bodies.push(request.body)
@@ -264,7 +265,7 @@ describe('the Recorder (T044)', () => {
           )
         }
         return Response.json(
-          { test_case_id: newId(), head_commit: 'c'.repeat(40), warnings: [] },
+          { test_case_id: savedId, head_commit: 'c'.repeat(40), warnings: [] },
           { status: 201 },
         )
       },
@@ -292,7 +293,10 @@ describe('the Recorder (T044)', () => {
     expect(await screen.findByText('A test case “recorded-login” already exists.')).toBeDefined()
     expect(within(screen.getByTestId('step-s2')).queryByRole('alert')).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Replace recorded-login' }))
-    await waitFor(() => expect(router.state.location.pathname).toBe(`/projects/${shop.id}`))
+    // The saved test case opens in the editor.
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/projects/${shop.id}/testcases/${savedId}`),
+    )
     expect(bodies.at(-1)).toMatchObject({
       slug: 'recorded-login',
       intent: 'Open the menu',

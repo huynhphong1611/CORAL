@@ -12,6 +12,7 @@ import type { ApiClient } from './api/client'
 import type { SessionStore } from './api/session'
 import type { UiSocket } from './api/ws'
 import { Layout } from './components/Layout'
+import { TestCasePage } from './features/editor/TestCasePage'
 import { RecorderPage } from './features/recorder/RecorderPage'
 import { StartRecordingPage } from './features/recorder/StartRecordingPage'
 import { DevicePage } from './routes/device'
@@ -79,6 +80,12 @@ const projectRoute = createRoute({
 const uuid = (value: unknown) =>
   typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value) ? value : undefined
 
+const testCaseRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/projects/$projectId/testcases/$testCaseId',
+  component: TestCasePage,
+})
+
 const recordRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/projects/$projectId/record',
@@ -139,6 +146,7 @@ const routeTree = rootRoute.addChildren([
     indexRoute,
     projectsRoute,
     projectRoute,
+    testCaseRoute,
     recordRoute,
     recordingRoute,
     devicesRoute,

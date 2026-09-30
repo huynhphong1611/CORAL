@@ -142,15 +142,18 @@ test('records a login from the browser, saves it and replays it 3/3', async ({
   expect(yamlText).not.toContain(PASSWORD)
   await page.screenshot({ path: 'e2e-results/us4-preview.png', fullPage: true })
 
-  // SC-009: saved (one commit with the snapshots) within 2 s.
+  // SC-009: saved (one commit with the snapshots) within 2 s; it opens in the editor.
   const started = Date.now()
   await page.getByRole('button', { name: 'Save as test case' }).click()
-  await expect(page).toHaveURL(new RegExp(`/projects/${seeded.projectId}\\?tab=testcases`))
-  const row = page.getByRole('row').filter({ hasText: 'recorded-login' })
-  await expect(row).toContainText('recorder')
+  await expect(page).toHaveURL(new RegExp(`/projects/${seeded.projectId}/testcases/`))
+  await expect(page.getByRole('heading', { name: 'recorded-login' })).toBeVisible()
   const saveMs = Date.now() - started
   console.log(`SC-009: saved recorded-login in ${saveMs} ms`)
   expect(saveMs).toBeLessThan(2000)
+  // The editor shows the Recorder's snapshot beside the steps (US5).
+  await expect(
+    page.getByTestId('picture-s2').getByRole('img', { name: 'Screen of step s2' }),
+  ).toBeVisible()
   await page.screenshot({ path: 'e2e-results/us4-saved.png', fullPage: true })
 
   const testCases = await api<{ id: string; slug: string }[]>(

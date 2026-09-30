@@ -125,16 +125,31 @@ export class ApiClient {
     return this.request('POST', path, { form, ...(schema ? { schema } : {}) })
   }
 
+  /** Bytes of a GET behind the access token (snapshot images of a test case). */
+  async blob(path: string): Promise<Blob> {
+    return (await this.fetchOk('GET', path, {})).blob()
+  }
+
   async request<T>(method: string, path: string, options: RequestOptions<T>): Promise<T> {
+    const response = await this.fetchOk(method, path, options)
+    if (response.status === 204) return undefined as T
+    const json: unknown = await response.json()
+    return options.schema ? options.schema.parse(json) : (json as T)
+  }
+
+  /** The response of a call, refreshed and retried once on 401; an ApiError when not ok. */
+  private async fetchOk(
+    method: string,
+    path: string,
+    options: RequestOptions<unknown>,
+  ): Promise<Response> {
     let response = await this.send(method, path, options)
     if (response.status === 401 && !options.noRefresh) {
       const session = await this.refresh()
       if (session) response = await this.send(method, path, options)
     }
     if (!response.ok) throw await toError(response)
-    if (response.status === 204) return undefined as T
-    const json: unknown = await response.json()
-    return options.schema ? options.schema.parse(json) : (json as T)
+    return response
   }
 
   private send(method: string, path: string, options: RequestOptions<unknown>): Promise<Response> {

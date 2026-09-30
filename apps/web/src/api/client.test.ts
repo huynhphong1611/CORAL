@@ -125,6 +125,26 @@ describe('ApiClient (research R2)', () => {
     expect(server.calls[0]?.body).toBe('{"name":"x"}')
   })
 
+  it('fetches bytes behind the token, refreshing on 401 (snapshot images)', async () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
+    const server = fakeFetch({
+      'POST /api/auth/refresh': () => Response.json(session('new')),
+      'GET /api/testcases/t/files/snap/a/s1/screen.jpg?commit=abc1234': (init) =>
+        (init.headers as Record<string, string>).authorization === 'Bearer new'
+          ? new Response(png, { headers: { 'content-type': 'image/png' } })
+          : error(401, 'unauthorized'),
+      'GET /api/testcases/t/files/snap/a/s9/screen.jpg': () => error(404, 'not_found'),
+    })
+    const client = new ApiClient({ fetch: server.impl })
+    const blob = await client.blob('/testcases/t/files/snap/a/s1/screen.jpg?commit=abc1234')
+    expect(blob.type).toBe('image/png')
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(png)
+    await expect(client.blob('/testcases/t/files/snap/a/s9/screen.jpg')).rejects.toMatchObject({
+      status: 404,
+      code: 'not_found',
+    })
+  })
+
   it('logs out even when the server call fails', async () => {
     const server = fakeFetch({ 'POST /api/auth/login': () => Response.json(session('t')) })
     const client = new ApiClient({ fetch: server.impl })
