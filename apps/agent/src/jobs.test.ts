@@ -308,6 +308,25 @@ describe('JobManager', () => {
     })
   })
 
+  it('downloads two paths with the same content once (two empty fields look alike)', async () => {
+    const png = Buffer.from(`same picture ${Date.now()}`)
+    const sha = createHash('sha256').update(png).digest('hex')
+    const t = setup({ files: { 'http://s3.test/a.png': png, 'http://s3.test/b.png': png } })
+    const assets = [
+      { path: 'snap/login/s4/element.png', sha256: sha, download_url: 'http://s3.test/a.png' },
+      { path: 'snap/login/s6/element.png', sha256: sha, download_url: 'http://s3.test/b.png' },
+    ]
+    t.manager.handle(protocol.envelope('job.assign', assign([LOGIN], [assets])))
+    await t.manager.drain()
+    expect(t.sent.find((m) => m.type === 'item.result')?.payload).toMatchObject({
+      status: 'passed',
+    })
+    expect(t.downloads()).toBe(1)
+    expect((await readdir(join(cacheDir, 'assets'))).filter((f) => f.startsWith(sha))).toEqual([
+      sha,
+    ])
+  })
+
   it('downloads the image assets of an item and finds its image locators with them', async () => {
     // The Login button as the Recorder cut it; the test case's id locator no longer matches.
     const screen = renderTree(login, { width: 1080, height: 2400 })

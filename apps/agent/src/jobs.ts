@@ -130,18 +130,22 @@ export class JobManager {
           itemError()
           continue
         }
-        // The reference images of `image` locators, cached by sha256 (research R12).
+        // The reference images of `image` locators, cached by sha256 (research R12); two paths
+        // with the same content (two empty fields) are downloaded once.
         let files: Map<string, string>
         try {
+          const downloads = new Map<string, Promise<string>>()
+          const download = (asset: (typeof item.assets)[number]) => {
+            let file = downloads.get(asset.sha256)
+            if (!file) {
+              file = cachedAsset(asset, this.deps.cacheDir, this.deps.fetch)
+              downloads.set(asset.sha256, file)
+            }
+            return file
+          }
           files = new Map(
             await Promise.all(
-              item.assets.map(
-                async (asset) =>
-                  [
-                    asset.path,
-                    await cachedAsset(asset, this.deps.cacheDir, this.deps.fetch),
-                  ] as const,
-              ),
+              item.assets.map(async (asset) => [asset.path, await download(asset)] as const),
             ),
           )
         } catch (error) {

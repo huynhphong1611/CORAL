@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -25,7 +25,8 @@ async function cached(
   const data = new Uint8Array(await res.arrayBuffer())
   if (sha256(data) !== item.sha256) throw new Error(`${what} checksum mismatch`)
   await mkdir(dir, { recursive: true })
-  const partial = `${path}.${process.pid}.partial`
+  // One partial file per download: two downloads of the same sha256 must not share it.
+  const partial = `${path}.${process.pid}.${randomUUID()}.partial`
   await writeFile(partial, data)
   await rename(partial, path)
   return path
