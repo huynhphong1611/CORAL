@@ -41,7 +41,7 @@ Tự động: `.github/workflows/device.yml` chạy đúng kịch bản này b�
 
 **Kết quả (2026-09-30):**
 - Emulator Android 14 + My Demo App 2.3.0, Device run 36672188617 (`7a2a4ba`): ghi 9 step (launch, menu, Log In, ô Username, gõ `${secret:TEST_USER}`, ô Password, gõ `${secret:TEST_PASSWORD}`, ẩn bàn phím, Login + kỳ vọng `visible_text: Sauce Labs Backpack (green)`); mọi step chạm có ≥ 2 locator (SC-004); lưu 946 ms (SC-009 ≤ 2 s); chạy lại 3/3 `passed` (SC-001); quét secret trong YAML, `snap/`, log server/agent: 0 (SC-008).
-- Lần chạy đó cho thấy đề xuất kỳ vọng có thể mang giá trị secret đọc trên màn hình (`text bod@example.com`) → sửa ở `e0043d0`: server thay mọi giá trị secret trong step, đề xuất và kết quả inspect bằng `${secret:NAME}`, agent che chúng trong `tree.json` và log.
+- Lần chạy đó cho thấy đề xuất kỳ vọng có thể mang giá trị secret đọc trên màn hình (`text bod@example.com`) → sửa ở `e0043d0`: server thay mọi giá trị secret trong step, đề xuất và kết quả inspect bằng `${secret:NAME}`, agent che chúng trong `tree.json` và log. Chạy lại trên emulator, Device run 36673674533 (`e0043d0`): ✅ đề xuất ở s8 thành `text “${secret:TEST_USER}”`, lưu 422 ms, chạy lại 3/3 `passed`, 0 secret trong log.
 - Thiết bị giả (`pnpm test:e2e`, T045): 3/3 `passed`, lưu ~420 ms.
 
 ## 5. Editor (US5)
@@ -58,4 +58,4 @@ Tạo app, tải APK, tạo agent token (hiện một lần, **Copy**), đặt v
 
 ## Checklist DoD Phase 2
 
-- [ ] Ghi một flow 5 step từ web, lưu thành test case, chạy lại pass 3/3 lần (emulator CI)
+- [x] Ghi một flow 5 step từ web, lưu thành test case, chạy lại pass 3/3 lần (emulator CI) — US4, Device run 36673674533 (9 step, 3/3 `passed`)
