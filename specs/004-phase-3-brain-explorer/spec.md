@@ -75,7 +75,7 @@ Trong lúc chạy, người dùng theo dõi tiến độ trên web: số bước
 
 ### User Story 3 - Sinh test case từ kết quả khám phá và tự xác thực (Priority: P1) 🎯 DoD
 
-Sau khi khám phá, Test writer đọc trace và chia thành các flow có ý nghĩa (ví dụ "mở chi tiết sản phẩm", "thêm vào giỏ"). Với mỗi flow, AI viết tên, `intent` và các kỳ vọng. Locator của từng step do hệ thống trích từ snapshot trong trace (như Recorder), không lấy từ câu trả lời của AI.
+Khi khám phá xong, Test writer **tự chạy ngay** (không chờ người dùng bấm): đọc trace, chia thành các flow có ý nghĩa (ví dụ "mở chi tiết sản phẩm", "thêm vào giỏ") và chọn tối đa **5** flow đáng giá nhất (số tối đa đổi được khi bắt đầu khám phá). Với mỗi flow, AI viết tên, `intent` và các kỳ vọng. Locator của từng step do hệ thống trích từ snapshot trong trace (như Recorder), không lấy từ câu trả lời của AI.
 
 Mỗi test case mới được lưu vào kho của project rồi chạy xác thực tự động **2 lần liên tiếp**, không dùng AI:
 - pass cả 2 lần → `active`;
@@ -278,6 +278,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 - **FR-020**: Người dùng (`owner`, `admin`, `member`) MUST bắt đầu được một exploration: chọn project, build, thiết bị, mục tiêu (tùy chọn) và ngân sách (số bước, độ sâu, số phút, chi phí). Các giá trị mặc định lấy từ cấu hình tenant.
   - Exploration giữ thiết bị độc quyền (lease `exploration`, D16), không đồng thời với run, phiên điều khiển hay phiên ghi.
   - Cài build nếu cần và mở app ở trạng thái sạch.
+  - Người dùng đặt được số test case tối đa sẽ sinh (mặc định 5, FR-028).
 - **FR-021**: Mỗi bước khám phá MUST làm theo thứ tự:
   1. Quan sát màn hình sau khi ổn định.
   2. Tính fingerprint.
@@ -307,7 +308,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
   - Trace được giữ cùng kết quả exploration trong thời gian lưu artifact (30 ngày).
 
 **Test writer và xác thực**
-- **FR-028**: Test writer MUST nhận trace (từ exploration, prompt hoặc import) và chia thành các flow có ý nghĩa. Với mỗi flow, AI viết tên, `intent`, kỳ vọng, và chỉ tham chiếu **bước trong trace**. Chuỗi locator của mỗi step được hệ thống trích từ snapshot của bước đó (như Recorder, §11.1), không bao giờ lấy từ câu trả lời của AI (P2).
+- **FR-028**: Test writer MUST nhận trace (từ exploration, prompt hoặc import) và chia thành các flow có ý nghĩa. Sau một exploration, Test writer tự chạy ngay khi exploration kết thúc (kể cả khi dừng vì hết ngân sách bước/thời gian) và viết tối đa N test case cho các flow đáng giá nhất (N mặc định 5, đặt khi bắt đầu; flow không được chọn được ghi trong kết quả). Chi phí AI của bước viết test tính vào ngân sách chi phí của exploration; hết ngân sách chi phí thì không viết thêm. Với mỗi flow, AI viết tên, `intent`, kỳ vọng, và chỉ tham chiếu **bước trong trace**. Chuỗi locator của mỗi step được hệ thống trích từ snapshot của bước đó (như Recorder, §11.1), không bao giờ lấy từ câu trả lời của AI (P2).
 - **FR-029**: Kỳ vọng do AI đề xuất MUST được kiểm trên snapshot sau step. Kỳ vọng không thỏa trên snapshot bị loại. Step chạm không còn kỳ vọng được cảnh báo như `coral validate`.
 - **FR-030**: Test case do AI viết MUST hợp lệ theo `coral validate` trước khi lưu, và dùng `${secret:TÊN}` cho mọi giá trị secret. Mỗi test case được lưu thành một commit gồm YAML và snapshot từng step (`snap/<slug>/`), ghi nguồn (khám phá, prompt, import) và tham chiếu tới nguồn gốc. Slug không trùng test case đã có; flow trùng thao tác với test case đã có không tạo bản sao.
 - **FR-031**: Test case mới MUST được xác thực bằng 2 lần chạy liên tiếp, tất định và không dùng AI, trên cùng thiết bị và build (run loại `validation`).
@@ -433,3 +434,4 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 
 - Q: DoD với AI thật chạy ở đâu và bằng key nào? → A: Huynh chạy trên máy của mình với key riêng; dự án cung cấp script kiểm DoD và hướng dẫn; CI chỉ dùng provider giả lập (Assumptions).
 - Q: Phase 3 có màn web cho prompt, import và tri thức project không, hay chỉ API? → A: Có màn web tối giản: ô nhập prompt, trang import (tải file, chọn cột, xem trước, báo cáo), sửa `AGENTS.md`/skills/`mcp.yaml` bằng editor của Phase 2 (FR-041).
+- Q: Sau khi khám phá xong, Test writer tự viết test case ngay hay chờ người dùng chọn, và tối đa bao nhiêu test case mỗi lần? → A: Tự viết ngay khi exploration kết thúc, tối đa 5 test case (đổi được khi bắt đầu); AI chọn các flow đáng giá nhất (US3, FR-020, FR-028).
