@@ -65,6 +65,9 @@ importers:
       '@coral/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@techstark/opencv-js':
+        specifier: 5.0.0-release.1
+        version: 5.0.0-release.1
       pino:
         specifier: ^10.3.1
         version: 10.3.1
@@ -266,6 +269,9 @@ importers:
       '@coral/shared':
         specifier: workspace:*
         version: link:../shared
+      '@techstark/opencv-js':
+        specifier: 5.0.0-release.1
+        version: 5.0.0-release.1
       commander:
         specifier: ^15.0.0
         version: 15.0.0

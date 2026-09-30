@@ -16,6 +16,8 @@ export type {
   UiDriver,
 } from './core/driver'
 export { imageInfo, type ImageInfo } from './core/image/size'
+export { type ImageMatcher, type Match, type MatchOptions } from './core/image/matcher'
+export { openCvMatcher } from './core/image/opencv'
 export { realClock, AbortError, type Clock } from './core/clock'
 export { StepFailure, TargetCoveredError } from './core/errors'
 export { resolve, findAll, type Resolution, type ResolveContext } from './core/locator/resolve'
