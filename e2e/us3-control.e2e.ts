@@ -32,17 +32,20 @@ async function tapDevice(page: Page, point: { x: number; y: number }) {
   )
 }
 
-/** Taps and returns how long until the painted screen changed (Infinity after `limitMs`). */
-async function tapAndTime(page: Page, point: { x: number; y: number }, limitMs = 2000) {
+/** Does `action` and returns how long until the painted screen changed (Infinity after `limitMs`). */
+async function timeToChange(page: Page, action: () => Promise<void>, limitMs = 2000) {
   const before = await canvasHash(page)
   const started = Date.now()
-  await tapDevice(page, point)
+  await action()
   while (Date.now() - started <= limitMs) {
     if ((await canvasHash(page)) !== before) return Date.now() - started
     await page.waitForTimeout(25)
   }
   return Number.POSITIVE_INFINITY
 }
+
+const tapAndTime = (page: Page, point: { x: number; y: number }) =>
+  timeToChange(page, () => tapDevice(page, point))
 
 test('holds the device from the browser: taps land, others see who, runs wait', async ({
   browser,
@@ -65,11 +68,19 @@ test('holds the device from the browser: taps land, others see who, runs wait', 
   await signIn(other, teammate, devicePath)
   await expect(other.getByText(`Controlled by ${nameOf(account)}`, { exact: true })).toBeVisible()
   await expect(other.getByRole('button', { name: 'Take control' })).toBeDisabled()
-  await other.screenshot({ path: 'e2e-results/us3-controlled-by.png', fullPage: true })
 
-  // A click on "View menu" opens the menu on the device, and the new screen shows up.
+  // Back starts from the catalog whatever the earlier tests left on the device: it closes the
+  // menu or leaves the login page of the sample app, and does nothing on the catalog.
+  const back = holder.getByRole('button', { name: 'Back', exact: true })
+  await timeToChange(holder, () => back.click(), 1500)
+
+  // A click on "View menu" opens the menu on the device, and the new screen shows up — also in
+  // the other browser, which only watches.
   expect(await tapAndTime(holder, MENU_TOGGLE)).toBeLessThan(2000)
+  const opened = await canvasHash(holder)
+  await expect.poll(() => canvasHash(other), { timeout: 5000 }).toBe(opened)
   await holder.screenshot({ path: 'e2e-results/us3-menu-open.png', fullPage: true })
+  await other.screenshot({ path: 'e2e-results/us3-controlled-by.png', fullPage: true })
 
   // SC-002: at least 90 % of 20 clicks show a new screen within 2 s.
   const times: number[] = []
