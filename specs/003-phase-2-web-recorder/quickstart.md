@@ -60,6 +60,8 @@ Mở `recorded-login`, đổi `timeout_ms` một step → **Save** → History c
 
 Tạo app, tải APK, tạo agent token (hiện một lần, **Copy**), đặt vào `.env` `CORAL_AGENT_TOKEN`, khởi động agent → thiết bị hiện trên `/devices`.
 
+**Kết quả (2026-09-30, T056 `e2e/us7-setup.e2e.ts`):** từ tenant trống: tạo project → **Apps & builds** thêm My Demo App (`com.saucelabs.mydemoapp.android`) → tải APK 256 KB (thanh tiến độ, "Build 2.2.0 uploaded.") → **Devices** › **Add agent** → token hiện một lần, **Copy** vào clipboard → agent giả chạy với token đó → thiết bị `idle` hiện ngay (không tải lại), agent `online` → **Revoke** → agent `revoked`, thiết bị `offline`.
+
 ## Checklist DoD Phase 2
 
 - [x] Ghi một flow 5 step từ web, lưu thành test case, chạy lại pass 3/3 lần (emulator CI) — US4, Device run 36673674533 (9 step, 3/3 `passed`)
