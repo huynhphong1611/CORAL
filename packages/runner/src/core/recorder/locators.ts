@@ -13,11 +13,11 @@ const normalize = (text: string) => text.trim().replace(/\s+/g, ' ')
 const shortClass = (name: string) => name.slice(name.lastIndexOf('.') + 1)
 const within = (node: ElementNode, ancestor: ElementNode) => node.ref.startsWith(`${ancestor.ref}.`)
 /** What a user types: an input's text is its content, never a way to find it (and may be secret). */
-const isInput = (node: ElementNode) =>
+export const isInput = (node: ElementNode) =>
   node.android?.password === true || classMatches(node.class, 'EditText')
 
 /** `id/<name>` for the app's own ids (as test cases write them), the full id otherwise. */
-function idLocator(node: ElementNode, ctx: ResolveContext): Locator | undefined {
+export function idLocator(node: ElementNode, ctx: ResolveContext): Locator | undefined {
   const id = node.platform_id
   if (!id) return undefined
   if (ctx.platform === 'ios') return { ios_id: id }
