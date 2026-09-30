@@ -33,6 +33,7 @@ async function stableTree(): Promise<ElementNode[]> {
  * emulator often shows "Pixel Launcher isn't responding").
  */
 async function waitForApp(timeoutMs = 30_000): Promise<ElementNode[]> {
+  const started = Date.now()
   const guard = createPopupGuard({
     popups: popupsSchema.parse(parseYaml(DEFAULT_POPUPS_YAML).value),
     driver,
@@ -43,7 +44,7 @@ async function waitForApp(timeoutMs = 30_000): Promise<ElementNode[]> {
     if ([...walkTree(tree)].some((n) => n.package_or_bundle === env.appId)) return tree
     if (Date.now() > deadline) {
       throw new Error(
-        `${env.appId} not on screen after ${timeoutMs} ms\n${await describeScreen(tree)}`,
+        `${env.appId} not on screen after ${timeoutMs} ms\n${await describeScreen(tree, started)}`,
       )
     }
     const screen = await driver.windowSize()
@@ -57,22 +58,36 @@ async function waitForApp(timeoutMs = 30_000): Promise<ElementNode[]> {
   }
 }
 
-/** What is on screen instead of the app: windows, some texts, the focused window, the app's pid. */
-async function describeScreen(tree: readonly ElementNode[]): Promise<string> {
+/** Lines of `dumpsys` / `logcat` that tell why an app is not on screen. */
+const LAUNCH_LOG =
+  /ActivityTaskManager|ActivityManager|AndroidRuntime|Zygote|WindowManager|libprocessgroup|mydemoapp/
+
+/**
+ * What is on screen instead of the app: windows, some texts, the focused window and resumed
+ * activity, the app's pid and the activity-manager log from 10 s before `sinceMs` (reset, launch).
+ */
+async function describeScreen(tree: readonly ElementNode[], sinceMs: number): Promise<string> {
   const shell = (args: string[]) => env.adb.device(env.udid).shell(args).catch(String)
+  const grep = (text: string, pattern: RegExp) =>
+    text
+      .split('\n')
+      .filter((line) => pattern.test(line))
+      .map((line) => line.trim())
   const texts = [...walkTree(tree)]
     .map((n) => n.text || n.desc)
     .filter(Boolean)
     .slice(0, 15)
-  const focus = (await shell(['dumpsys', 'window', 'windows']))
-    .split('\n')
-    .filter((line) => /mCurrentFocus|mFocusedApp/.test(line))
-    .map((line) => line.trim())
+  const focus = grep(await shell(['dumpsys', 'window']), /mCurrentFocus|mFocusedApp/)
+  const resumed = grep(await shell(['dumpsys', 'activity', 'activities']), /ResumedActivity/)
+  const log = grep(await driver.deviceLogs(sinceMs - 10_000).catch(String), LAUNCH_LOG)
   return [
     `windows: ${tree.map((w) => `${w.package_or_bundle} ${JSON.stringify(w.bounds)}`).join(' | ')}`,
     `texts: ${JSON.stringify(texts)}`,
     ...focus,
+    ...resumed.slice(0, 4),
     `pidof ${env.appId}: ${(await shell(['pidof', env.appId])).trim() || 'none'}`,
+    `device log around the launch (${log.length} activity/app lines, last 80):`,
+    ...log.slice(-80),
   ].join('\n')
 }
 

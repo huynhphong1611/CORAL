@@ -94,7 +94,13 @@ describe('scripts/phase1-e2e.mjs', () => {
       '0-s1',
       '1-s2',
       '2-s3',
+      'result.json',
     ])
+    expect(JSON.parse(await readFile(step('result.json'), 'utf8'))).toEqual({
+      status: 'passed',
+      failure_code: null,
+      message: null,
+    })
     expect((await readFile(step('0-s1/screenshot.png'))).subarray(1, 4).toString()).toBe('PNG')
     expect(JSON.parse(await readFile(step('2-s3/tree.json'), 'utf8'))).toBeInstanceOf(Array)
   }, 120_000)
