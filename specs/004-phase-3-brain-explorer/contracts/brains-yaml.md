@@ -31,7 +31,7 @@ prices:                                  # tùy chọn: ghi đè bảng đơn gi
   - `roles.explorer` bắt buộc; `roles.writer` thiếu thì dùng `roles.explorer`.
   - Vai trò lạ → `schema`.
 - **Provider**:
-  - `provider` ∈ `claude | gemini | copilot`. `fake` chỉ nhận khi server chạy với `CORAL_BRAIN_FAKE=1` (test/E2E).
+  - `provider` ∈ `claude | gemini | copilot`. `fake` và `fake-alt` (hai tên của cùng adapter giả, để thử đổi provider) chỉ nhận khi server chạy với `CORAL_BRAIN_FAKE=1` (test/E2E).
   - Provider lạ → `unknown_provider`.
   - `copilot` khi chưa bật (cờ tenant **và** biến môi trường) → `provider_disabled`.
   - Vai trò `explorer` cần ảnh: gán provider `vision: false` (Copilot) → `vision_required`.
