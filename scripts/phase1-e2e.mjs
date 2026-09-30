@@ -30,7 +30,8 @@ import { parseArgs } from 'node:util'
  *   finished_at: string | null, items: RunItem[] }} Run
  */
 /**
- * @typedef {{ step_index: number, step_id: string,
+ * @typedef {{ step_index: number, step_id: string, status: string,
+ *   failure_code: string | null, message: string | null,
  *   popups_handled: { rule: string, button: string }[],
  *   artifacts: { screenshot_url: string | null, tree_url: string | null,
  *   log_url: string | null } }} Step
@@ -238,6 +239,20 @@ async function runOnce(ids) {
   const popups = []
   for (const item of run.items) {
     const steps = /** @type {Step[]} */ (await api('GET', `/runs/${run.id}/items/${item.id}/steps`))
+    if (opts.download) {
+      // The item's outcome next to its steps, as `coral run` writes it: CI describes failed runs.
+      const itemDir = join(opts.download, run.id, item.slug ?? item.id)
+      const failed = steps.find((s) => s.status === 'failed')
+      await mkdir(itemDir, { recursive: true })
+      await writeFile(
+        join(itemDir, 'result.json'),
+        JSON.stringify({
+          status: item.status,
+          failure_code: item.failure_code,
+          message: failed?.message ?? null,
+        }),
+      )
+    }
     for (const step of steps) {
       stepCount += 1
       for (const p of step.popups_handled) popups.push({ step_id: step.step_id, ...p })

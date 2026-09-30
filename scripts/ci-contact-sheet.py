@@ -3,8 +3,9 @@
 
 Sheets `local-<slug>` for each `coral run` (`coral-run/<slug>/`), `test-<slug>` for the run of
 the `coral run` device test (`coral-run-test/<slug>/`) and `server-<slug>` for the latest run of
-each test case through the server (`server-runs/<run>/<slug>/`). A local run that did not pass
-also gets its last step described in the log: windows and texts from `tree.json`, and
+each test case through the server (`server-runs/<run>/<slug>/`), plus `server-<slug>-<run>` for
+every server run that did not pass. A run that did not pass also gets its last step described in
+the log: windows and texts from `tree.json`, and
 the activity-manager lines of its `device.log`. Step directories follow the local and downloaded
 layout `<slug>/<index>-<step_id>/screenshot.png`. The workflow stores each sheet as a
 git blob (no ref, no commit) and logs its sha, so a report can fetch it through the API when the
@@ -50,17 +51,22 @@ def groups(root: Path) -> dict[str, Path]:
     for slug_dir in sorted((root / "server-runs").glob("*/*/")):
         if step_dirs(slug_dir):
             found[f"server-{slug_dir.name}"] = slug_dir
+    for slug_dir in sorted((root / "server-runs").glob("*/*/")):
+        if step_dirs(slug_dir) and not passed(slug_dir):
+            found[f"server-{slug_dir.name}-{slug_dir.parent.name[:8]}"] = slug_dir
     return found
 
 
-def describe_failure(slug_dir: Path) -> None:
-    """Prints what was on screen at the last step of a local run that did not pass."""
+def passed(slug_dir: Path) -> bool:
     result_file = slug_dir / "result.json"
-    if not result_file.is_file():
+    return not result_file.is_file() or json.loads(result_file.read_text()).get("status") == "passed"
+
+
+def describe_failure(slug_dir: Path) -> None:
+    """Prints what was on screen at the last step of a run that did not pass."""
+    if passed(slug_dir):
         return
-    result = json.loads(result_file.read_text())
-    if result.get("status") == "passed":
-        return
+    result = json.loads((slug_dir / "result.json").read_text())
     index, step_id, png = step_dirs(slug_dir)[-1]
     print(f"  {result.get('status')} {result.get('failure_code')}: {result.get('message')}")
     tree_file = png.parent / "tree.json"
@@ -124,8 +130,7 @@ def main() -> int:
         path = out_dir / f"{name}.jpg"
         sheet(slug_dir).save(path, "JPEG", quality=60, optimize=True)
         print(f"{name}: {slug_dir.relative_to(root)} → {path} ({path.stat().st_size} bytes)")
-        if not name.startswith("server-"):
-            describe_failure(slug_dir)
+        describe_failure(slug_dir)
     return 0
 
 
