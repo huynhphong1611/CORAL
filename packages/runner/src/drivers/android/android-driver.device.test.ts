@@ -105,6 +105,21 @@ async function tap(target: Locator[]): Promise<void> {
   await driver.tapAt(found.point)
 }
 
+/** A stable tree whose nodes pass `check`, within `timeoutMs`. */
+async function treeWhere(
+  check: (nodes: ElementNode[]) => boolean,
+  what: string,
+  timeoutMs = 10_000,
+): Promise<ElementNode[]> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const tree = await stableTree()
+    if (check([...walkTree(tree)])) return tree
+    if (Date.now() > deadline) throw new Error(`${what}: not on screen after ${timeoutMs} ms`)
+    await sleep(300)
+  }
+}
+
 /** Window order of the u2 dump next to the system's z-order (research R5), for the CI log. */
 /**
  * Logs the tree's windows next to the window manager's z-order and checks that every dumped
@@ -168,10 +183,21 @@ describe('AndroidDriver on a real device', () => {
     const reference = snapshotFromPng(first, size, menu.bounds).element
     if (!reference) throw new Error('could not cut the menu button')
 
+    // Open the menu and wait for it; Back before it shows would leave the app instead.
     await tap([{ android_id: 'id/menuIV' }, { desc: 'View menu' }])
-    await stableTree()
+    await treeWhere((nodes) => nodes.some((n) => n.visible && n.text === 'Log In'), 'menu open')
     await driver.back()
-    await stableTree()
+    await treeWhere(
+      (nodes) =>
+        nodes.some((n) => n.visible && n.platform_id.endsWith(':id/menuIV')) &&
+        !nodes.some((n) => n.visible && n.text === 'Log In'),
+      'menu closed',
+    ).catch(async (error: unknown) => {
+      // Keep the next tests on the app whatever happened here.
+      await driver.launch(env.appId)
+      await waitForApp()
+      throw error
+    })
     const again = await driver.screenshot()
     const matcher = openCvMatcher()
     await matcher.find(again, reference, { threshold: 0.85 }) // loads OpenCV

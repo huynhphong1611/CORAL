@@ -86,12 +86,13 @@ async function open(
         },
       ],
       [`GET ${base}/history`]: () => history,
-      [`PUT ${base}`]: (request) => {
+      [`PUT ${base}`]: async (request) => {
         puts += 1
         const answer = opts.put?.(request) ?? Response.json({ head_commit: NEXT, warnings: [] })
         if (answer.ok) {
+          const saved = (await answer.clone().json()) as { head_commit: string }
           history.unshift({
-            commit: NEXT,
+            commit: saved.head_commit,
             author: 'Huynh <huynh@coral.test>',
             message: 'testcase: login',
             created_at: '2026-09-30T06:00:00.000Z',
@@ -179,11 +180,13 @@ describe('the test case editor (T048)', () => {
 
   it('saves as a commit on the base it opened, then History shows it on top', async () => {
     const bodies: unknown[] = []
+    // Each save is a new commit: NEXT, then another one.
+    const heads = [NEXT, 'c'.repeat(40)]
     await open({
-      put: (request) => (
-        bodies.push(request.body),
-        Response.json({ head_commit: NEXT, warnings: [] })
-      ),
+      put: (request) => {
+        bodies.push(request.body)
+        return Response.json({ head_commit: heads[bodies.length - 1], warnings: [] })
+      },
     })
     const changed = YAML.replace('Log in', 'Log in with the demo account')
     edit(changed)

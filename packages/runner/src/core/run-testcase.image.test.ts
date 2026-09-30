@@ -113,7 +113,7 @@ beforeAll(async () => {
   await loadOpenCv()
 }, 60_000)
 
-describe('image locators at run time (T051)', () => {
+describe('image locators at run time (T051)', { timeout: 60_000 }, () => {
   it('finds the button by its picture when its id changed: tap at the centre, degraded', async () => {
     const { result, step, taps, reads } = await run(driver('renamed'), [byId, byImage])
     expect(result.status).toBe('passed')

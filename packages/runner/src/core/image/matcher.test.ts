@@ -48,7 +48,8 @@ const movedLogin = (dy: number) =>
     button.bounds = { ...button.bounds, y: button.bounds.y + dy }
   })
 
-describe('image matcher (T050, SC-005)', () => {
+// Many screens per test; a CI runner is slower than a laptop (each match stays ≤ 1 s).
+describe('image matcher (T050, SC-005)', { timeout: 60_000 }, () => {
   it('finds the button on its own screen and after it moved under a new id', async () => {
     expect(await find(read('login-screen.png'))).toMatchObject({
       bounds: { x: 60, y: 920, w: 960, h: 140 },
