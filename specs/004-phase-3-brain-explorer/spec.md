@@ -170,7 +170,8 @@ Người dùng tải lên bộ test case thủ công đang có: CSV, Excel, ho�
 2. **Given** Gherkin có `Scenario Outline` với bảng `Examples`, **When** đọc, **Then** mỗi dòng ví dụ thành một test case thủ công riêng.
 3. **Given** kết quả mong đợi viết tay không khớp với app thật, **When** khám phá, **Then** test case ở `draft` với lý do `app_mismatch` kèm bằng chứng. Hệ thống **không** sửa kết quả mong đợi cho khớp app (P3).
 4. **Given** job đang chạy, **When** chạm ngân sách chi phí hoặc thời gian của job, hoặc người dùng hủy, **Then** job dừng. Các test case chưa làm được ghi "chưa xử lý", các test case đã làm giữ nguyên kết quả.
-5. **Given** job xong, **When** mở báo cáo, **Then** mỗi test case thủ công có kết quả, lý do (nếu có) và liên kết tới test case YAML được sinh. Test case sinh ra có nguồn "import" trỏ về test case thủ công gốc.
+5. **Given** server khởi động lại khi job đang chạy, **When** server lên lại, **Then** job tự chạy tiếp từ test case thủ công chưa xong; kết quả đã có không mất và không bị làm lại.
+6. **Given** job xong, **When** mở báo cáo, **Then** mỗi test case thủ công có kết quả, lý do (nếu có) và liên kết tới test case YAML được sinh. Test case sinh ra có nguồn "import" trỏ về test case thủ công gốc.
 
 ---
 
@@ -218,6 +219,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 
 **Chạy đồng thời và kho project**
 - Hai exploration cùng project trên hai thiết bị: được phép. Mỗi exploration có ngân sách riêng, trong giới hạn ngày chung của tenant. Commit app map được xếp hàng, không ghi đè nhau.
+- Server khởi động lại giữa chừng: exploration kết thúc với lý do "bị gián đoạn" (app map và trace đã có được lưu, thiết bị được thả, FR-025, FR-027); job import tự chạy tiếp từ test case thủ công chưa xong (FR-036).
 - Người dùng sửa test case do AI sinh trước khi xác thực xong: lần xác thực đang chạy dùng bản cũ. Trạng thái cuối theo bản mới nhất chỉ khi bản mới được xác thực lại.
 
 **Import**
@@ -312,7 +314,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
   - quay lui khi hết lựa chọn mới;
   - mở lại app khi kẹt (không đổi màn hình sau nhiều thao tác, rời app, về màn chính hệ điều hành);
   - không đề xuất lại element đã được xác định là không có tác dụng trên cùng màn hình.
-- **FR-025**: Explorer MUST dừng khi chạm bất kỳ giới hạn ngân sách nào, khi đạt mục tiêu (nếu có), khi người dùng dừng, hoặc khi thiết bị mất kết nối. Lý do dừng được ghi rõ.
+- **FR-025**: Explorer MUST dừng khi chạm bất kỳ giới hạn ngân sách nào, khi đạt mục tiêu (nếu có), khi người dùng dừng, khi thiết bị mất kết nối, hoặc khi server khởi động lại giữa chừng (lý do "bị gián đoạn"; exploration không tự chạy tiếp). Lý do dừng được ghi rõ.
 - **FR-026**: Khi app crash hoặc treo, Explorer MUST ghi một **phát hiện** (thao tác cuối, ảnh, log thiết bị), mở lại app và tiếp tục trong ngân sách. Phát hiện hiện trong kết quả exploration.
 - **FR-027**: Khi exploration kết thúc (vì bất kỳ lý do gì), app map MUST được lưu vào kho project (`appmap/`, §10, §13) thành một commit.
   - Gộp với app map đã có theo fingerprint; màn hình đã có giữ tên cũ.
@@ -344,6 +346,8 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
   1. Khám phá có hướng dẫn theo các bước viết tay.
   2. Test writer viết YAML: `intent` từ tiêu đề và mô tả; kỳ vọng từ kết quả mong đợi; nguồn "import" trỏ về test case gốc. Tiền điều kiện (ví dụ "đã đăng nhập") thành các bước ở đầu test case (FR-028).
   3. Xác thực (FR-031).
+
+  Kết quả của mỗi test case thủ công được lưu ngay khi xử lý xong. Nếu server khởi động lại giữa chừng, job MUST tự chạy tiếp từ test case thủ công chưa xong, không làm lại test case đã xong. Chi phí đã tiêu vẫn tính vào ngân sách của job.
 - **FR-037**: Test case import không thành `active` MUST có lý do thuộc `needs_human`, `ambiguous` hoặc `app_mismatch`, kèm bằng chứng. Hệ thống MUST NOT sửa kết quả mong đợi hay bỏ bước viết tay để test pass (P3).
 - **FR-038**: Kết thúc job, người dùng MUST nhận báo cáo: số test case `active`, số theo từng lý do, số chưa xử lý (nếu dừng sớm), liên kết từng test case thủ công tới test case được sinh.
 
@@ -452,3 +456,4 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 - Q: Có lưu nội dung đã gửi cho AI và câu trả lời (đã che secret) để xem lại không? → A: Có, lưu 30 ngày (chữ gửi đi, ảnh thu nhỏ, câu trả lời, lý do AI đưa ra), xem được từ từng bước của trace trên web; sau đó chỉ còn số liệu (FR-006a, FR-039, Key Entities).
 - Q: Khi khám phá gặp ô nhập liệu, AI có được tự bịa dữ liệu rồi gửi form không? → A: Được gõ dữ liệu thử tự đặt; chỉ được gửi form khi dữ liệu lấy từ skill hoặc skill cho phép form đó; tìm kiếm/lọc luôn được (US2 kịch bản 10, FR-015, FR-022a).
 - Q: Test case AI sinh ra tự chứa mọi bước từ lúc mở app hay dùng lại khối "đăng nhập" chung? → A: Tự chứa: bắt đầu bằng mở app sạch, lặp lại các bước cần (kể cả đăng nhập); cơ chế dùng lại để phase sau (FR-028, FR-036, Assumptions).
+- Q: Nếu server khởi động lại khi đang khám phá hoặc chạy job import thì sao? → A: Exploration kết thúc với lý do "bị gián đoạn", giữ app map và trace đã có; job import tự chạy tiếp từ test case thủ công chưa xong, test case đã xong giữ kết quả (FR-025, FR-036, US6 kịch bản 5, Edge Cases).
