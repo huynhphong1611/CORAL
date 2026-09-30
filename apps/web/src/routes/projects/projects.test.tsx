@@ -72,6 +72,11 @@ function projectRoutes() {
   const builds = [data.build(shopApp.id, '1.2.0'), data.build(shopApp.id, '1.1.0')]
   const devices = [data.device('Pixel 7', { kind: 'offline' }), data.device('sdk_gphone64_x86_64')]
   const run = data.run({ project_id: shop.id, status: 'queued' })
+  const draft = data.recording(shop.id, devices[1]?.id ?? '', {
+    slug: 'recorded-login',
+    intent: 'Log in',
+    status: 'stopped',
+  })
   return {
     shop,
     login,
@@ -86,6 +91,7 @@ function projectRoutes() {
       [`GET /apps/${shopApp.id}/builds`]: builds,
       'GET /devices': devices,
       'GET /runs': { items: [run], next_cursor: null },
+      'GET /recordings': [draft],
       [`GET /runs/${run.id}`]: run,
       'POST /runs': Response.json({ id: run.id, status: 'queued', items: [] }, { status: 201 }),
     },
@@ -112,7 +118,11 @@ describe('project page (T022, T025)', () => {
     expect(calls(requests)).toContain(`GET /runs?limit=20&project_id=${shop.id}`)
 
     await userEvent.click(screen.getByRole('tab', { name: 'Recordings' }))
-    expect(screen.getByText(/No recordings in progress/)).toBeDefined()
+    const recordings = await screen.findByRole('table', { name: 'Recordings' })
+    expect(within(recordings).getByText('recorded-login')).toBeDefined()
+    expect(within(recordings).getByText('stopped')).toBeDefined()
+    expect(calls(requests)).toContain(`GET /recordings?project_id=${shop.id}`)
+    expect(screen.getByRole('link', { name: 'Record a test case' })).toBeDefined()
 
     await userEvent.click(screen.getByRole('tab', { name: 'Apps & builds' }))
     const builds = await screen.findByRole('table', { name: 'Builds' })

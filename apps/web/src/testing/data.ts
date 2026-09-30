@@ -106,3 +106,50 @@ export const step = (index: number, over: Partial<api.RunStep> = {}): api.RunSte
   },
   ...over,
 })
+
+type RecordedStep = NonNullable<api.Recording['steps']>[number]
+
+/** A recorded step with its snapshot URLs (`GET /recordings/:id`). */
+export const recordedStep = (
+  n: number,
+  step: RecordedStep['step'],
+  over: Partial<RecordedStep> = {},
+): RecordedStep => ({
+  n,
+  step,
+  suggestions: [],
+  warnings: [],
+  snapshot: {
+    screen: `t/recordings/r/${n}/screen.jpg`,
+    tree: `t/recordings/r/${n}/tree.json`,
+    screen_width: 1080,
+    screen_height: 2400,
+  },
+  recorded_at: at,
+  urls: {
+    screen: `https://s3.test/r/${n}/screen.jpg`,
+    tree: `https://s3.test/r/${n}/tree.json`,
+  },
+  ...over,
+})
+
+export const recording = (
+  projectId: string,
+  deviceId: string,
+  over: Partial<api.Recording> = {},
+): api.Recording => ({
+  id: newId(),
+  project_id: projectId,
+  app_id: newId(),
+  build_id: newId(),
+  device_id: deviceId,
+  status: 'recording',
+  intent: '',
+  slug: 'recording-1a2b3c4d',
+  created_by: { id: newId(), name: 'Huynh' },
+  created_at: at,
+  updated_at: at,
+  expires_at: '2026-10-06T08:00:00.000Z',
+  test_case_id: null,
+  ...over,
+})

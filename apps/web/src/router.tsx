@@ -12,6 +12,8 @@ import type { ApiClient } from './api/client'
 import type { SessionStore } from './api/session'
 import type { UiSocket } from './api/ws'
 import { Layout } from './components/Layout'
+import { RecorderPage } from './features/recorder/RecorderPage'
+import { StartRecordingPage } from './features/recorder/StartRecordingPage'
 import { DevicePage } from './routes/device'
 import { DevicesPage } from './routes/devices'
 import { LoginPage, safeNext } from './routes/login'
@@ -74,6 +76,28 @@ const projectRoute = createRoute({
   component: ProjectPage,
 })
 
+const uuid = (value: unknown) =>
+  typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value) ? value : undefined
+
+const recordRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/projects/$projectId/record',
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { app?: string | undefined; build?: string | undefined; device?: string | undefined } => ({
+    app: uuid(search.app),
+    build: uuid(search.build),
+    device: uuid(search.device),
+  }),
+  component: StartRecordingPage,
+})
+
+const recordingRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/recordings/$recordingId',
+  component: RecorderPage,
+})
+
 const devicesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/devices',
@@ -85,9 +109,6 @@ const deviceRoute = createRoute({
   path: '/devices/$deviceId',
   component: DevicePage,
 })
-
-const uuid = (value: unknown) =>
-  typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value) ? value : undefined
 
 const runsRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -118,6 +139,8 @@ const routeTree = rootRoute.addChildren([
     indexRoute,
     projectsRoute,
     projectRoute,
+    recordRoute,
+    recordingRoute,
     devicesRoute,
     deviceRoute,
     runsRoute,

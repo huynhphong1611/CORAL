@@ -2,6 +2,7 @@ import type { api } from '@coral/shared'
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useApps, useBuilds, useProjects, useRole, useTestCases } from '../../api/queries'
+import { useRecordings } from '../../api/recordings'
 import { PageHeader } from '../../components/Layout'
 import { RunDialog } from '../../components/RunDialog'
 import { RunsTable } from '../../components/RunsTable'
@@ -43,7 +44,9 @@ export function ProjectPage() {
       >
         {() => (
           <>
-            <PageHeader title={project?.name ?? ''} />
+            <PageHeader title={project?.name ?? ''}>
+              <RecordButton projectId={projectId} />
+            </PageHeader>
             <Tabs
               tabs={PROJECT_TABS.map((id) => ({ id, label: en.projects.tabs[id] }))}
               current={tab}
@@ -51,7 +54,7 @@ export function ProjectPage() {
             />
             {tab === 'testcases' && <TestCasesTab projectId={projectId} />}
             {tab === 'runs' && <RunsTable filters={{ project_id: projectId }} />}
-            {tab === 'recordings' && <RecordingsTab />}
+            {tab === 'recordings' && <RecordingsTab projectId={projectId} />}
             {tab === 'apps' && <AppsTab projectId={projectId} />}
           </>
         )}
@@ -198,12 +201,72 @@ function TestCaseRow({
   )
 }
 
-/** Recordings in progress arrive with the Recorder (US4); until then the tab says where they go. */
-function RecordingsTab() {
+/** Starts the Recorder on this project (writers only). */
+function RecordButton({ projectId }: { projectId: string }) {
+  const { canWrite } = useRole()
+  if (!canWrite) return null
   return (
-    <p className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-      {en.recordings.empty}
-    </p>
+    <Link
+      to="/projects/$projectId/record"
+      params={{ projectId }}
+      search={{}}
+      className={buttonClass.primary}
+    >
+      {en.recordings.record}
+    </Link>
+  )
+}
+
+const RECORDING_TONES = {
+  recording: 'red',
+  stopped: 'amber',
+  saved: 'green',
+  discarded: 'slate',
+  expired: 'slate',
+} as const
+
+/** Recordings of the project, newest first; unfinished ones open back in the Recorder. */
+function RecordingsTab({ projectId }: { projectId: string }) {
+  const recordings = useRecordings(projectId)
+  return (
+    <QueryState query={recordings} empty={en.recordings.empty}>
+      {(list) => (
+        <Table label={en.projects.tabs.recordings}>
+          <thead>
+            <tr>
+              <Th>{en.recordings.slug}</Th>
+              <Th>{en.testCases.intent}</Th>
+              <Th>{en.recordings.status}</Th>
+              <Th>{en.recordings.by}</Th>
+              <Th>{en.recordings.updated}</Th>
+              <Th className="w-20" />
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((recording) => (
+              <tr key={recording.id} className="hover:bg-slate-50">
+                <Td className="font-mono text-slate-900">{recording.slug}</Td>
+                <Td className="max-w-sm text-slate-700">{recording.intent}</Td>
+                <Td>
+                  <Badge tone={RECORDING_TONES[recording.status]}>{recording.status}</Badge>
+                </Td>
+                <Td className="text-slate-600">{recording.created_by.name}</Td>
+                <Td className="text-slate-500">{formatTime(recording.updated_at)}</Td>
+                <Td>
+                  <Link
+                    to="/recordings/$recordingId"
+                    params={{ recordingId: recording.id }}
+                    className={buttonClass.link}
+                  >
+                    {en.recordings.open}
+                  </Link>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </QueryState>
   )
 }
 
