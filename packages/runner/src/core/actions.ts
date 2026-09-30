@@ -3,7 +3,7 @@ import type { Clock } from './clock'
 import type { DeviceDriver, Point } from './driver'
 import { StepFailure, TargetCoveredError } from './errors'
 import { checkExpect } from './expect'
-import { checkHit } from './hit-test'
+import { checkHit, checkWindow } from './hit-test'
 import { resolve, type Resolution, type ResolveContext } from './locator/resolve'
 import { waitForStable } from './stability'
 
@@ -30,14 +30,19 @@ export interface ActionOutcome {
   target?: Resolution
 }
 
-/** Taps are only sent when the top node at the point is the target (§8.4). */
-function assertOnTop(input: ActionInput): Point {
+/**
+ * Taps are only sent when the top node at the point is the target (§8.4); for an `image` match
+ * (no node), when the tap goes to the app's window (research R12).
+ */
+function assertOnTop(input: ActionInput, appId: string): Point {
   const { target, tree } = input
   if (!target) throw new StepFailure('TARGET_NOT_FOUND', 'step needs a target')
-  if (target.node) {
-    const hit = checkHit(tree, target.node, target.point)
-    if (!hit.ok) throw new TargetCoveredError(hit.covering)
-  }
+  const hit = target.node
+    ? checkHit(tree, target.node, target.point)
+    : target.bounds
+      ? checkWindow(tree, target.point, appId)
+      : { ok: true as const }
+  if (!hit.ok) throw new TargetCoveredError(hit.covering)
   return target.point
 }
 
@@ -81,18 +86,18 @@ export async function perform(input: ActionInput, ctx: ActionContext): Promise<A
       await driver.launch(ctx.appId)
       return {}
     case 'tap':
-      await driver.tapAt(assertOnTop(input))
+      await driver.tapAt(assertOnTop(input, ctx.appId))
       return {}
     case 'long_press':
-      await driver.longPressAt(assertOnTop(input), step.ms ?? STEP_DEFAULTS.longPressMs)
+      await driver.longPressAt(assertOnTop(input, ctx.appId), step.ms ?? STEP_DEFAULTS.longPressMs)
       return {}
     case 'type':
-      if (step.target) await driver.tapAt(assertOnTop(input))
+      if (step.target) await driver.tapAt(assertOnTop(input, ctx.appId))
       if (step.clear_first) await driver.clearText()
       await driver.type(step.value)
       return {}
     case 'clear':
-      await driver.tapAt(assertOnTop(input))
+      await driver.tapAt(assertOnTop(input, ctx.appId))
       await driver.clearText()
       return {}
     case 'swipe': {

@@ -1,6 +1,8 @@
 import {
+  imageLocator,
   locatorPlatforms,
   walkTree,
+  type Bounds,
   type ElementNode,
   type Locator,
   type Platform,
@@ -18,8 +20,10 @@ export interface ResolveContext {
 }
 
 export interface Resolution {
-  /** Matched node; absent for `point_pct`. */
+  /** Matched node; absent for `point_pct` and `image`. */
   node?: ElementNode
+  /** `image`: the region of the screen that matched the picture (a virtual element). */
+  bounds?: Bounds
   /** Where to act: always the centre of `node.bounds` read now, or the `point_pct` point (P2). */
   point: Point
   /** Index of the matching locator in the original target list. */
@@ -127,9 +131,27 @@ export function findAll(
   return []
 }
 
+/** The node or point one locator gives, or undefined (`image` never matches here). */
+function locate(
+  locator: Locator,
+  tree: readonly ElementNode[],
+  ctx: ResolveContext,
+  pool: Candidate[],
+): Pick<Resolution, 'node' | 'point'> | undefined {
+  if (locator.point_pct) {
+    const [px, py] = locator.point_pct
+    return {
+      point: { x: Math.round(px * ctx.screen.width), y: Math.round(py * ctx.screen.height) },
+    }
+  }
+  const node = findAll(locator, tree, ctx, pool)[0]
+  return node ? { node, point: center(node.bounds) } : undefined
+}
+
 /**
  * Walks the fallback chain (§7.2): locators for other platforms are skipped; the first one that
- * matches wins. Returns undefined when nothing matches.
+ * matches wins. Returns undefined when nothing matches. `image` locators need a screenshot and
+ * never match here; {@link resolveTarget} tries them.
  */
 export function resolve(
   target: readonly Locator[],
@@ -142,23 +164,38 @@ export function resolve(
     if (!locatorPlatforms(locator).includes(ctx.platform)) continue
     const degraded = applicable > 0
     applicable += 1
-    if (locator.point_pct) {
-      const [px, py] = locator.point_pct
-      return {
-        point: { x: Math.round(px * ctx.screen.width), y: Math.round(py * ctx.screen.height) },
-        index,
-        degraded,
-      }
+    const found = locate(locator, tree, ctx, pool)
+    if (found) return { ...found, index, degraded }
+  }
+  return undefined
+}
+
+/** Finds an `image` locator's picture on the screen now: its bounds in device pixels, or none. */
+export type ImageSearch = (image: ReturnType<typeof imageLocator>) => Promise<Bounds | undefined>
+
+/**
+ * {@link resolve} with `image` locators tried in their place in the chain (FR-021, research
+ * R12): a match is a virtual element, the matched region; the tap goes to its centre.
+ */
+export async function resolveTarget(
+  target: readonly Locator[],
+  tree: readonly ElementNode[],
+  ctx: ResolveContext,
+  findImage?: ImageSearch,
+): Promise<Resolution | undefined> {
+  const pool = candidates(tree, ctx)
+  let applicable = 0
+  for (const [index, locator] of target.entries()) {
+    if (!locatorPlatforms(locator).includes(ctx.platform)) continue
+    const degraded = applicable > 0
+    applicable += 1
+    if (locator.image !== undefined) {
+      const bounds = findImage ? await findImage(imageLocator(locator.image)) : undefined
+      if (bounds) return { bounds, point: center(bounds), index, degraded }
+      continue
     }
-    const node = findAll(locator, tree, ctx, pool)[0]
-    if (node) {
-      return {
-        node,
-        point: center(node.bounds),
-        index,
-        degraded,
-      }
-    }
+    const found = locate(locator, tree, ctx, pool)
+    if (found) return { ...found, index, degraded }
   }
   return undefined
 }

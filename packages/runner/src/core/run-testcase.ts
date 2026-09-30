@@ -3,6 +3,7 @@ import {
   isPermission,
   type ElementNode,
   type FailureCode,
+  type Locator,
   type Redactor,
   type Step,
   type TestCase,
@@ -16,11 +17,19 @@ import {
   type StepResult,
 } from './artifacts'
 import { AbortError, realClock, throwIfAborted, type Clock } from './clock'
-import type { DeviceDriver } from './driver'
+import type { DeviceDriver, Size } from './driver'
 import { StepFailure, TargetCoveredError } from './errors'
 import { checkExpect } from './expect'
 import { createInterpolator, missingSecrets } from './interpolate'
-import { resolve, type Resolution, type ResolveContext } from './locator/resolve'
+import { imageInfo } from './image/size'
+import type { ImageMatcher } from './image/matcher'
+import { openCvMatcher } from './image/opencv'
+import {
+  resolveTarget,
+  type ImageSearch,
+  type Resolution,
+  type ResolveContext,
+} from './locator/resolve'
 import { waitForStable } from './stability'
 
 /** Popups handled per step before giving up with BLOCKED_BY_POPUP (D25). */
@@ -70,6 +79,13 @@ export interface RunOptions {
   stableTimeoutMs?: number
   signal?: AbortSignal
   onEvent?: (event: RunEvent) => void
+  /**
+   * Bytes of a repo file an `image` locator names (FR-022): the agent's downloaded assets, the
+   * CLI's project root. Without it, `image` locators are skipped like any locator that misses.
+   */
+  assets?: (path: string) => Promise<Uint8Array>
+  /** Finds `image` locators on screenshots (default: OpenCV, loaded on first use). */
+  imageMatcher?: ImageMatcher
 }
 
 /** Problems found before touching the device: the CLI exits 2, the agent reports an error. */
@@ -151,6 +167,11 @@ export async function runTestCase(options: RunOptions): Promise<ItemResult> {
   const size = await safe(() => driver.windowSize())
   if (!size.ok) return finish('error', { code: 'DRIVER_ERROR', message: size.error })
   const resolveCtx: ResolveContext = { platform: driver.platform, screen: size.value, appId }
+  const findImage = options.assets
+    ? imageSearch(driver, size.value, options.assets, options.imageMatcher)
+    : () => undefined
+  const locateTarget = async (chain: Locator[], tree: ElementNode[]) =>
+    resolveTarget(chain, tree, resolveCtx, findImage())
   const stable = () =>
     waitForStable(driver, clock, {
       ...(options.stableTimeoutMs ? { timeoutMs: options.stableTimeoutMs } : {}),
@@ -196,9 +217,9 @@ export async function runTestCase(options: RunOptions): Promise<ItemResult> {
 
       if (needsResolvedTarget(step) && 'target' in step && step.target) {
         const chain = step.target
-        target = resolve(chain, tree, resolveCtx)
+        target = await locateTarget(chain, tree)
         while (!target && (await tryPopup('target_not_found')))
-          target = resolve(chain, tree, resolveCtx)
+          target = await locateTarget(chain, tree)
         if (!target) throw new StepFailure('TARGET_NOT_FOUND', 'no locator of the target matched')
       }
 
@@ -227,7 +248,7 @@ export async function runTestCase(options: RunOptions): Promise<ItemResult> {
           if (actionFailed) ({ tree } = await stable())
           if (!(covered || actionFailed)) throw error
           if (!(await tryPopup(covered ? 'target_covered' : 'action_failed'))) throw error
-          if ('target' in step && step.target) target = resolve(step.target, tree, resolveCtx)
+          if ('target' in step && step.target) target = await locateTarget(step.target, tree)
           if (!target && needsResolvedTarget(step)) {
             throw new StepFailure('TARGET_NOT_FOUND', 'target gone after popup')
           }
@@ -294,6 +315,51 @@ export async function runTestCase(options: RunOptions): Promise<ItemResult> {
     if (failure) return finish('failed', { code: failure.code, message: failure.message })
   }
   return finish('passed')
+}
+
+/**
+ * `image` locators (research R12): each resolution takes one screenshot, the first time an image
+ * locator is tried; reference images are read once per run. Bounds come back in device pixels
+ * (a screenshot may be smaller than the screen) and the reference is resized from the width it
+ * was cut at (`screen_width`) to the screenshot's.
+ */
+function imageSearch(
+  driver: DeviceDriver,
+  screen: Size,
+  assets: (path: string) => Promise<Uint8Array>,
+  matcher?: ImageMatcher,
+): () => ImageSearch {
+  const references = new Map<string, Promise<Uint8Array>>()
+  let finder = matcher
+  return () => {
+    let shot: Promise<{ png: Uint8Array; width: number }> | undefined
+    return async (image) => {
+      shot ??= driver.screenshot().then((png) => ({
+        png,
+        width: imageInfo(png)?.width ?? screen.width,
+      }))
+      let reference = references.get(image.path)
+      if (!reference) {
+        reference = assets(image.path)
+        references.set(image.path, reference)
+      }
+      const { png, width } = await shot
+      finder ??= openCvMatcher()
+      const match = await finder.find(png, await reference, {
+        threshold: image.threshold,
+        ...(image.screen_width ? { scale: width / image.screen_width } : {}),
+      })
+      if (!match) return undefined
+      const k = screen.width / width
+      const { x, y, w, h } = match.bounds
+      return {
+        x: Math.round(x * k),
+        y: Math.round(y * k),
+        w: Math.round(w * k),
+        h: Math.round(h * k),
+      }
+    }
+  }
 }
 
 type Safe<T> = { ok: true; value: T } | { ok: false; error: string }

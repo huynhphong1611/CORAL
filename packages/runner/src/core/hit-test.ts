@@ -72,6 +72,16 @@ export function touchTargetAt(tree: readonly ElementNode[], point: Point): Eleme
 
 export type HitCheck = { ok: true } | { ok: false; covering?: ElementNode }
 
+/**
+ * A tap on a virtual element (an `image` match: no node to compare with) is safe when the window
+ * it goes to is the app's (research R12): not the keyboard, a dialog or another app on top.
+ */
+export function checkWindow(tree: readonly ElementNode[], point: Point, appId: string): HitCheck {
+  const window = windowAt(tree, point, true)
+  if (window?.package_or_bundle === appId) return { ok: true }
+  return window ? { ok: false, covering: window } : { ok: false }
+}
+
 const related = (a: ElementNode, b: ElementNode) =>
   a.ref === b.ref || a.ref.startsWith(`${b.ref}.`) || b.ref.startsWith(`${a.ref}.`)
 
