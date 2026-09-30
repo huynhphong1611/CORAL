@@ -31,13 +31,18 @@ Chạy một run (web: test case → **Run**, hoặc `scripts/phase1-e2e.mjs`). 
 ## 4. Ghi test — DoD (US4, SC-001, SC-004, SC-008)
 
 1. Project → **Record**: chọn app My Demo App, build, emulator → bước `s1 launch` tự có.
-2. Click nút menu → click "Log In" → click ô Username, gõ `bod@example.com` (Recorder gợi ý thay bằng `${secret:TEST_USER}` → chấp nhận) → click ô Password, chọn secret `TEST_PASSWORD` → click **Login**; sau mỗi chạm chọn một đề xuất kỳ vọng (ví dụ "Products").
-3. Điền slug `recorded-login`, intent, **Preview YAML** → **Save as test case** → editor mở, ảnh từng step hiện đúng.
+2. Click nút menu → click "Log In" → click ô Username, gõ `bod@example.com` (trùng giá trị secret nên được ghi thành `${secret:TEST_USER}`, trang báo "The text matched secret TEST_USER") → click ô Password, chọn secret `TEST_PASSWORD` → **Type secret** → click **Login**; sau chạm chọn một đề xuất kỳ vọng (chip "Add expectation …").
+3. Điền slug `recorded-login`, intent, **Preview YAML** → **Save as test case** → về tab test case của project, dòng `recorded-login` nguồn `recorder` (editor có ảnh từng step là US5).
 4. **Run** 3 lần trên cùng emulator → 3/3 `passed`.
 
 Kiểm tra thêm: mọi step chạm có ≥ 2 locator, locator đầu khớp đúng element lúc ghi (unit test SC-004 + đọc YAML); YAML, `snap/`, log server/agent không có giá trị mật khẩu (`scripts/phase1-e2e.mjs --scan-secrets --run <id>` và grep log — SC-008).
 
-Tự động: `.github/workflows/device.yml` chạy đúng kịch bản này bằng Playwright trên emulator Android 14 (T ✍ 🔌 trong tasks.md) và tải ảnh giao diện lên artifact.
+Tự động: `.github/workflows/device.yml` chạy đúng kịch bản này bằng Playwright trên emulator Android 14 (T046 trong tasks.md) và tải ảnh giao diện lên artifact.
+
+**Kết quả (2026-09-30):**
+- Emulator Android 14 + My Demo App 2.3.0, Device run 36672188617 (`7a2a4ba`): ghi 9 step (launch, menu, Log In, ô Username, gõ `${secret:TEST_USER}`, ô Password, gõ `${secret:TEST_PASSWORD}`, ẩn bàn phím, Login + kỳ vọng `visible_text: Sauce Labs Backpack (green)`); mọi step chạm có ≥ 2 locator (SC-004); lưu 946 ms (SC-009 ≤ 2 s); chạy lại 3/3 `passed` (SC-001); quét secret trong YAML, `snap/`, log server/agent: 0 (SC-008).
+- Lần chạy đó cho thấy đề xuất kỳ vọng có thể mang giá trị secret đọc trên màn hình (`text bod@example.com`) → sửa ở `e0043d0`: server thay mọi giá trị secret trong step, đề xuất và kết quả inspect bằng `${secret:NAME}`, agent che chúng trong `tree.json` và log.
+- Thiết bị giả (`pnpm test:e2e`, T045): 3/3 `passed`, lưu ~420 ms.
 
 ## 5. Editor (US5)
 
