@@ -46,7 +46,11 @@ Tự động: `.github/workflows/device.yml` chạy đúng kịch bản này b�
 
 ## 5. Editor (US5)
 
-Mở `recorded-login`, đổi `timeout_ms` một step → **Save** → History có commit mới ở đầu. Gõ sai YAML → lỗi hiện ≤ 1 s kèm dòng, nút Save khóa. Mở cùng test case ở hai tab, lưu tab 1 rồi tab 2 → tab 2 báo "Changed by someone else" và giữ nội dung đang sửa.
+Mở `recorded-login`, đổi `timeout_ms` một step → **Save** → History có commit mới ở đầu. Gõ sai YAML → lỗi hiện ≤ 1 s kèm dòng, nút Save khóa. Mở cùng test case ở hai tab, lưu tab 1 rồi tab 2 → tab 2 báo "Changed by someone else" và giữ nội dung đang sửa. Bấm vị trí lỗi (`Line 15:5`) → con trỏ tới dòng đó.
+
+Ảnh cạnh step: snapshot của Recorder (`snap/<slug>/`), không có thì ảnh step của lần chạy gần nhất, không có nữa thì "No image yet".
+
+**Kết quả (2026-09-30, `pnpm test:e2e`, T049 `e2e/us5-editor.e2e.ts`):** test case `tour` có ảnh từ lần chạy gần nhất; đổi `timeout_ms` của step `menu` → lưu → History 2 commit, commit mới ở đầu (`current`); `timeout_ms: 5` → lỗi `Line 15:5 · menu · schema` hiện sau ~460 ms, Save khóa; hai tab → tab 2 báo xung đột, giữ nội dung, **Load latest version** nạp bản của tab 1; tổng 3 commit. Ghi xong trong Recorder mở thẳng editor, ảnh snapshot cạnh từng step (US4 E2E).
 
 ## 6. Locator ảnh (US6, SC-005)
 

@@ -74,7 +74,7 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 - [x] Live view MVP: stream JPEG 2–5 fps qua WS (§15 `stream.*`, frame nhị phân).
 - [x] Click trên live view → quy đổi tỷ lệ → tap thật trên thiết bị (cần lease `live`).
 - [x] Recorder (§11.1): hit-test element tại điểm click → trích đủ chuỗi locator + cắt ảnh + snapshot → thêm step vào editor.
-- [ ] Editor YAML có preview ảnh từng step; lưu vào git repo của project (§13).
+- [x] Editor YAML có preview ảnh từng step; lưu vào git repo của project (§13).
 - [ ] Locator `image`: template matching bằng OpenCV WASM trong `packages/runner` (D27).
 
 **DoD:** ghi một flow 5 step từ web, lưu thành test case, chạy lại pass 3/3 lần.

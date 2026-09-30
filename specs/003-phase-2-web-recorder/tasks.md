@@ -145,7 +145,7 @@ Monorepo (plan.md → Project Structure): `apps/web/src/`, `apps/server/src/`, `
 
 - [x] T047 [P] [US5] Server: `GET /testcases/:id/snapshots`, `GET /testcases/:id/files/*path` (chỉ trong `snap/<slug>/`, chặn `..`, `Content-Type` theo đuôi), `GET /testcases/:id/last-run-steps`; test `testcase-files.int.test.ts` (đọc ảnh, path ngoài `snap/<slug>/` → 404, tenant khác → 404); `POST /projects/:id/testcases` và `PUT /testcases/:id` báo `image_not_found` khi ảnh tham chiếu không có trong repo (contracts/rest-api-phase2.md, FR-022)
 - [x] T048 [US5] Web `components/YamlEditor.tsx`: CodeMirror 6 + YAML + lint từ `validateTestCaseSource` (dòng/cột, step, mã lỗi), debounce ≤ 1 s; trang `/projects/$projectId/testcases/$testCaseId` (`features/editor/TestCasePage.tsx`; Recorder lưu xong mở trang này): cột ảnh từng step (snapshot → lần chạy gần nhất → "No image yet"), **Save** ✍ với `base_commit` (409 → thông báo "Changed by someone else", giữ nội dung), **History**; test component (lỗi hiện đúng dòng, save khóa, 409)
-- [ ] T049 [US5] E2E `e2e/us5-editor.e2e.ts`: sửa và lưu → History có commit mới; YAML sai → Save khóa; hai tab → xung đột; chụp ảnh
+- [x] T049 [US5] E2E `e2e/us5-editor.e2e.ts`: sửa và lưu → History có commit mới; YAML sai → Save khóa; hai tab → xung đột; chụp ảnh
 
 **Checkpoint**: US5 xong.
 
