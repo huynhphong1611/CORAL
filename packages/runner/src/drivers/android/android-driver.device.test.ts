@@ -105,17 +105,25 @@ async function tap(target: Locator[]): Promise<void> {
   await driver.tapAt(found.point)
 }
 
-/** A stable tree whose nodes pass `check`, within `timeoutMs`. */
+/** A stable tree whose nodes pass `check`, within `timeoutMs`; what is on screen otherwise. */
 async function treeWhere(
-  check: (nodes: ElementNode[]) => boolean,
+  check: (nodes: ElementNode[], tree: ElementNode[]) => boolean,
   what: string,
   timeoutMs = 10_000,
 ): Promise<ElementNode[]> {
   const deadline = Date.now() + timeoutMs
   for (;;) {
     const tree = await stableTree()
-    if (check([...walkTree(tree)])) return tree
-    if (Date.now() > deadline) throw new Error(`${what}: not on screen after ${timeoutMs} ms`)
+    const nodes = [...walkTree(tree)]
+    if (check(nodes, tree)) return tree
+    if (Date.now() > deadline) {
+      const texts = nodes.filter((n) => n.visible && (n.text || n.desc)).slice(0, 20)
+      throw new Error(
+        `${what}: not on screen after ${timeoutMs} ms; windows ${tree
+          .map((w) => w.package_or_bundle)
+          .join(', ')}; texts ${JSON.stringify(texts.map((n) => n.text || n.desc))}`,
+      )
+    }
     await sleep(300)
   }
 }
@@ -183,16 +191,15 @@ describe('AndroidDriver on a real device', () => {
     const reference = snapshotFromPng(first, size, menu.bounds).element
     if (!reference) throw new Error('could not cut the menu button')
 
-    // Open the menu and wait for it; Back before it shows would leave the app instead.
+    // Open the menu, wait for it, and close it by going to the catalog again (its first item).
     await tap([{ android_id: 'id/menuIV' }, { desc: 'View menu' }])
-    await treeWhere((nodes) => nodes.some((n) => n.visible && n.text === 'Log In'), 'menu open')
-    await driver.back()
-    await treeWhere(
-      (nodes) =>
-        nodes.some((n) => n.visible && n.platform_id.endsWith(':id/menuIV')) &&
-        !nodes.some((n) => n.visible && n.text === 'Log In'),
-      'menu closed',
-    ).catch(async (error: unknown) => {
+    await treeWhere((nodes) => nodes.some((n) => n.visible && n.text === 'Catalog'), 'menu open')
+    await tap([{ text: 'Catalog' }])
+    // Closed: a tap on the menu button reaches it again, not the drawer or its scrim (D36).
+    await treeWhere((nodes, tree) => {
+      const button = nodes.find((n) => n.visible && n.platform_id.endsWith(':id/menuIV'))
+      return button !== undefined && checkHit(tree, button, center(button.bounds)).ok
+    }, 'menu closed').catch(async (error: unknown) => {
       // Keep the next tests on the app whatever happened here.
       await driver.launch(env.appId)
       await waitForApp()
