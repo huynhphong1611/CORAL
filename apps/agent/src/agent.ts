@@ -99,6 +99,9 @@ export function startAgent(options: AgentOptions) {
     connection,
     sessions,
     busy: (udid) => jobs.busy(udid),
+    cacheDir: options.cacheDir,
+    ...(options.fetch ? { fetch: options.fetch } : {}),
+    ...(options.clock ? { recorder: { clock: options.clock } } : {}),
     ...(options.secrets ? { secrets: options.secrets } : {}),
     ...(options.log ? { log: options.log } : {}),
   })

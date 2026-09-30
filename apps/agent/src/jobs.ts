@@ -1,6 +1,3 @@
-import { createHash } from 'node:crypto'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import {
   validatePopupsSource,
   validateTestCaseSource,
@@ -9,6 +6,7 @@ import {
 } from '@coral/shared'
 import { createPopupGuard, runTestCase, type Clock, type DeviceDriver } from '@coral/runner'
 import type { Logger } from 'pino'
+import { cachedBuild } from './builds'
 import type { AgentConnection } from './connection'
 import type { DeviceLease, DeviceSessions } from './device-sessions'
 import type { SecretValues } from './log'
@@ -35,8 +33,6 @@ interface ActiveJob {
   abort: AbortController
   done: Promise<void>
 }
-
-const sha256 = (data: Uint8Array) => createHash('sha256').update(data).digest('hex')
 
 /**
  * Runs the jobs the server assigns (T053): one job per device (a second one is rejected), the
@@ -94,23 +90,6 @@ export class JobManager {
     }
   }
 
-  /** Downloads the build unless this sha256 is already cached; verifies the checksum. */
-  private async build(build: Assign['build']): Promise<string> {
-    const dir = join(this.deps.cacheDir, 'builds')
-    const path = join(dir, `${build.sha256}.apk`)
-    const cached = await readFile(path).catch(() => undefined)
-    if (cached && sha256(cached) === build.sha256) return path
-    const res = await (this.deps.fetch ?? fetch)(build.download_url)
-    if (!res.ok) throw new Error(`build download failed: HTTP ${res.status}`)
-    const data = new Uint8Array(await res.arrayBuffer())
-    if (sha256(data) !== build.sha256) throw new Error('build checksum mismatch')
-    await mkdir(dir, { recursive: true })
-    const partial = `${path}.${process.pid}.partial`
-    await writeFile(partial, data)
-    await rename(partial, path)
-    return path
-  }
-
   private async run(job: Assign, signal: AbortSignal): Promise<void> {
     const { connection } = this.deps
     const summary = { passed: 0, failed: 0, skipped: 0 }
@@ -121,7 +100,7 @@ export class JobManager {
       // Rules at the run's pinned commit; the server validated them when they were saved.
       const popups = validatePopupsSource(job.popups_yaml, 'popups.yaml').value
       if (!popups) throw new Error('popups.yaml of the run is not valid')
-      const apk = await this.build(job.build)
+      const apk = await cachedBuild(job.build, this.deps.cacheDir, this.deps.fetch)
       lease = await this.deps.sessions.acquire(job.device_udid, { appId: job.build.package })
       const driver: DeviceDriver = lease.driver
       for (const [index, item] of job.items.entries()) {

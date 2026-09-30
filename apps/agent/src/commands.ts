@@ -1,16 +1,25 @@
 import type { protocol } from '@coral/shared'
 import type { DeviceDriver, RemoteControl } from '@coral/runner'
 import type { Logger } from 'pino'
+import { cachedBuild } from './builds'
 import type { AgentConnection } from './connection'
 import type { DeviceSessions } from './device-sessions'
 import type { SecretValues } from './log'
+import {
+  LONG_PRESS_MS,
+  RecorderError,
+  SWIPE_MS,
+  inspect,
+  prepare,
+  record,
+  type RecorderDeps,
+} from './recorder'
 
 type DeviceCommand = protocol.Payload<'device.command'>
 type AgentCommand = DeviceCommand['command']
+type ControlCommand = Exclude<AgentCommand, { kind: 'prepare' | 'record' | 'inspect' }>
 
-/** Defaults when the browser does not say (contracts/ui-ws.md). */
-export const LONG_PRESS_MS = 800
-export const SWIPE_MS = 300
+export { LONG_PRESS_MS, SWIPE_MS }
 
 export class CommandError extends Error {
   constructor(
@@ -30,6 +39,11 @@ export interface DeviceCommandsOptions {
   /** Values to mask in logs; a secret typed into the device is added before it is used. */
   secrets?: SecretValues
   log?: Pick<Logger, 'info' | 'warn' | 'debug'>
+  /** Where `prepare` caches builds (the jobs' cache: `<cacheDir>/builds/<sha256>.apk`). */
+  cacheDir?: string
+  fetch?: typeof fetch
+  /** Recorder options (tests: a fake clock, a short stability timeout). */
+  recorder?: Pick<RecorderDeps, 'clock' | 'stableTimeoutMs'>
 }
 
 /**
@@ -39,6 +53,8 @@ export interface DeviceCommandsOptions {
  */
 export class DeviceCommands {
   private readonly queues = new Map<string, Promise<void>>()
+  /** Package last prepared or recorded on each device: `inspect` writes its ids short. */
+  private readonly packages = new Map<string, string>()
 
   constructor(private readonly options: DeviceCommandsOptions) {}
 
@@ -67,9 +83,17 @@ export class DeviceCommands {
       }
       // Secret values are masked from now on; plain typed text is simply never logged.
       if (command.kind === 'type') this.options.secrets?.add(command.redact)
-      const lease = await this.options.sessions.acquire(udid)
+      if (command.kind === 'record' && command.action.kind === 'type') {
+        this.options.secrets?.add(command.action.redact)
+      }
+      const appId = 'package' in command ? command.package : undefined
+      if (appId && (command.kind === 'prepare' || command.kind === 'record')) {
+        this.packages.set(udid, appId)
+      }
+      const lease = await this.options.sessions.acquire(udid, appId ? { appId } : {})
+      let result: Record<string, unknown> | undefined
       try {
-        await perform(lease.driver, command)
+        result = await this.perform(udid, lease.driver, command)
       } finally {
         await lease.release()
       }
@@ -79,11 +103,14 @@ export class DeviceCommands {
       )
       this.options.connection.send(
         'device.command_result',
-        { command_id: commandId, ok: true },
+        { command_id: commandId, ok: true, ...(result ? { result } : {}) },
         messageId,
       )
     } catch (error) {
-      const code = error instanceof CommandError ? error.code : 'command_failed'
+      const code =
+        error instanceof CommandError || error instanceof RecorderError
+          ? error.code
+          : 'command_failed'
       const message = error instanceof Error ? error.message : String(error)
       // Only the kind is logged, never the command (typed text); the logger masks secrets.
       this.options.log?.warn(
@@ -101,11 +128,47 @@ export class DeviceCommands {
       )
     }
   }
+
+  private async perform(
+    udid: string,
+    driver: DeviceDriver & Partial<RemoteControl>,
+    command: AgentCommand,
+  ): Promise<Record<string, unknown> | undefined> {
+    if (command.kind !== 'prepare' && command.kind !== 'record' && command.kind !== 'inspect') {
+      await control(driver, command)
+      return undefined
+    }
+    const { cacheDir, secrets } = this.options
+    const fetchImpl = this.options.fetch ?? fetch
+    const deps: RecorderDeps = {
+      driver,
+      redactor: secrets?.redactor ?? { text: (t) => t, value: (v) => v },
+      put: async (url, body, contentType) => {
+        const res = await fetchImpl(url, {
+          method: 'PUT',
+          headers: { 'content-type': contentType },
+          body,
+        })
+        if (!res.ok) throw new Error(`snapshot upload failed: HTTP ${res.status}`)
+      },
+      ...(cacheDir ? { build: (build) => cachedBuild(build, cacheDir, fetchImpl) } : {}),
+      ...this.options.recorder,
+    }
+    switch (command.kind) {
+      case 'prepare':
+        return prepare(deps, command)
+      case 'record':
+        return record(deps, command)
+      case 'inspect':
+        return inspect(deps, { x: command.x, y: command.y }, this.packages.get(udid))
+    }
+  }
 }
 
-async function perform(
+/** The plain controls of FR-008 (US3). */
+async function control(
   driver: DeviceDriver & Partial<RemoteControl>,
-  command: AgentCommand,
+  command: ControlCommand,
 ): Promise<void> {
   switch (command.kind) {
     case 'tap':
@@ -128,9 +191,5 @@ async function perform(
       if (!driver.stopApp) throw new CommandError('unsupported', 'cannot stop apps on this device')
       await driver.stopApp(command.package)
       return driver.launch(command.package)
-    case 'prepare':
-    case 'record':
-    case 'inspect':
-      throw new CommandError('unsupported', `${command.kind} is not available yet`)
   }
 }

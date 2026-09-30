@@ -120,18 +120,17 @@ describe('DeviceCommands (US3, FR-008)', () => {
     expect(lines.join('\n')).not.toContain('s3cr3t-pass')
   })
 
-  it('refuses while a job runs on the device, and what is not available yet', async () => {
+  it('refuses while a job runs on the device', async () => {
     const busy = setup({ busy: true })
     expect(await busy.run({ kind: 'back' })).toMatchObject({
       ok: false,
       error: { code: 'device_busy' },
     })
-    expect(busy.driver.calls).toEqual([])
-    const { run } = setup()
-    expect(await run({ kind: 'inspect', x: 1, y: 1 })).toMatchObject({
+    expect(await busy.run({ kind: 'inspect', x: 1, y: 1 })).toMatchObject({
       ok: false,
-      error: { code: 'unsupported' },
+      error: { code: 'device_busy' },
     })
+    expect(busy.driver.calls).toEqual([])
   })
 
   it('runs the commands of one device in order', async () => {

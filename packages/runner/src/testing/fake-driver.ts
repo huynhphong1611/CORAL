@@ -18,6 +18,14 @@ type NodeSpec = Partial<Omit<ElementNode, 'bounds' | 'children' | 'ref'>> & {
 }
 
 /** Builds a node tree for tests; refs are assigned by {@link windows}. */
+const NO_ANDROID_FLAGS: NonNullable<ElementNode['android']> = {
+  password: false,
+  focused: false,
+  scrollable: false,
+  drawing_order: 0,
+  window_index: 0,
+}
+
 export function el(spec: NodeSpec): NodeSpec {
   return spec
 }
@@ -77,7 +85,10 @@ export interface FakeDriverOptions {
   logs?: string
   /** screenshot() draws the current tree (renderTree) instead of returning a stub PNG. */
   renderScreens?: boolean | RenderOptions
-  /** Typed text shows up as the text of the field it went into (live view, Recorder). */
+  /**
+   * Typed text shows up as the text of the field it went into, and the tapped field is marked
+   * focused, as in a u2 dump (live view, Recorder).
+   */
   showTyped?: boolean
 }
 
@@ -124,16 +135,24 @@ export class FakeDriver implements DeviceDriver, FrameSource, RemoteControl {
 
   private typedView: { tree: ElementNode[]; key: string; view: ElementNode[] } | undefined
 
-  /** The tree with typed text written into its fields (same object while nothing changes). */
+  /**
+   * The tree with typed text written into its fields and the focused field marked (same object
+   * while nothing changes).
+   */
   private withTyped(tree: ElementNode[]): ElementNode[] {
-    if (this.typed.size === 0) return tree
-    const key = JSON.stringify([this.current, ...this.typed])
+    const focused = this.focusedHere()
+    if (this.typed.size === 0 && focused === undefined) return tree
+    const key = JSON.stringify([this.current, focused, ...this.typed])
     if (this.typedView?.tree === tree && this.typedView.key === key) return this.typedView.view
     const fill = (node: ElementNode): ElementNode => ({
       ...node,
       text:
         (this.typedOn.get(node.ref) === this.current ? this.typed.get(node.ref) : undefined) ??
         node.text,
+      // Only fields take the focus on a device.
+      ...(node.ref === focused && /EditText$/.test(node.class)
+        ? { android: { ...(node.android ?? NO_ANDROID_FLAGS), focused: true } }
+        : {}),
       children: node.children.map(fill),
     })
     const view = tree.map(fill)

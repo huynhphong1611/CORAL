@@ -47,6 +47,14 @@ export function snapshotPath(
   return `snap/${slug}/${stepId}/${file}`
 }
 
+/**
+ * Step id of a step as the agent records it; the server numbers the step (`numberRecordedStep`)
+ * when it adds it to the recording, the agent not knowing its place.
+ */
+export const RECORDED_STEP_ID = 'recorded'
+/** Snapshot folder of image locators until the recording is saved under its slug. */
+export const RECORDING_SNAP_DIR = 'recording'
+
 const RECORDED_IMAGE = /^snap\/[^/]+\/([^/]+)\/element\.png$/
 
 /** Points an image locator the Recorder wrote at the snapshot folder of `slug`. */
@@ -62,6 +70,21 @@ function withSlug(locator: Locator, slug: string): Locator {
 function rewriteImages(step: Step, slug: string): Step {
   if (!('target' in step) || !step.target) return step
   return { ...step, target: step.target.map((locator) => withSlug(locator, slug)) }
+}
+
+/** A recorded step as step `s<n>`: its id, and its image locator pointing at that step's snapshot. */
+export function numberRecordedStep(step: Step, n: number): Step {
+  const id = `s${n}`
+  const numbered = { ...step, id }
+  if (!('target' in numbered) || !numbered.target) return numbered
+  const path = snapshotPath(RECORDING_SNAP_DIR, id, 'element.png')
+  return {
+    ...numbered,
+    target: numbered.target.map((locator) => {
+      if (locator.image === undefined) return locator
+      return { image: typeof locator.image === 'string' ? path : { ...locator.image, path } }
+    }),
+  }
 }
 
 export interface RecordingToYamlInput {

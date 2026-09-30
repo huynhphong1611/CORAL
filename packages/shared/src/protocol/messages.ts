@@ -127,6 +127,9 @@ export const commandResultSchemas = {
     text: z.string(),
   }),
 } as const
+export type CommandResult<K extends keyof typeof commandResultSchemas> = z.infer<
+  (typeof commandResultSchemas)[K]
+>
 
 // ---- message payloads -------------------------------------------------------------------------------
 
