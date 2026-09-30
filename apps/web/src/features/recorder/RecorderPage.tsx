@@ -1,9 +1,9 @@
 import { api, type ExpectCondition, type protocol } from '@coral/shared'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { ApiError } from '../../api/client'
-import { useRecorder, type RecorderNotice } from '../../api/recordings'
+import { recordingKeys, useRecorder, type RecorderNotice } from '../../api/recordings'
 import { useCoral, useDevices, useRole } from '../../api/queries'
 import { DeviceActions } from '../../components/DeviceActions'
 import { PageHeader } from '../../components/Layout'
@@ -300,6 +300,7 @@ function SavePanel({
   onErrors: (errors: ReadonlyMap<string, readonly string[]>) => void
 }) {
   const { client } = useCoral()
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [slug, setSlug] = useState(recording.slug)
   const [intent, setIntent] = useState(recording.intent)
@@ -309,17 +310,27 @@ function SavePanel({
   useEffect(() => setSlug(recording.slug), [recording.slug])
   useEffect(() => setIntent(recording.intent), [recording.intent])
 
-  const yaml = () => client.get(`/recordings/${recording.id}/yaml`, api.recordingYamlSchema)
+  /**
+   * The YAML of the steps with the slug and intent as typed — stored first, even while a field
+   * still has the focus (its blur PATCH may not have landed yet).
+   */
+  const yaml = async () => {
+    if (canEdit && (slug !== recording.slug || intent !== recording.intent)) {
+      const updated = await client.patch(
+        `/recordings/${recording.id}`,
+        { slug, intent },
+        api.recordingSchema,
+      )
+      queryClient.setQueryData(recordingKeys.one(recording.id), updated)
+    }
+    return client.get(`/recordings/${recording.id}/yaml`, api.recordingYamlSchema)
+  }
   const commit = (field: 'slug' | 'intent', value: string) => {
     if (value !== recording[field]) recorder.patch.mutate({ [field]: value })
   }
 
   const save = useMutation({
     mutationFn: async (replace: boolean) => {
-      // The slug and intent as typed, even if the field still has the focus.
-      if (slug !== recording.slug || intent !== recording.intent) {
-        await client.patch(`/recordings/${recording.id}`, { slug, intent }, api.recordingSchema)
-      }
       const { yaml: source } = await yaml()
       const base = replace
         ? (

@@ -91,7 +91,10 @@ async function open(opts: { save?: (request: FakeRequest) => Response } = {}) {
         current = { ...current, ...body, ...(steps ? { steps } : {}) }
         return current
       },
-      [`GET ${base}/yaml`]: () => ({ yaml: `id: ${current.slug}\n`, warnings: [] }),
+      [`GET ${base}/yaml`]: () => ({
+        yaml: `id: ${current.slug}\nintent: ${current.intent}\n`,
+        warnings: [],
+      }),
       [`POST ${base}/save`]: (request) =>
         opts.save?.(request) ??
         Response.json(
@@ -270,6 +273,11 @@ describe('the Recorder (T044)', () => {
     await userEvent.clear(slug)
     await userEvent.type(slug, 'recorded-login')
     await userEvent.type(screen.getByLabelText('Intent'), 'Open the menu')
+    // The preview has what was just typed, the field still focused.
+    await userEvent.click(screen.getByRole('button', { name: 'Preview YAML' }))
+    expect((await screen.findByTestId('yaml-preview')).textContent).toBe(
+      'id: recorded-login\nintent: Open the menu\n',
+    )
     await userEvent.click(screen.getByRole('button', { name: 'Save as test case' }))
     const s2 = await screen.findByTestId('step-s2')
     expect(
