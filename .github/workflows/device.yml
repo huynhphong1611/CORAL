@@ -1,7 +1,8 @@
 name: Device
 
-# 🔌 Phase 1 checks on a real Android 14 emulator (T039, T041, T056, T060, T063): GitHub-hosted
-# Linux runners have KVM. Runs on demand, and on pushes that touch the device path.
+# 🔌 Checks on a real Android 14 emulator — Phase 1 (T039, T041, T056, T060, T063) and the Phase 2
+# Recorder (T046): GitHub-hosted Linux runners have KVM. Runs on demand, and on pushes that touch
+# the device path.
 on:
   workflow_dispatch:
   push:
@@ -14,6 +15,14 @@ on:
       - apps/agent/**
       - fixtures/testcases/mydemo-*.yaml
       - packages/shared/src/popups/**
+      # Phase 2: the Recorder end to end (T046).
+      - e2e/us4-recorder.e2e.ts
+      - e2e/fixtures.ts
+      - e2e/seed.ts
+      - e2e/live.ts
+      - playwright.config.ts
+      - apps/server/src/recordings/**
+      - apps/web/src/features/recorder/**
 
 permissions:
   contents: read
@@ -89,7 +98,7 @@ jobs:
           python3 -m venv /tmp/sheets-venv
           /tmp/sheets-venv/bin/pip install --quiet pillow
           /tmp/sheets-venv/bin/python scripts/ci-contact-sheet.py device-results device-results/sheets
-          for f in device-results/sheets/*.jpg; do
+          for f in device-results/sheets/*.jpg device-results/e2e/*.png; do
             [ -e "$f" ] || continue
             jq -n --rawfile c <(base64 -w0 "$f") '{content: $c, encoding: "base64"}' >/tmp/blob.json
             sha=$(gh api "repos/$GITHUB_REPOSITORY/git/blobs" --input /tmp/blob.json --jq .sha)

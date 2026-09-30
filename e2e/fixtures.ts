@@ -1,5 +1,6 @@
 import { spawn, execFile, type ChildProcess } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
+import { mkdirSync, openSync } from 'node:fs'
 import { promisify } from 'node:util'
 import { test as base, expect, type Page } from '@playwright/test'
 import { E2E_SERVER_URL } from './env'
@@ -10,6 +11,12 @@ export interface Account {
   email: string
   password: string
 }
+
+/**
+ * `CORAL_E2E_DEVICE=emulator` (T046, Device workflow): the device is the Android emulator next to
+ * a real coral-agent, the build the real My Demo App (CORAL_TEST_APK) — not the drawn fake.
+ */
+export const ON_EMULATOR = process.env.CORAL_E2E_DEVICE === 'emulator'
 
 export interface FakeDevice {
   udid: string
@@ -88,17 +95,33 @@ export const test = base.extend<object, { account: Account; fakeDevice: FakeDevi
         token,
         body: { name: 'e2e fake device' },
       })
-      const udid = `fake-${randomBytes(3).toString('hex')}`
-      const child: ChildProcess = spawn('node', ['--import', 'tsx', 'scripts/dev-fake-device.ts'], {
-        env: {
-          ...process.env,
-          CORAL_SERVER_URL: E2E_SERVER_URL,
-          CORAL_AGENT_TOKEN: agent.token,
-          CORAL_FAKE_UDID: udid,
-          CORAL_LOG_LEVEL: 'warn',
-        },
-        stdio: ['ignore', 'inherit', 'inherit'],
-      })
+      let udid = `fake-${randomBytes(3).toString('hex')}`
+      let child: ChildProcess
+      if (ON_EMULATOR) {
+        // A real coral-agent (adb + u2); its log is kept with the E2E results.
+        mkdirSync('e2e-results', { recursive: true })
+        const log = openSync('e2e-results/agent.log', 'a')
+        child = spawn('node', ['--import', 'tsx', 'apps/agent/src/main.ts'], {
+          env: {
+            ...process.env,
+            CORAL_SERVER_URL: E2E_SERVER_URL,
+            CORAL_AGENT_TOKEN: agent.token,
+            CORAL_LOG_LEVEL: 'debug',
+          },
+          stdio: ['ignore', log, log],
+        })
+      } else {
+        child = spawn('node', ['--import', 'tsx', 'scripts/dev-fake-device.ts'], {
+          env: {
+            ...process.env,
+            CORAL_SERVER_URL: E2E_SERVER_URL,
+            CORAL_AGENT_TOKEN: agent.token,
+            CORAL_FAKE_UDID: udid,
+            CORAL_LOG_LEVEL: 'warn',
+          },
+          stdio: ['ignore', 'inherit', 'inherit'],
+        })
+      }
       let deviceId = ''
       await expect
         .poll(
@@ -106,11 +129,14 @@ export const test = base.extend<object, { account: Account; fakeDevice: FakeDevi
             const devices = await api<{ id: string; udid: string; status: string }[]>('/devices', {
               token,
             })
-            const device = devices.find((d) => d.udid === udid && d.status !== 'offline')
+            const device = devices.find(
+              (d) => (ON_EMULATOR || d.udid === udid) && d.status !== 'offline',
+            )
             deviceId = device?.id ?? ''
+            if (device) udid = device.udid
             return deviceId
           },
-          { timeout: 20_000, message: 'fake device online' },
+          { timeout: ON_EMULATOR ? 60_000 : 20_000, message: 'device online' },
         )
         .not.toBe('')
       await use({ udid, deviceId, agentId: agent.id })

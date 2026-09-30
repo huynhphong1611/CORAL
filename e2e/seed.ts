@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import { E2E_SERVER_URL } from './env'
-import { api, expect } from './fixtures'
+import { api, expect, ON_EMULATOR } from './fixtures'
 
 /**
  * A 10-step test case for the drawn My Demo App (scripts/dev-fake-device.ts): menu, catalog,
@@ -73,7 +74,11 @@ export async function seedProject(
   })
   const form = new FormData()
   form.set('version', '2.2.0')
-  form.set('file', new Blob([randomBytes(4096)]), 'mydemo.apk')
+  // The fake device installs nothing; the emulator needs the real My Demo App.
+  const apk = ON_EMULATOR
+    ? await readFile(process.env.CORAL_TEST_APK ?? 'CORAL_TEST_APK is not set')
+    : randomBytes(4096)
+  form.set('file', new Blob([new Uint8Array(apk)]), 'mydemo.apk')
   const upload = await fetch(`${E2E_SERVER_URL}/apps/${app.id}/builds`, {
     method: 'POST',
     headers: { authorization: `Bearer ${token}` },

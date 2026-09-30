@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# 🔌 Phase 1 device checks on an Android emulator (.github/workflows/device.yml): T039, T041, T056,
-# T060, T063. Every check runs even when an earlier one fails; logs, a summary and the evidence
-# (screenshots, trees, device logs) go to $CORAL_DEVICE_OUT.
+# 🔌 Device checks on an Android emulator (.github/workflows/device.yml): Phase 1 T039, T041, T056,
+# T060, T063 and Phase 2 T046 (the Recorder). Every check runs even when an earlier one fails;
+# logs, a summary and the evidence (screenshots, trees, device logs) go to $CORAL_DEVICE_OUT.
 #
 # Needs: adb with exactly one device online, CORAL_TEST_APK (My Demo App), docker compose services
 # up and migrated, CORAL_SECRET_TEST_USER / CORAL_SECRET_TEST_PASSWORD in the environment.
@@ -80,13 +80,25 @@ check T063 "scan run ${last_run:-?} for secrets" \
 
 kill "$agent_pid" "$server_pid" 2>/dev/null
 wait "$agent_pid" "$server_pid" 2>/dev/null
-# SC-008 for the logs: neither secret value may appear in what the server and agent wrote.
+
+# Phase 2 US4 DoD (T046): the Recorder through the browser — Playwright's own server, a real
+# coral-agent (the one above is gone: one u2 per device) and My Demo App: record a login, save
+# it, replay it 3/3. Screenshots and the agent's log go with the results.
+pnpm exec playwright install --with-deps chromium >"$OUT/playwright-install.log" 2>&1
+check T046 'Recorder E2E: record a login in the browser, save, replay 3/3' \
+  env CORAL_E2E_DEVICE=emulator CORAL_TEST_APK="$APK" pnpm exec playwright test e2e/us4-recorder.e2e.ts
+mkdir -p "$OUT/e2e"
+cp e2e-results/us4-*.png "$OUT/e2e/" 2>/dev/null
+cp e2e-results/agent.log "$OUT/e2e-agent.log" 2>/dev/null
+cp -r e2e-results/artifacts "$OUT/e2e/artifacts" 2>/dev/null
+
+# SC-008 for the logs: neither secret value may appear in what the server and agents wrote.
 count_secrets() {
   local hits=0
   for value in "$CORAL_SECRET_TEST_USER" "$CORAL_SECRET_TEST_PASSWORD"; do
-    hits=$((hits + $(cat "$OUT/server.log" "$OUT/agent.log" "$OUT"/T*.log | grep -cF -- "$value")))
+    hits=$((hits + $(cat "$OUT/server.log" "$OUT/agent.log" "$OUT"/e2e-agent.log "$OUT"/T*.log 2>/dev/null | grep -cF -- "$value")))
   done
-  echo "secret values in server.log, agent.log and check logs: $hits"
+  echo "secret values in server.log, agent.log, e2e-agent.log and check logs: $hits"
   [ "$hits" -eq 0 ]
 }
 check T063-logs 'no secret value in server/agent logs' count_secrets
