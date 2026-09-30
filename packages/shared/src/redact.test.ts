@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createRedactor } from './redact'
+import { createRedactor, referenceSecrets } from './redact'
 
 describe('createRedactor', () => {
   it('masks every occurrence of every secret', () => {
@@ -32,5 +32,25 @@ describe('createRedactor', () => {
       nothing: null,
     })
     expect(input.steps[0]?.text).toBe('token=s3cr3t')
+  })
+
+  it('turns secret values into ${secret:NAME} references, deep and without mutating', () => {
+    const secrets = { TEST_USER: 'bod@example.com', PIN: '123', LONG_USER: 'bod@example.com.vn' }
+    const step = {
+      id: 's8',
+      action: 'tap',
+      target: [{ text: 'bod@example.com' }, { text_contains: 'Hi bod@example.com.vn!' }],
+      expect: [{ visible_text: 'code 123' }],
+    }
+    const referenced = referenceSecrets(step, secrets)
+    expect(referenced).toEqual({
+      id: 's8',
+      action: 'tap',
+      target: [{ text: '${secret:TEST_USER}' }, { text_contains: 'Hi ${secret:LONG_USER}!' }],
+      // Too short to be told from ordinary text (MIN_SECRET_LENGTH).
+      expect: [{ visible_text: 'code 123' }],
+    })
+    expect(step.target[0]?.text).toBe('bod@example.com')
+    expect(referenceSecrets(step, {})).toBe(step)
   })
 })

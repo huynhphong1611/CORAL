@@ -20,6 +20,8 @@ const UPLOAD = {
   element: 'https://s3.test/rec/1/element.png',
 }
 const IMAGE = 'snap/recording/recorded/element.png'
+/** The tenant's secret values, as the server sends them with every recorder command. */
+const REDACT = ['bod@example.com', 's3cret-value']
 
 function setup(screen = 'catalog') {
   const driver = new FakeDriver({
@@ -67,6 +69,7 @@ function setup(screen = 'catalog') {
       package: SAMPLE_APP,
       popups_yaml: DEFAULT_POPUPS_YAML,
       upload: UPLOAD,
+      redact: REDACT,
     })
     if (!reply.ok) return { reply }
     const result = protocol.commandResultSchemas.record.parse(reply.result)
@@ -94,6 +97,7 @@ describe('Recorder on the agent (T040, research R8–R9)', () => {
       app_state: 'fresh',
       popups_yaml: DEFAULT_POPUPS_YAML,
       upload: { screen: UPLOAD.screen, tree: UPLOAD.tree },
+      redact: REDACT,
     })
     expect(reply).toMatchObject({ ok: true, result: { screen_width: 1080, screen_height: 2400 } })
     expect(driver.calls.map((c) => c.kind)).toEqual(
@@ -152,6 +156,10 @@ describe('Recorder on the agent (T040, research R8–R9)', () => {
   it('type: into the focused field; a password only by secret, never as text', async () => {
     const { driver, rec, at, puts, secrets } = setup('login')
     await rec({ kind: 'tap', ...(await at('id/nameET')) })
+    // The login screen shows the demo user: a secret value of the tenant, masked in tree.json.
+    expect(String(puts.get(UPLOAD.tree)?.body)).not.toContain('bod@example.com')
+    // The login screen shows the demo user: a secret value of the tenant, masked in tree.json.
+    expect(String(puts.get(UPLOAD.tree)?.body)).not.toContain('bod@example.com')
     const user = await rec({ kind: 'type', text: 'bod@example.com', redact: [] })
     expect(user.step).toEqual({
       id: 'recorded',
@@ -211,7 +219,7 @@ describe('Recorder on the agent (T040, research R8–R9)', () => {
       error: { code: 'not_recordable' },
     })
     const calls = driver.calls.length
-    const reply = await run({ kind: 'inspect', x: 100, y: 300 })
+    const reply = await run({ kind: 'inspect', x: 100, y: 300, redact: REDACT })
     expect(driver.calls.slice(calls).every((c) => c.kind !== 'tap')).toBe(true)
     const inspected = protocol.commandResultSchemas.inspect.parse(reply.result)
     expect(inspected.text).toBe('Products')

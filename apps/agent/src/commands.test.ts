@@ -126,7 +126,7 @@ describe('DeviceCommands (US3, FR-008)', () => {
       ok: false,
       error: { code: 'device_busy' },
     })
-    expect(await busy.run({ kind: 'inspect', x: 1, y: 1 })).toMatchObject({
+    expect(await busy.run({ kind: 'inspect', x: 1, y: 1, redact: [] })).toMatchObject({
       ok: false,
       error: { code: 'device_busy' },
     })

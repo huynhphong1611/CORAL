@@ -83,6 +83,10 @@ export class DeviceCommands {
       }
       // Secret values are masked from now on; plain typed text is simply never logged.
       if (command.kind === 'type') this.options.secrets?.add(command.redact)
+      if (command.kind === 'prepare' || command.kind === 'record' || command.kind === 'inspect') {
+        // Every secret value of the tenant: masked in the snapshot's tree.json and in logs.
+        this.options.secrets?.add(command.redact)
+      }
       if (command.kind === 'record' && command.action.kind === 'type') {
         this.options.secrets?.add(command.action.redact)
       }

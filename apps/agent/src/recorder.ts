@@ -277,7 +277,7 @@ export async function record(deps: RecorderDeps, command: RecordCommand): Promis
 /**
  * `inspect` (Assert mode, research R8 steps 1–3): the element drawn at the point — a label too, not
  * only something clickable — with its locators and text; nothing is touched. A field's content is
- * never sent (it may be a secret).
+ * never sent (it may be a secret); other secret values become `${secret:NAME}` on the server.
  */
 export async function inspect(
   deps: RecorderDeps,
@@ -293,10 +293,9 @@ export async function inspect(
   const node = topNodeAt(tree, point)
   if (!node) throw new RecorderError('not_recordable', 'nothing on screen there')
   const field = isField(node)
-  const element = deps.redactor.value({ ...node, ...(field ? { text: '' } : {}), children: [] })
   return {
-    element,
-    locators: deps.redactor.value(extractLocators(node, tree, ctx)),
-    text: field ? '' : deps.redactor.text(node.text),
+    element: { ...node, ...(field ? { text: '' } : {}), children: [] },
+    locators: extractLocators(node, tree, ctx),
+    text: field ? '' : node.text,
   }
 }

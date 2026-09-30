@@ -3,6 +3,7 @@ import {
   numberRecordedStep,
   protocol,
   recordingToYaml,
+  referenceSecrets,
   snapshotPath,
   validateTestCaseSource,
   type api,
@@ -158,6 +159,7 @@ export class RecordingService {
             screen: await this.put(keys['screen.jpg']),
             tree: await this.put(keys['tree.json']),
           },
+          redact: Object.values(this.secretValues()),
         },
       },
       PREPARE_TIMEOUT_MS,
@@ -484,6 +486,7 @@ export class RecordingService {
             tree: await this.put(keys['tree.json']),
             element: await this.put(keys['element.png']),
           },
+          redact: Object.values(this.secretValues()),
         },
       },
       RECORD_TIMEOUT_MS,
@@ -507,12 +510,14 @@ export class RecordingService {
       toTabs({ recording_id: row.id, popup_rule: data.popup_rule ?? 'popup' })
       return answer()
     }
-    const step = numberRecordedStep(data.step, n)
+    // What the agent read on the screen never carries a secret value to the browser or the YAML.
+    const secrets = this.secretValues()
+    const step = referenceSecrets(numberRecordedStep(data.step, n), secrets)
     const hasImage = 'target' in step && step.target?.some((l) => l.image !== undefined)
     const stored: RecordingStep = {
       n,
       step,
-      suggestions: data.suggestions,
+      suggestions: referenceSecrets(data.suggestions, secrets),
       warnings: data.warnings,
       snapshot: {
         screen: keys['screen.jpg'],
@@ -560,7 +565,12 @@ export class RecordingService {
     const result = await this.options.commands.send(device.agentId, {
       commandId: newId(),
       udid: device.udid,
-      command: { kind: 'inspect', x: payload.x, y: payload.y },
+      command: {
+        kind: 'inspect',
+        x: payload.x,
+        y: payload.y,
+        redact: Object.values(this.secretValues()),
+      },
     })
     const parsed = result.ok
       ? protocol.commandResultSchemas.inspect.safeParse(result.result)
@@ -569,7 +579,7 @@ export class RecordingService {
       const error = result.error ?? failed('bad_result', 'the agent sent an invalid result')
       return ctx.fail(error.code, error.message)
     }
-    ctx.reply('live.inspected', parsed.data)
+    ctx.reply('live.inspected', referenceSecrets(parsed.data, this.secretValues()))
   }
 
   // --- helpers ------------------------------------------------------------------------------------
@@ -598,11 +608,15 @@ export class RecordingService {
     return { row, device }
   }
 
+  /** Every secret of the server, name → value (dev: `CORAL_SECRET_*`, D19). */
+  private secretValues(): Record<string, string> {
+    return this.options.secrets.get(this.options.secrets.names())
+  }
+
   /** The name of the secret whose value is exactly `text`, if any. */
   private secretNamed(text: string): string | undefined {
-    const names = this.options.secrets.names()
-    const values = this.options.secrets.get(names)
-    return names.find((name) => values[name] !== undefined && values[name] === text)
+    const values = this.secretValues()
+    return Object.keys(values).find((name) => values[name] === text)
   }
 
   private async own(caller: Caller, id: string): Promise<RecordingRow> {

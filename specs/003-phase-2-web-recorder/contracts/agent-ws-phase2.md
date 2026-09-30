@@ -28,9 +28,11 @@ Bổ sung cho `specs/002-phase-1-android-runner/contracts/ws-protocol.md` (envel
 | `tap`, `long_press`, `swipe`, `back`, `home`, `hide_keyboard` | như `DeviceCommand` (contracts/ui-ws.md) | — |
 | `type` | `{ text }` (giá trị thật; nếu là secret thì server đã thay tên bằng giá trị) + `redact: string[]` | — |
 | `restart_app` | `{ package }` | — |
-| `prepare` | `{ package, build?: { download_url, sha256 }, app_state: "fresh" \| "keep", popups_yaml }` | `{ snapshot_uploads }` như `record` |
-| `record` | `{ action: DeviceCommand, package, popups_yaml, upload: { screen, tree, element } }` — `upload` là presigned PUT do server sinh (T062) | `{ step: Step, suggestions: Expect[], warnings: string[], popup_rule?: string, screen_width, screen_height, target_password?: boolean }` |
-| `inspect` | `{ x, y }` | `{ element, locators, text }` (research R8 bước 1–3, không chạm) |
+| `prepare` | `{ package, build?: { download_url, sha256 }, app_state: "fresh" \| "keep", popups_yaml, upload: { screen, tree }, redact }` | `{ screen_width, screen_height }` |
+| `record` | `{ action: DeviceCommand, package, popups_yaml, upload: { screen, tree, element }, redact }` — `upload` là presigned PUT do server sinh (T062) | `{ step: Step, suggestions: Expect[], warnings: string[], popup_rule?: string, screen_width, screen_height, target_password?: boolean }` |
+| `inspect` | `{ x, y, redact }` | `{ element, locators, text }` (research R8 bước 1–3, không chạm) |
+
+`redact: string[]` = mọi giá trị secret của tenant: agent che chúng trong `tree.json` tải lên và trong log. Step, đề xuất kỳ vọng và kết quả `inspect` agent trả nguyên văn; **server** thay mọi giá trị secret trong đó bằng `${secret:NAME}` trước khi lưu hay gửi trình duyệt (vẫn khớp lúc chạy vì mọi chuỗi của step được nội suy — FR-014).
 
 `record` trên agent (packages/runner `core/recorder`, research R8–R9): cây ổn định trước → chọn element đích + chuỗi locator → chụp `screen.jpg`, cắt `element.png`, `tree.json` (đã che secret) → upload → thực hiện thao tác (tap vào tâm element đích) → chờ ổn định → đề xuất kỳ vọng từ cây trước/sau → trả kết quả. Thao tác vào popup khớp luật: vẫn làm, `popup_rule` được đặt, không tạo `step`.
 

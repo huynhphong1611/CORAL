@@ -78,6 +78,8 @@ export type AgentAction = z.infer<typeof agentActionSchema>
 export { agentActionSchema }
 
 const uploadUrls = { screen: z.url(), tree: z.url() }
+/** Secret values the agent masks in what it uploads and logs (the snapshot's tree.json). */
+const redact = { redact: z.array(z.string()).default([]) }
 
 export const agentCommandSchema = z.discriminatedUnion('kind', [
   ...PLAIN_COMMAND_SCHEMAS,
@@ -92,6 +94,7 @@ export const agentCommandSchema = z.discriminatedUnion('kind', [
     app_state: z.enum(['fresh', 'keep']),
     popups_yaml: z.string(),
     upload: z.object(uploadUrls),
+    ...redact,
   }),
   z.strictObject({
     kind: z.literal('record'),
@@ -99,8 +102,9 @@ export const agentCommandSchema = z.discriminatedUnion('kind', [
     package: packageName,
     popups_yaml: z.string(),
     upload: z.object({ ...uploadUrls, element: z.url() }),
+    ...redact,
   }),
-  z.strictObject({ kind: z.literal('inspect'), x: coordSchema, y: coordSchema }),
+  z.strictObject({ kind: z.literal('inspect'), x: coordSchema, y: coordSchema, ...redact }),
 ])
 export type AgentCommand = z.infer<typeof agentCommandSchema>
 

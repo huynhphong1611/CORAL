@@ -200,6 +200,36 @@ describe('recordings (US4, T041)', () => {
     expect(JSON.stringify(rows)).not.toContain(USER)
   })
 
+  it('never lets a secret value read on the screen reach the browser: references instead', async () => {
+    const ui = await client()
+    const pushed = ui.next('recording.step')
+    const { payload } = await record(
+      ui,
+      recordingId,
+      { kind: 'tap', x: 540, y: 1190 },
+      {
+        // The app shows the demo user on screen: a locator and a suggestion carry its value.
+        step: { id: 'recorded', action: 'tap', target: [{ text: USER }] },
+        suggestions: [{ visible_text: `Signed in as ${USER}` }],
+        warnings: [],
+        ...SIZE,
+      },
+    )
+    const command = payload.command
+    if (command.kind !== 'record') throw new Error(`got ${command.kind}`)
+    expect(command.redact).toEqual(expect.arrayContaining([USER, 'pa55-w0rd-xyz']))
+    const message = (await pushed).payload as protocol.UiPayload<'recording.step'>
+    expect(message.step?.step).toMatchObject({ target: [{ text: '${secret:TEST_USER}' }] })
+    expect(message.step?.suggestions).toEqual([
+      { visible_text: 'Signed in as ${secret:TEST_USER}' },
+    ])
+    expect(JSON.stringify(message)).not.toContain(USER)
+    const stored = api.recordingSchema.parse(
+      (await server.call(huynh, { method: 'GET', url: `/recordings/${recordingId}` })).body,
+    )
+    expect(JSON.stringify(stored)).not.toContain(USER)
+  })
+
   it('tells about a tap a popup rule handles, without a step; inspects without touching', async () => {
     const ui = await client()
     const pushed = ui.next('recording.step')
@@ -228,13 +258,18 @@ describe('recordings (US4, T041)', () => {
       children: [],
     }
     const inspect = await answerNext({
-      result: { element, locators: [{ android_id: 'id/productTV' }], text: 'Products' },
+      result: {
+        element: { ...element, text: USER },
+        locators: [{ android_id: 'id/productTV' }, { text: USER }],
+        text: USER,
+      },
     })
-    expect(inspect.command).toEqual({ kind: 'inspect', x: 100, y: 300 })
+    expect(inspect.command).toMatchObject({ kind: 'inspect', x: 100, y: 300 })
     const reply = await ui.next('live.inspected', sent.id)
     expect(reply.payload).toMatchObject({
-      text: 'Products',
-      locators: [{ android_id: 'id/productTV' }],
+      text: '${secret:TEST_USER}',
+      element: { text: '${secret:TEST_USER}' },
+      locators: [{ android_id: 'id/productTV' }, { text: '${secret:TEST_USER}' }],
     })
   })
 
@@ -242,7 +277,7 @@ describe('recordings (US4, T041)', () => {
     const got = api.recordingSchema.parse(
       (await server.call(huynh, { method: 'GET', url: `/recordings/${recordingId}` })).body,
     )
-    expect(got.steps?.map((s) => s.step.id)).toEqual(['s1', 's2', 's3'])
+    expect(got.steps?.map((s) => s.step.id)).toEqual(['s1', 's2', 's3', 's4'])
     const steps = (got.steps ?? []).map(({ urls: _urls, ...s }) =>
       s.n === 2
         ? { ...s, step: { ...s.step, expect: [{ visible_text: 'Log In' }] }, warnings: [] }
