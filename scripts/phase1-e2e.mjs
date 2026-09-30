@@ -4,6 +4,7 @@
 //   node scripts/phase1-e2e.mjs --apk ./mydemo.apk --testcase fixtures/testcases/mydemo-camera-permission.yaml \
 //     --runs 5 --expect-popup android_permission
 //   node scripts/phase1-e2e.mjs --scan-secrets --run <run_id>
+//   node scripts/phase1-e2e.mjs --scan-secrets --test-case <id> [--recording <id>]   (Recorder, T058)
 // Logs in, creates (or reuses) project + app, uploads the build, saves the test case, waits for an
 // idle device, then runs it N times one after another and checks every run: passed, < 60 s, and
 // every step's screenshot + tree downloadable (and, with --expect-popup, that the popup guard
@@ -55,6 +56,8 @@ const { values: opts } = parseArgs({
     'expect-popup': { type: 'string' },
     download: { type: 'string' },
     run: { type: 'string' },
+    'test-case': { type: 'string' },
+    recording: { type: 'string' },
     help: { type: 'boolean', default: false },
   },
 })
@@ -63,6 +66,7 @@ const usage = `usage:
   node scripts/phase1-e2e.mjs --apk <file.apk> --testcase <file.yaml> [--runs 5] [--app <package>] [--device <udid>] [--scan-secrets]
       [--expect-popup <popup rule>] [--download <dir>]
   node scripts/phase1-e2e.mjs --scan-secrets --run <run_id>
+  node scripts/phase1-e2e.mjs --scan-secrets [--test-case <id>] [--recording <id>]
 login: --email/--password or CORAL_SEED_EMAIL/CORAL_SEED_PASSWORD; server: --server or CORAL_SERVER_URL`
 
 /**
@@ -80,7 +84,7 @@ if (opts.help) {
   process.exit(0)
 }
 if (!opts.email || !opts.password) fail(2, `missing login\n${usage}`)
-if (!opts.run && (!opts.apk || !opts.testcase)) {
+if (!opts.run && !opts['test-case'] && !opts.recording && (!opts.apk || !opts.testcase)) {
   fail(2, `need --apk and --testcase (or --run)\n${usage}`)
 }
 
@@ -284,15 +288,29 @@ async function runOnce(ids) {
   return { run, seconds, stepCount, popups, problems }
 }
 
-/**
- * Counts CORAL_SECRET_* values in everything the API returns for a run (SC-008): run and step
- * JSON, every tree.json and device.log.
- * @param {string} runId
- */
-async function scanSecrets(runId) {
-  const secrets = Object.entries(process.env)
+/** The CORAL_SECRET_* values to look for (4 characters or more, like the redactor). */
+function secretValues() {
+  return Object.entries(process.env)
     .filter(([k, v]) => k.startsWith('CORAL_SECRET_') && v !== undefined && v.length >= 4)
     .map(([name, value]) => ({ name, value: value ?? '' }))
+}
+
+/**
+ * A document when it can be read (200), else undefined — a presigned URL, or an API path.
+ * @param {string} url
+ */
+async function fetchText(url) {
+  const res = url.startsWith('/')
+    ? await fetch(`${base}${url}`, { headers: { authorization: `Bearer ${token}` } })
+    : await fetch(url)
+  return res.status === 200 ? res.text() : undefined
+}
+
+/**
+ * Run and step JSON, every tree.json and device.log of a run.
+ * @param {string} runId
+ */
+async function runTexts(runId) {
   const run = /** @type {Run} */ (await api('GET', `/runs/${runId}`))
   const texts = [JSON.stringify(run)]
   for (const item of run.items) {
@@ -300,12 +318,54 @@ async function scanSecrets(runId) {
     texts.push(JSON.stringify(steps))
     for (const step of steps) {
       for (const url of [step.artifacts.tree_url, step.artifacts.log_url]) {
-        if (!url) continue
-        const res = await fetch(url)
-        if (res.status === 200) texts.push(await res.text())
+        const text = url ? await fetchText(url) : undefined
+        if (text !== undefined) texts.push(text)
       }
     }
   }
+  return texts
+}
+
+/**
+ * A test case's YAML at head and the tree.json of every snapshot under snap/<slug>/ (T058).
+ * @param {string} id
+ */
+async function testCaseTexts(id) {
+  const detail = /** @type {TestCaseDetail} */ (await api('GET', `/testcases/${id}`))
+  const snapshots = /** @type {{ step_id: string, tree_url: string }[]} */ (
+    await api('GET', `/testcases/${id}/snapshots`)
+  )
+  const texts = [detail.yaml, JSON.stringify(snapshots)]
+  for (const snapshot of snapshots) {
+    const text = await fetchText(snapshot.tree_url)
+    if (text !== undefined) texts.push(text)
+  }
+  return texts
+}
+
+/**
+ * A recording as the API gives it (steps, suggestions) and the tree.json of each step still
+ * stored (a saved recording's snapshots are gone from S3: they live in the repo) (T058).
+ * @param {string} id
+ */
+async function recordingTexts(id) {
+  const recording = /** @type {{ steps?: { urls: { tree: string } }[] }} */ (
+    await api('GET', `/recordings/${id}`)
+  )
+  const texts = [JSON.stringify(recording)]
+  for (const step of recording.steps ?? []) {
+    const text = await fetchText(step.urls.tree)
+    if (text !== undefined) texts.push(text)
+  }
+  return texts
+}
+
+/**
+ * Counts CORAL_SECRET_* values in documents (SC-008).
+ * @param {string[]} texts
+ */
+function countSecrets(texts) {
+  const secrets = secretValues()
   const hits = secrets.map(({ name, value }) => ({
     name,
     count: texts.reduce((n, t) => n + t.split(value).length - 1, 0),
@@ -318,12 +378,31 @@ async function scanSecrets(runId) {
   }
 }
 
+/** @param {string} runId */
+const scanSecrets = async (runId) => countSecrets(await runTexts(runId))
+
 await login()
 
-if (opts.run) {
-  const scan = await scanSecrets(opts.run)
+if (opts.run || opts['test-case'] || opts.recording) {
+  /** @type {string[]} */
+  const texts = []
+  /** @type {string[]} */
+  const what = []
+  if (opts.run) {
+    texts.push(...(await runTexts(opts.run)))
+    what.push(`run ${opts.run}`)
+  }
+  if (opts['test-case']) {
+    texts.push(...(await testCaseTexts(opts['test-case'])))
+    what.push(`test case ${opts['test-case']}`)
+  }
+  if (opts.recording) {
+    texts.push(...(await recordingTexts(opts.recording)))
+    what.push(`recording ${opts.recording}`)
+  }
+  const scan = countSecrets(texts)
   console.log(
-    `scanned ${scan.files} documents of run ${opts.run} for ${scan.secrets} secrets: ${scan.total} hits`,
+    `scanned ${scan.files} documents of ${what.join(', ')} for ${scan.secrets} secrets: ${scan.total} hits`,
   )
   for (const h of scan.hits.filter((x) => x.count > 0)) console.log(`  ${h.name}: ${h.count}`)
   process.exit(scan.total === 0 ? 0 : 1)

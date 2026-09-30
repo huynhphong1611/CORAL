@@ -152,6 +152,56 @@ describe('scripts/phase1-e2e.mjs', () => {
     expect(stdout).toMatch(/for 1 secrets: 0 hits/)
   })
 
+  it('scans a saved test case and its snapshots (T058, SC-008)', async () => {
+    const project = (
+      await server.call(huynh, { method: 'POST', url: '/projects', payload: { name: 'scan' } })
+    ).body as { id: string }
+    const tree = (text: string) => JSON.stringify([{ ref: '0', text, children: [] }])
+    await server.store.commitFiles(huynh.tenantId, project.id, {
+      files: {
+        'snap/clean/s1/screen.jpg': Buffer.from([0xff, 0xd8, 0xff]),
+        'snap/clean/s1/tree.json': tree('Products'),
+        // A snapshot that kept the typed secret: the scan must find it.
+        'snap/leaky/s1/screen.jpg': Buffer.from([0xff, 0xd8, 0xff]),
+        'snap/leaky/s1/tree.json': tree('bob@example.com'),
+      },
+      author: { name: 'Huynh', email: 'huynh@example.com' },
+      message: 'snapshots',
+    })
+    const save = async (slug: string) =>
+      (
+        (
+          await server.call(huynh, {
+            method: 'POST',
+            url: `/projects/${project.id}/testcases`,
+            payload: { yaml: LOGIN_YAML.replace('id: login', `id: ${slug}`) },
+          })
+        ).body as { id: string }
+      ).id
+    const scan = (id: string) =>
+      run(
+        process.execPath,
+        [
+          SCRIPT,
+          '--server',
+          server.url,
+          '--email',
+          huynh.email,
+          '--password',
+          TEST_PASSWORD,
+          '--scan-secrets',
+          '--test-case',
+          id,
+        ],
+        { cwd: dir, env, timeout: 30_000 },
+      )
+    const clean = await scan(await save('clean'))
+    expect(clean.stdout).toMatch(/scanned 3 documents of test case \S+ for 1 secrets: 0 hits/)
+    const leaky = await scan(await save('leaky')).catch((e: { code: number; stdout: string }) => e)
+    expect(leaky).toMatchObject({ code: 1 })
+    expect(leaky.stdout).toMatch(/: 1 hits\n {2}CORAL_SECRET_TEST_USER: 1/)
+  })
+
   it('exits 2 on usage errors', async () => {
     const failed = await run(process.execPath, [SCRIPT, '--server', server.url], {
       cwd: dir,

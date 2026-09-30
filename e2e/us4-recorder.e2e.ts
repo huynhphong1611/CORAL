@@ -1,4 +1,7 @@
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import type { Page } from '@playwright/test'
+import { E2E_SERVER_URL } from './env'
 import { accessToken, api, expect, ON_EMULATOR, signIn, test } from './fixtures'
 import { tapDevice } from './live'
 import { seedProject } from './seed'
@@ -11,6 +14,7 @@ import { seedProject } from './seed'
 const USER = process.env.CORAL_SECRET_TEST_USER ?? 'bod@example.com'
 const PASSWORD = process.env.CORAL_SECRET_TEST_PASSWORD ?? '10203040'
 const STEP_MS = ON_EMULATOR ? 30_000 : 15_000
+const execFileAsync = promisify(execFile)
 
 interface Node {
   platform_id: string
@@ -167,6 +171,34 @@ test('records a login from the browser, saves it and replays it 3/3', async ({
   expect(detail.yaml).not.toContain(USER)
   expect(detail.yaml).not.toContain(PASSWORD)
   console.log(`recorded-login.yaml:\n${detail.yaml}`)
+
+  // SC-008 (T058): no secret value in the saved YAML, its snap/ trees, or the recording.
+  const scan = await execFileAsync(
+    process.execPath,
+    [
+      'scripts/phase1-e2e.mjs',
+      '--server',
+      E2E_SERVER_URL,
+      '--email',
+      account.email,
+      '--password',
+      account.password,
+      '--scan-secrets',
+      '--test-case',
+      saved.id,
+      '--recording',
+      recordingId,
+    ],
+    {
+      env: {
+        PATH: process.env.PATH ?? '',
+        CORAL_SECRET_TEST_USER: USER,
+        CORAL_SECRET_TEST_PASSWORD: PASSWORD,
+      },
+    },
+  )
+  console.log(scan.stdout.trim())
+  expect(scan.stdout).toMatch(/for 2 secrets: 0 hits/)
 
   // The recorded test case replays 3 times out of 3.
   for (let i = 1; i <= 3; i += 1) {

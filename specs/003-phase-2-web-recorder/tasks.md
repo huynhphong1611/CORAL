@@ -183,7 +183,7 @@ Monorepo (plan.md → Project Structure): `apps/web/src/`, `apps/server/src/`, `
 ## Phase 10: Polish & Cross-Cutting Concerns
 
 - [x] T057 [P] Đồng bộ tài liệu: SPEC §15 (payload `stream.*`, `device.command`, `job.assign.assets`), §16 (route control/recordings/snapshots, `WS /ws/ui` xác thực bằng `ui.auth`), §7.2 (dạng object của `image`), §21 Decision log cho quyết định mới (xác thực `/ws/ui` trong băng; recorder tap tâm element; bản ghi ở server); CLAUDE.md "Lệnh thường dùng" thêm `test:e2e`, `dev:fake-device`; README mục Web
-- [ ] T058 [P] Kiểm tra SC-008 cho Recorder: `scripts/phase1-e2e.mjs --scan-secrets` mở rộng quét `recordings/*` và `snap/` của test case vừa lưu; test tích hợp quét sau E2E US4 → 0
+- [x] T058 [P] Kiểm tra SC-008 cho Recorder: `scripts/phase1-e2e.mjs --scan-secrets` mở rộng quét `recordings/*` và `snap/` của test case vừa lưu; test tích hợp quét sau E2E US4 → 0
 - [ ] T059 Chạy đủ cổng chất lượng (format, lint, boundaries, typecheck, test, test:int, test:e2e, build) + quickstart §1; push; CI xanh cả các job (`checks`, `infra`, `integration`, `e2e`, `Device`)
 - [ ] T060 Đóng Phase 2: tự kiểm từng mục DoD (quickstart checklist), đánh dấu `[x]` Phase 2 trong `docs/ROADMAP.md`, báo cáo Huynh kèm ảnh (ghi trình duyệt đã kiểm: Chromium tự động; Firefox/Edge kiểm tay — FR-024), chuyển "Phase hiện tại" → Phase 3
 
