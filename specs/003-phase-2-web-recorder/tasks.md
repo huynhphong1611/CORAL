@@ -172,8 +172,8 @@ Monorepo (plan.md → Project Structure): `apps/web/src/`, `apps/server/src/`, `
 
 **Independent Test**: tạo app, tải APK, tạo token agent trên web → agent dùng token đó hiện thiết bị (quickstart §7).
 
-- [ ] T054 [P] [US7] Web tab **Apps & builds**: tạo app ✍, tải APK ✍ (multipart, tiến độ, lỗi 413), danh sách build (phiên bản, kích thước); test component
-- [ ] T055 [P] [US7] Web trang Devices: **Add agent** ✍ → token hiện **một lần**, nút Copy, cảnh báo; danh sách agent + Revoke ✍; test component
+- [x] T054 [P] [US7] Web tab **Apps & builds**: tạo app ✍, tải APK ✍ (multipart, tiến độ, lỗi 413), danh sách build (phiên bản, kích thước); test component
+- [x] T055 [P] [US7] Web trang Devices: **Add agent** ✍ → token hiện **một lần**, nút Copy, cảnh báo; danh sách agent + Revoke ✍; test component
 - [ ] T056 [US7] E2E `e2e/us7-setup.e2e.ts`: tạo app, tải APK giả, tạo agent token → khởi động agent giả với token đó → thiết bị hiện trên `/devices`; chụp ảnh
 
 **Checkpoint**: US7 xong.

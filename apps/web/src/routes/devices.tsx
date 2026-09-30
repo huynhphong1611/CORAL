@@ -3,9 +3,10 @@ import { useDevices } from '../api/queries'
 import { ActivityBadge } from '../components/activity'
 import { PageHeader } from '../components/Layout'
 import { buttonClass, QueryState, Table, Td, Th } from '../components/ui'
+import { AgentsPanel } from '../features/setup/AgentsPanel'
 import { en } from '../i18n/en'
 
-/** `/devices`: every device of the tenant and what it is doing, live (FR-003, T023). */
+/** `/devices`: every device of the tenant and what it is doing, live (FR-003, T023); its agents (US7). */
 export function DevicesPage() {
   const devices = useDevices()
   return (
@@ -52,6 +53,7 @@ export function DevicesPage() {
           </Table>
         )}
       </QueryState>
+      <AgentsPanel />
     </section>
   )
 }

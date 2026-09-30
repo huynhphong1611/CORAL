@@ -32,6 +32,8 @@ interface RequestOptions<T> {
   schema?: z.ZodType<T>
   /** Do not try a refresh on 401 (the auth routes themselves). */
   noRefresh?: boolean
+  /** Upload progress of `form` (sent through XMLHttpRequest: fetch reports none). */
+  onProgress?: (sent: number, total: number) => void
 }
 
 /**
@@ -121,8 +123,18 @@ export class ApiClient {
     return this.request('DELETE', path, {})
   }
 
-  upload<T>(path: string, form: FormData, schema?: z.ZodType<T>): Promise<T> {
-    return this.request('POST', path, { form, ...(schema ? { schema } : {}) })
+  /** POST multipart; with `onProgress`, the bytes sent so far are reported (APK uploads). */
+  upload<T>(
+    path: string,
+    form: FormData,
+    schema?: z.ZodType<T>,
+    onProgress?: (sent: number, total: number) => void,
+  ): Promise<T> {
+    return this.request('POST', path, {
+      form,
+      ...(schema ? { schema } : {}),
+      ...(onProgress ? { onProgress } : {}),
+    })
   }
 
   /** Bytes of a GET behind the access token (snapshot images of a test case). */
@@ -155,6 +167,9 @@ export class ApiClient {
   private send(method: string, path: string, options: RequestOptions<unknown>): Promise<Response> {
     const headers: Record<string, string> = {}
     if (this.current) headers.authorization = `Bearer ${this.current.access_token}`
+    if (options.form && options.onProgress && typeof XMLHttpRequest !== 'undefined') {
+      return xhrSend(method, `${this.base}${path}`, headers, options.form, options.onProgress)
+    }
     let body: BodyInit | undefined
     if (options.form) {
       body = options.form
@@ -183,4 +198,32 @@ async function toError(response: Response): Promise<ApiError> {
     // Not JSON: fall through.
   }
   return new ApiError(response.status, 'http_error', `HTTP ${response.status}`)
+}
+
+/** A request through XMLHttpRequest, for its upload progress events; answered as a Response. */
+function xhrSend(
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body: FormData,
+  onProgress: (sent: number, total: number) => void,
+): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open(method, url)
+    xhr.withCredentials = true
+    for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value)
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(event.loaded, event.total)
+    }
+    xhr.onload = () =>
+      resolve(
+        new Response(xhr.status === 204 ? null : xhr.responseText, {
+          status: xhr.status,
+          headers: { 'content-type': xhr.getResponseHeader('content-type') ?? 'application/json' },
+        }),
+      )
+    xhr.onerror = () => reject(new Error('network error'))
+    xhr.send(body)
+  })
 }

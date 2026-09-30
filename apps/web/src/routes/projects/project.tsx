@@ -17,6 +17,7 @@ import {
   Td,
   Th,
 } from '../../components/ui'
+import { NewAppForm, UploadBuild } from '../../features/setup/AppForms'
 import { en } from '../../i18n/en'
 
 export const PROJECT_TABS = ['testcases', 'runs', 'recordings', 'apps'] as const
@@ -281,25 +282,37 @@ function RecordingsTab({ projectId }: { projectId: string }) {
   )
 }
 
-/** Apps and builds, read-only here (creating them from the web is US7). */
+/** Apps and their builds; writers add apps and upload APKs (US7). */
 function AppsTab({ projectId }: { projectId: string }) {
   const apps = useApps(projectId)
+  const { canWrite } = useRole()
   return (
-    <QueryState query={apps} empty={en.apps.empty}>
-      {(list) => (
-        <div className="space-y-4">
-          {list.map((app) => (
-            <Card key={app.id} className="p-4">
-              <div className="mb-3 flex items-baseline gap-3">
-                <h3 className="font-medium">{app.name}</h3>
-                <span className="font-mono text-xs text-slate-500">{app.package_or_bundle_id}</span>
-              </div>
-              <Builds appId={app.id} />
-            </Card>
-          ))}
-        </div>
+    <div className="space-y-4">
+      {canWrite && (
+        <Card className="p-4">
+          <h3 className="mb-3 text-sm font-medium">{en.apps.newApp}</h3>
+          <NewAppForm projectId={projectId} />
+        </Card>
       )}
-    </QueryState>
+      <QueryState query={apps} empty={en.apps.empty}>
+        {(list) => (
+          <div className="space-y-4">
+            {list.map((app) => (
+              <Card key={app.id} className="space-y-3 p-4">
+                <div className="flex items-baseline gap-3">
+                  <h3 className="font-medium">{app.name}</h3>
+                  <span className="font-mono text-xs text-slate-500">
+                    {app.package_or_bundle_id}
+                  </span>
+                </div>
+                <Builds appId={app.id} />
+                {canWrite && <UploadBuild app={app} />}
+              </Card>
+            ))}
+          </div>
+        )}
+      </QueryState>
+    </div>
   )
 }
 

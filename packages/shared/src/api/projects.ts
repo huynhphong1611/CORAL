@@ -25,5 +25,6 @@ export const buildSchema = z.object({
 })
 
 export type Project = z.infer<typeof projectSchema>
+export type CreateApp = z.infer<typeof createAppSchema>
 export type App = z.infer<typeof appSchema>
 export type Build = z.infer<typeof buildSchema>

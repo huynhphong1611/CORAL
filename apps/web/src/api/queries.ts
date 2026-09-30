@@ -29,6 +29,7 @@ export const keys = {
   apps: (projectId: string) => ['projects', projectId, 'apps'] as const,
   builds: (appId: string) => ['apps', appId, 'builds'] as const,
   devices: ['devices'] as const,
+  agents: ['agents'] as const,
   runs: (filters: RunFilters) => ['runs', 'list', filters] as const,
   runLists: ['runs', 'list'] as const,
   run: (runId: string) => ['runs', runId] as const,
@@ -66,6 +67,15 @@ export function useBuilds(appId: string | undefined) {
     queryKey: keys.builds(appId ?? ''),
     queryFn: () => client.get(`/apps/${appId}/builds`, api.buildSchema.array()),
     enabled: appId !== undefined,
+  })
+}
+
+/** The tenant's agents (US7): name, status, what they run on. */
+export function useAgents() {
+  const { client } = useCoral()
+  return useQuery({
+    queryKey: keys.agents,
+    queryFn: () => client.get('/agents', api.agentSchema.array()),
   })
 }
 

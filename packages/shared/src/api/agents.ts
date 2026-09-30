@@ -12,6 +12,8 @@ export const agentSchema = z.object({
   last_seen_at: timestamp.nullable(),
 })
 
+export type Agent = z.infer<typeof agentSchema>
+
 /** Returned once by POST /agents — the token is never shown again (FR-020). */
 export const createdAgentSchema = agentSchema.pick({ id: true, name: true }).extend({
   token: z.string().regex(/^coral_agt_[A-Za-z0-9_-]{20,}$/),
@@ -29,3 +31,4 @@ export const deviceSchema = z.object({
   status: z.enum(['idle', 'leased', 'offline']),
 })
 export type Device = z.infer<typeof deviceSchema>
+export type CreatedAgent = z.infer<typeof createdAgentSchema>
