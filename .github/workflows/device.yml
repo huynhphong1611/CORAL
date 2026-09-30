@@ -13,6 +13,7 @@ on:
       - scripts/phase1-e2e.mjs
       - packages/runner/**
       - apps/agent/**
+      - packages/cli/**
       - fixtures/testcases/mydemo-*.yaml
       - packages/shared/src/popups/**
       # Phase 2: the Recorder end to end (T046).
