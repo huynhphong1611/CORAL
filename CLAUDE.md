@@ -73,11 +73,13 @@ pnpm typecheck               # tsc --noEmit từng gói + scripts
 pnpm test                    # Vitest toàn repo (bỏ qua *.device.test.ts và *.int.test.ts)
 pnpm test:int                # thêm test tích hợp *.int.test.ts (cần docker compose đang chạy + db:migrate)
 pnpm test:device             # chỉ chạy test cần thiết bị thật
+pnpm test:e2e                # Playwright trên Chromium: server + web (vite preview) + agent thiết bị giả (cần docker compose + db:migrate)
+pnpm dev:fake-device         # agent + thiết bị giả vẽ My Demo App (CORAL_AGENT_TOKEN trong .env) — demo, live view, Recorder
 pnpm check:boundaries        # kiểm tra luật phụ thuộc P1 (manifest + lockfile)
 pnpm coral --help            # chạy CLI từ source
-pnpm coral validate <file...>            # kiểm tra test case / popups.yaml (exit 0 hợp lệ, 1 có lỗi)
+pnpm coral validate <file...> [--project-root <dir>]   # kiểm tra test case / popups.yaml (exit 0 hợp lệ, 1 có lỗi); có --project-root thì kiểm cả file ảnh
 pnpm coral devices                       # thiết bị Android đang kết nối (adb)
-pnpm coral run <tc.yaml> --app <package> [--device <udid>] [--apk <file>]   # chạy cục bộ, không cần server
+pnpm coral run <tc.yaml> --app <package> [--device <udid>] [--apk <file>] [--project-root <dir>]   # chạy cục bộ, không cần server; ảnh của locator `image` tính từ project root
 pnpm --filter @coral/server db:migrate   # áp migration Drizzle
 pnpm --filter @coral/server db:seed      # tạo owner từ CORAL_SEED_EMAIL / CORAL_SEED_PASSWORD
 pnpm --filter @coral/server test          # test một gói

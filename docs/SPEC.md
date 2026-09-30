@@ -253,7 +253,7 @@ Schema là một discriminated union theo `action` (D14). `expect` và `snapshot
 | `desc` | `content-desc` (Android) / `label` (iOS) | Cả hai |
 | `rel` | Vị trí tương đối: `below` / `above` / `left_of` / `right_of` một locator khác, có thể kèm `class` | Cả hai |
 | `class_index` | `{ class, index, within? }` | Cả hai |
-| `image` | So khớp ảnh cắt của element (ngưỡng mặc định 0.85; template matching bằng OpenCV WASM trong runner — D27) | Cả hai |
+| `image` | So khớp ảnh cắt của element: `image: <đường dẫn .png trong repo project>` hoặc `{ path, threshold?: 0.5–1 (mặc định 0.85), screen_width? }` (bề rộng màn hình lúc cắt; ảnh được co theo bề rộng hiện tại). Template matching bằng OpenCV WASM trong runner (D27, D40); chỉ dùng trong `target`, không trong `expect` | Cả hai |
 | `point_pct` | Tọa độ theo % kích thước cửa sổ. **Phương án cuối.** | Cả hai |
 
 Locator gắn nền tảng (`android_id`, `ios_id`) bị bỏ qua khi chạy trên nền tảng kia.
@@ -577,13 +577,13 @@ Mỗi message có `{ v: 1, type, id, ts, payload }` và trường tùy chọn `r
 - `re`: `id` của message mà message này trả lời (bắt buộc với `job.ack`/`job.reject`, `artifact.upload_url`, `device.command_result`, `popup.decision`).
 - Agent xác thực bằng header `Authorization: Bearer <agent token>` khi mở kết nối `WS /ws/agent`.
 - Heartbeat 15 giây; mất 3 heartbeat thì đánh dấu offline. Agent offline khi đang giữ lease → `run_item` đang chạy fail `DEVICE_OFFLINE`, lease được giải phóng, không tự retry (Phase 1).
-- Payload chứa dữ liệu nhị phân lớn (`stream.frame`) gửi bằng **binary WS frame** (header JSON ngắn + JPEG) thay vì base64 trong JSON (Phase 2).
+- Payload chứa dữ liệu nhị phân lớn (`stream.frame`) gửi bằng **binary WS frame** thay vì base64 trong JSON (Phase 2): `[uint32 BE độ dài header][header JSON { type, udid, seq, ts, width, height, device_width, device_height, rotation, mime }][ảnh JPEG/PNG]`, tối đa 2 MB/khung. Server chuyển nguyên khung tới trình duyệt qua `/ws/ui` (header thêm `device_id`).
 
 | Hướng | type | Nội dung |
 |---|---|---|
 | A→S | `agent.hello` | phiên bản, OS, capabilities, danh sách thiết bị |
 | A→S | `device.update` | thiết bị thêm / bớt / đổi trạng thái |
-| S→A | `job.assign` | run id, thiết bị, build, test cases (YAML + commit), popups.yaml, giá trị secret đã giải mã mà test case tham chiếu, fingerprint màn hình khi có `expect.screen` |
+| S→A | `job.assign` | run id, thiết bị, build, test cases (YAML + commit), popups.yaml, giá trị secret đã giải mã mà test case tham chiếu, fingerprint màn hình khi có `expect.screen`; mỗi test case kèm `assets: [{ path, sha256, download_url }]` — ảnh của locator `image`, lưu theo nội dung `<tenant>/assets/<sha256>`, agent cache theo sha256, sai sha → item `error` (Phase 2) |
 | A→S | `job.ack` / `job.reject` | |
 | A→S | `step.result` | kết quả từng step, locator đã dùng, degraded |
 | A→S | `artifact.request_upload` | xin presigned URL |
@@ -591,10 +591,10 @@ Mỗi message có `{ v: 1, type, id, ts, payload }` và trường tùy chọn `r
 | A→S | `job.done` | tổng kết, mã lỗi (nếu có) |
 | A→S | `popup.unknown` | snapshot để server gọi Popup resolver |
 | S→A | `popup.decision` | nút cần bấm hoặc "không xử lý được" |
-| S→A | `device.command` | lệnh đơn (tap/type/swipe/tree/screenshot…) cho Explorer, Recorder, Live view |
-| A→S | `device.command_result` | kết quả lệnh |
-| S→A | `stream.start` / `stream.stop` | bật / tắt live view |
-| A→S | `stream.frame` | khung hình (MVP: JPEG) |
+| S→A | `device.command` | `{ command_id, udid, command }`: lệnh đơn khi điều khiển (`tap`, `long_press`, `swipe`, `type`, `back`, `home`, `hide_keyboard`, `restart_app`) và của Recorder (`prepare`, `record`, `inspect` — chọn element, chuỗi locator, snapshot tải lên presigned URL); lệnh chạy lần lượt theo thiết bị, không khi thiết bị đang chạy run |
+| A→S | `device.command_result` | `{ command_id, ok, error?: { code, message }, result? }` (`re` bắt buộc) |
+| S→A | `stream.start` / `stream.stop` | bật / tắt live view (`fps` 2–5, `max_edge`, `quality`) |
+| A→S | `stream.frame` | khung hình JPEG/PNG, binary frame (xem trên) |
 | S→A | `job.cancel` | hủy run |
 | S→A | `agent.welcome` | trả lời `agent.hello`: `agent_id`, chu kỳ heartbeat (D33) |
 | A→S | `agent.heartbeat` | mỗi 15 giây, kèm trạng thái thiết bị; gia hạn lease (D33) |
@@ -618,12 +618,16 @@ GET    /projects/:id/apps          POST /projects/:id/apps
 POST   /apps/:id/builds            (upload)
 GET    /agents                     POST /agents   (trả token một lần)
 POST   /agents/:id/revoke          (thu hồi token, đóng kết nối WS của agent)
-GET    /devices
+GET    /devices                    (kèm `activity`: idle / run / live / recording / offline)
+POST   /devices/:id/control        DELETE /devices/:id/control   GET /devices/:id/control   (phiên điều khiển, lease `live`)
+POST   /recordings                 GET  /recordings   GET /recordings/:id   PATCH /recordings/:id   DELETE /recordings/:id
+POST   /recordings/:id/stop | /resume | /save   GET /recordings/:id/yaml   (Recorder, lease `recording`; save = một commit gồm YAML + snap/<slug>/)
 GET    /projects/:id/testcases     POST /projects/:id/testcases
 POST   /projects/:id/testcases/generate   (từ prompt, §11.3)
 POST   /projects/:id/testcases/import     GET  /imports/:id
 GET    /testcases/:id              PUT  /testcases/:id
 GET    /testcases/:id/history      (các commit đã sửa test case, mới nhất trước — D31)
+GET    /testcases/:id/snapshots    GET /testcases/:id/files/*path   (chỉ trong snap/<slug>/)   GET /testcases/:id/last-run-steps   (ảnh cho editor)
 POST   /runs                       GET  /runs   GET /runs/:id   POST /runs/:id/cancel
 GET    /runs/:id/items/:itemId/steps
 POST   /explorations               GET  /explorations/:id
@@ -633,7 +637,7 @@ GET    /projects/:id/skills        PUT  /projects/:id/skills/:name
 GET    /brains/config              PUT  /brains/config
 GET    /projects/:id/mcp           PUT  /projects/:id/mcp   (mcp.yaml, §14.5)
 GET    /usage/ai
-WS     /ws/ui      (sự kiện run, live view)
+WS     /ws/ui      (sự kiện run, live view, lệnh điều khiển/ghi; xác thực trong băng: message đầu `ui.auth { access_token }` — D38)
 WS     /ws/agent   (§15)
 POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
 ```
@@ -756,3 +760,6 @@ POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
 | D36 | 2026-09-29 | Hit-test theo element **nhận chạm** (mô hình dispatch của Android) thay vì element vẽ trên cùng; hộp thoại crash/ANR của **app khác** (xác định qua `dumpsys window`) được bỏ qua bằng Close app (Wait khi không có Close app); thao tác lỗi giữa chừng vì popup được làm lại một lần sau khi guard xử lý popup; thứ tự cửa sổ theo z-order của `dumpsys window windows` (dự phòng: toàn màn hình dưới cùng, cửa sổ nhỏ hơn, bàn phím, system UI trên cùng); dialog/popup là cửa sổ modal | Emulator Android 14 trong CI: logo `id/mTvTitle` không bấm được đè lên nút menu làm mọi run fail "covered"; "Pixel Launcher isn't responding" sau khi boot làm mọi launch fail `APP_NOT_RESPONDING`; dump u2 lúc liệt kê status bar trước, lúc dialog quyền trước (UiDevice gom cửa sổ vào một HashSet) nên không dùng được làm z-order. |
 | D35 | 2026-09-29 | `expect.visible_text` = "chứa chuỗi" (chuẩn hóa khoảng trắng, phân biệt hoa/thường, chỉ `text`); `expect` thấy cả node dưới popup, chỉ target thao tác mới bị kiểm tra "bị che"; popup guard dùng cùng quy tắc để nhận ra step đang kiểm tra popup | Huynh duyệt khi xem US4 Phase 1: popup vẫn được xử lý ở thao tác kế tiếp (target bị che → guard); muốn khẳng định popup đã đi thì dùng `not_visible`. |
 | D37 | 2026-09-29 | Test `*.device.test.ts` và các kiểm tra 🔌 chạy trên emulator Android 14 của GitHub Actions trong workflow `Device` (`.github/workflows/device.yml`, runner có KVM): khi push đụng đường dẫn thiết bị và khi chạy tay; vẫn bị bỏ qua trong `pnpm test` và các job CI thường. Ảnh ghép các step được lưu thành git blob để báo cáo đọc được | Container phát triển không có KVM; Huynh đồng ý dựng emulator trên cloud thay cho máy thật (Phase 2). Constitution 1.0.1 sửa câu "never run in CI". |
+| D38 | 2026-09-30 | `WS /ws/ui` xác thực trong băng: message đầu tiên là `ui.auth { access_token }` trong 5 s (sai → đóng `4401`), token mới gửi lại trên cùng kết nối; quyền theo vai trò (`viewer` chỉ xem, FR-002a) | Trình duyệt không đặt được header `Authorization` cho WebSocket; token không nằm trong URL (log, lịch sử) — phù hợp D23 (Phase 2, research R2). |
+| D39 | 2026-09-30 | Recorder: chạm vào **tâm element** được chọn (không phải điểm click), ghi chuỗi locator đã kiểm tra lại (id, text, desc, `rel`, `class_index`, ảnh; `point_pct` chỉ khi không có gì khác) + snapshot; bản ghi dở ở server (bảng `recordings`, snapshot trên S3, hết hạn 7 ngày); lưu = một commit gồm YAML + `snap/<slug>/`; chữ trùng giá trị secret được ghi thành `${secret:NAME}` (server thay trong step, đề xuất, inspect; agent che trong `tree.json` và log) | Theo P2 (lưu cách tìm element, chạm tâm bounds); bản ghi không mất khi tải lại trang (FR-016); SC-008 trên emulator cho thấy đề xuất kỳ vọng có thể mang giá trị secret đọc trên màn hình. |
+| D40 | 2026-09-30 | Locator `image`: so toàn ảnh mẫu rồi kiểm lại **phần ruột** (bỏ 10 % mép) tại chỗ tìm được, điểm = số nhỏ hơn; ảnh mẫu/ruột phẳng không bao giờ khớp; co một lần theo `screen_width`, không dò nhiều tỉ lệ; kiểm "bị che" ở mức cửa sổ; ảnh đi theo job bằng nội dung (`<tenant>/assets/<sha256>`), `coral run --project-root` đọc từ đĩa | Nút cùng kiểu khác chữ đạt 0,865 khi chỉ so toàn ảnh (viền + nền lấn át) → khớp nhầm, trái SC-005; không chạm bừa quan trọng hơn khớp được khi mật độ màn hình khác (research R12). |

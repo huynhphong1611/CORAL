@@ -39,6 +39,18 @@ node scripts/phase1-e2e.mjs --apk ./mydemo.apk --testcase fixtures/testcases/myd
 
 Secrets used by test cases (`${secret:NAME}`) come from `CORAL_SECRET_<NAME>` in `.env` for now (development only) and are masked in every log and artifact. Step-by-step checks: [`specs/002-phase-1-android-runner/quickstart.md`](specs/002-phase-1-android-runner/quickstart.md).
 
+## The web (Phase 2)
+
+`pnpm dev` serves the SPA on `http://localhost:5173` (it proxies `/api` and `/api/ws/ui` to the server). Sign in with the seeded account, then, all from the browser:
+
+- **Set up** — a project, its app (**Apps & builds** › New app), an APK build (upload with progress), and on **Devices** an agent token (**Add agent**: shown once, **Copy**) for `CORAL_AGENT_TOKEN`. No device at hand? `pnpm dev:fake-device` starts an agent whose device is a drawn look-alike of the Sauce Labs My Demo App.
+- **Run** test cases and follow them live: every step with its screenshot, locator, time, and the device log when it fails.
+- **Watch and control** a device (`/devices/<id>`): a live view at 2–5 fps; **Take control** to tap, swipe, type or go Back (one person at a time; runs wait).
+- **Record** a test case (**Record a test case**): each click becomes a step with a chain of locators (id, text, desc, relative position, class index, the element's picture), a snapshot of the screen, and suggested expectations to accept; secrets are typed by name and stay `${secret:NAME}`. **Save** commits the YAML and its pictures to the project repo.
+- **Edit** a test case: YAML checked as you type (problems on their line; Save locked), a picture beside each step (the recording's snapshot, else the latest run's screenshot), History, and a conflict warning instead of overwriting someone else's save.
+
+An `image` locator (the element's picture) is tried in its place in the chain when the others miss: the step passes `degraded`, and nothing is tapped when no place looks alike. `coral run --project-root <dir>` reads those pictures from a project checkout. Browser checks: `pnpm test:e2e` (Playwright, Chromium). Step-by-step checks: [`specs/003-phase-2-web-recorder/quickstart.md`](specs/003-phase-2-web-recorder/quickstart.md).
+
 ## Layout
 
 | Path | Package | Role |
