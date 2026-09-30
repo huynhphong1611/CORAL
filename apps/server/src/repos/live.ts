@@ -153,7 +153,9 @@ export function liveRepo(db: Db, tenantId: string) {
       /** The command id sent to the agent, so the row and the agent logs match. */
       id?: string
       deviceId: string
-      liveSessionId: string
+      /** The command belongs to a control session or to a recording. */
+      liveSessionId?: string
+      recordingId?: string
       userId: string
       kind: CommandKind
       params: Record<string, unknown>

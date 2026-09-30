@@ -38,11 +38,13 @@ export const createRecordingSchema = z.object({
   build_id: z.uuid(),
   device_id: z.uuid(),
 })
+export type CreateRecording = z.infer<typeof createRecordingSchema>
 
 export const listRecordingsQuerySchema = z.object({
   project_id: z.uuid().optional(),
   status: z.enum(RECORDING_STATUSES).optional(),
 })
+export type ListRecordingsQuery = z.infer<typeof listRecordingsQuerySchema>
 
 /** Edit, delete, reorder steps and accept suggestions before saving (FR-016). */
 export const patchRecordingSchema = z
@@ -52,11 +54,13 @@ export const patchRecordingSchema = z
     steps: z.array(recordingStepSchema).optional(),
   })
   .refine((p) => Object.keys(p).length > 0, { message: 'nothing to change' })
+export type PatchRecording = z.infer<typeof patchRecordingSchema>
 
 export const recordingYamlSchema = z.object({
   yaml: z.string(),
   warnings: z.array(validationIssueSchema),
 })
+export type RecordingYaml = z.infer<typeof recordingYamlSchema>
 
 export const saveRecordingSchema = z
   .object({

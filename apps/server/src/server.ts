@@ -13,9 +13,11 @@ import { registerErrorHandling } from './http/errors'
 import { createRepos } from './repos'
 import { registerAgentRoutes, type AgentConnections } from './routes/agents'
 import type { LiveControl } from './live/control'
+import type { RecordingService } from './recordings/service'
 import { registerBuildRoutes } from './routes/builds'
 import { registerControlRoutes } from './routes/devices-control'
 import { registerProjectRoutes } from './routes/projects'
+import { registerRecordingRoutes } from './routes/recordings'
 import { registerRunRoutes } from './routes/runs'
 import { registerTestCaseRoutes } from './routes/testcases'
 import type { RunDispatcher } from './runs/dispatcher'
@@ -38,6 +40,8 @@ export interface ServerDeps {
   runs?: { dispatcher: RunDispatcher; secrets: SecretSource }
   /** Taking devices from the browser (`/devices/:id/control`, `live.command`). */
   live?: LiveControl
+  /** The Recorder (`/recordings`, recording commands over `/ws/ui`). */
+  recordings?: RecordingService
   /** `GET /health/ready`: true when Postgres, Redis, S3 and the data dir are usable. */
   readiness?: () => Promise<boolean>
   /** Largest build upload (config CORAL_MAX_BUILD_MB). */
@@ -103,6 +107,7 @@ export function buildServer(
     const connections = deps.gateway ?? deps.connections
     registerAgentRoutes(app, { repos, ...(connections ? { connections } : {}) })
     if (deps.live) registerControlRoutes(app, { repos, live: deps.live })
+    if (deps.recordings) registerRecordingRoutes(app, { repos, recordings: deps.recordings })
     if (deps.artifacts) {
       registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
       if (deps.runs) {

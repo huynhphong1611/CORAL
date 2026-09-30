@@ -2,9 +2,11 @@ import type { Readable } from 'node:stream'
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
   HeadBucketCommand,
+  ListObjectsV2Command,
   PutBucketLifecycleConfigurationCommand,
   PutObjectCommand,
   S3Client,
@@ -41,6 +43,8 @@ export interface ArtifactStore {
   /** Size in bytes, or undefined when the object does not exist. */
   size(key: string): Promise<number | undefined>
   remove(key: string): Promise<void>
+  /** Deletes every object under `prefix` (a recording's snapshots); returns how many. */
+  removePrefix(prefix: string): Promise<number>
   /** The bucket answers (readiness). */
   ready(): Promise<boolean>
 }
@@ -130,6 +134,23 @@ export function createArtifactStore(config: ServerConfig['s3']): ArtifactStore {
 
     async remove(key) {
       await client.send(new DeleteObjectCommand({ Bucket, Key: key }))
+    },
+
+    async removePrefix(prefix) {
+      let removed = 0
+      let token: string | undefined
+      do {
+        const page = await client.send(
+          new ListObjectsV2Command({ Bucket, Prefix: prefix, ContinuationToken: token }),
+        )
+        const keys = (page.Contents ?? []).flatMap((o) => (o.Key ? [{ Key: o.Key }] : []))
+        if (keys.length > 0) {
+          await client.send(new DeleteObjectsCommand({ Bucket, Delete: { Objects: keys } }))
+          removed += keys.length
+        }
+        token = page.IsTruncated ? page.NextContinuationToken : undefined
+      } while (token)
+      return removed
     },
 
     async presignGet(key) {

@@ -9,6 +9,7 @@ import { AgentCommands } from './live/agent-commands'
 import { LiveControl } from './live/control'
 import { deviceLookup, StreamHub } from './live/stream-hub'
 import { ProjectRepoStore } from './git/project-repo-store'
+import { RecordingService } from './recordings/service'
 import { RunDispatcher } from './runs/dispatcher'
 import { registerIngest, startLeaseSweeper } from './runs/ingest'
 import { envSecrets } from './runs/secrets'
@@ -53,11 +54,24 @@ export async function startServices(
     notify,
   })
   registerIngest({ db: database.db, gateway, dispatcher, artifacts, notify })
+  const commands = new AgentCommands(gateway)
   const live = new LiveControl({
     db: database.db,
     ui: uiGateway,
     agents: gateway,
-    commands: new AgentCommands(gateway),
+    commands,
+    secrets,
+    idleMs: config.timeouts.liveIdleMs,
+    notify,
+  })
+  const recordings = new RecordingService({
+    db: database.db,
+    store,
+    artifacts,
+    ui: uiGateway,
+    agents: gateway,
+    commands,
+    live,
     secrets,
     idleMs: config.timeouts.liveIdleMs,
     notify,
@@ -81,6 +95,7 @@ export async function startServices(
     uiGateway,
     runs: { dispatcher, secrets },
     live,
+    recordings,
     readiness,
     maxBuildBytes: config.maxBuildBytes,
   }
@@ -94,11 +109,12 @@ export async function startServices(
       notify.attachLogger(log)
       streams.attachLogger(log)
       live.attachLogger(log)
+      recordings.attachLogger(log)
       sweeper = startLeaseSweeper({
         db: database.db,
         dispatcher,
         notify,
-        expire: (lease) => live.expire(lease),
+        expire: async (lease) => (await live.expire(lease)) || recordings.expire(lease),
         log,
       })
     },

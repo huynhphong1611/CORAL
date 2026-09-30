@@ -12,7 +12,6 @@ import type { UiContext, UiGateway } from '../ui/gateway'
 import type { AgentCommands, CommandResult } from './agent-commands'
 
 type DeviceCommand = protocol.DeviceCommand
-type AgentCommand = protocol.Payload<'device.command'>['command']
 type EndReason = protocol.UiPayload<'live.ended'>['reason']
 
 const LEASE_REASON = {
@@ -39,6 +38,11 @@ export interface Caller {
   userId: string
 }
 
+/** Where `live.command` of a recording goes (the Recorder, T041). */
+export interface RecordingCommands {
+  command(ctx: UiContext, payload: protocol.UiPayload<'live.command'>): Promise<void>
+}
+
 const failed = (code: string, message: string): CommandResult['error'] => ({ code, message })
 
 /**
@@ -48,6 +52,8 @@ const failed = (code: string, message: string): CommandResult['error'] => ({ cod
  * alive; `idleMs` without one, or the agent going away, ends it and tells the holder.
  */
 export class LiveControl {
+  private recordings: RecordingCommands | undefined
+
   constructor(private readonly options: LiveControlOptions) {
     options.ui.on('live.command', (ctx, message) => this.command(ctx, message.payload))
     options.agents.onAgentOffline((agent) => this.agentGone(agent))
@@ -55,6 +61,17 @@ export class LiveControl {
 
   attachLogger(log: FastifyBaseLogger): void {
     this.options.log = log
+  }
+
+  /** Commands of a recording (`recording_id`) go to the Recorder. */
+  useRecordings(recordings: RecordingCommands): void {
+    this.recordings = recordings
+  }
+
+  /** The open control session of `userId` on the device, if any (a recording takes it over). */
+  async sessionOf(tenantId: string, deviceId: string, userId: string) {
+    const session = await liveRepo(this.options.db, tenantId).current(deviceId)
+    return session?.userId === userId ? session : undefined
   }
 
   /** POST /devices/:id/control → 201, or 409 `device_busy` (with the activity) / `device_offline`. */
@@ -160,6 +177,7 @@ export class LiveControl {
     const { user } = ctx.connection
     if (user.role === 'viewer') return answer(failed('forbidden', 'viewers cannot control devices'))
     if (!payload.live_session_id) {
+      if (this.recordings) return this.recordings.command(ctx, payload)
       return answer(failed('unsupported', 'recording commands arrive with the Recorder'))
     }
     const repo = liveRepo(this.options.db, user.tenantId)
@@ -172,7 +190,9 @@ export class LiveControl {
     if (device.status === 'offline' || !this.options.agents.isOnline(device.agentId)) {
       return answer(failed('device_offline', 'the device is offline'))
     }
-    const prepared = await this.prepare(payload.command, repo, session.deviceId)
+    const prepared = await toAgentCommand(payload.command, this.options.secrets, () =>
+      repo.lastAppPackage(session.deviceId),
+    )
     if ('error' in prepared) return answer(prepared.error)
     await repo.recordCommand({
       id: commandId,
@@ -191,48 +211,49 @@ export class LiveControl {
     await repo.finishCommand(commandId, result.ok ? 'ok' : 'failed', result.error?.code)
     return answer(result.ok ? undefined : result.error)
   }
+}
 
-  /**
-   * What the agent gets and what is stored (FR-009): typed text stays out of `params` (only its
-   * length, or the secret's name); a secret's value is filled in here and never sent to a browser.
-   */
-  private async prepare(
-    command: DeviceCommand,
-    repo: ReturnType<typeof liveRepo>,
-    deviceId: string,
-  ): Promise<
-    | { command: AgentCommand; params: Record<string, unknown> }
-    | { error: NonNullable<CommandResult['error']> }
-  > {
-    switch (command.kind) {
-      case 'type': {
-        if (command.secret !== undefined) {
-          const value = this.options.secrets.get([command.secret])[command.secret]
-          if (value === undefined) {
-            return {
-              error: { code: 'missing_secret', message: `secret ${command.secret} is not set` },
-            }
-          }
+/**
+ * What the agent gets and what is stored (FR-009): typed text stays out of `params` (only its
+ * length, or the secret's name); a secret's value is filled in here and never sent to a browser.
+ * `restart_app` restarts `restartPackage()` only (P6).
+ */
+export async function toAgentCommand(
+  command: DeviceCommand,
+  secrets: SecretSource,
+  restartPackage: () => Promise<string | undefined>,
+): Promise<
+  | { command: protocol.AgentAction; params: Record<string, unknown> }
+  | { error: NonNullable<CommandResult['error']> }
+> {
+  switch (command.kind) {
+    case 'type': {
+      if (command.secret !== undefined) {
+        const value = secrets.get([command.secret])[command.secret]
+        if (value === undefined) {
           return {
-            command: { kind: 'type', text: value, redact: [value], secret: command.secret },
-            params: { secret: command.secret },
+            error: { code: 'missing_secret', message: `secret ${command.secret} is not set` },
           }
         }
-        const text = command.text ?? ''
-        return { command: { kind: 'type', text, redact: [] }, params: { length: text.length } }
-      }
-      case 'restart_app': {
-        const pkg = await repo.lastAppPackage(deviceId)
-        if (!pkg) {
-          return { error: { code: 'no_app', message: 'no app has run on this device yet' } }
-        }
-        return { command: { kind: 'restart_app', package: pkg }, params: { package: pkg } }
-      }
-      default:
         return {
-          command,
-          params: Object.fromEntries(Object.entries(command).filter(([key]) => key !== 'kind')),
+          command: { kind: 'type', text: value, redact: [value], secret: command.secret },
+          params: { secret: command.secret },
         }
+      }
+      const text = command.text ?? ''
+      return { command: { kind: 'type', text, redact: [] }, params: { length: text.length } }
     }
+    case 'restart_app': {
+      const pkg = await restartPackage()
+      if (!pkg) {
+        return { error: { code: 'no_app', message: 'no app has run on this device yet' } }
+      }
+      return { command: { kind: 'restart_app', package: pkg }, params: { package: pkg } }
+    }
+    default:
+      return {
+        command,
+        params: Object.fromEntries(Object.entries(command).filter(([key]) => key !== 'kind')),
+      }
   }
 }

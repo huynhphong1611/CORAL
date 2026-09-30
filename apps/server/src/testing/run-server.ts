@@ -11,6 +11,7 @@ import { UiGateway } from '../ui/gateway'
 import { RunEvents } from '../ui/run-events'
 import { AgentCommands } from '../live/agent-commands'
 import { LiveControl } from '../live/control'
+import { RecordingService } from '../recordings/service'
 import { deviceLookup, StreamHub } from '../live/stream-hub'
 import { multipart } from './multipart'
 import { startTestServer, type TestUser } from './test-server'
@@ -69,6 +70,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
   let events: RunEvents | undefined
   let streams: StreamHub | undefined
   let live: LiveControl | undefined
+  let recordings: RecordingService | undefined
   const server = await startTestServer(({ db, store, artifacts }) => {
     gateway = new AgentGateway({ db, heartbeatMs: options.heartbeatMs ?? 15_000 })
     uiGateway = new UiGateway({ jwtSecret: DEV_JWT_SECRET })
@@ -97,16 +99,29 @@ export async function startRunServer(options: RunServerOptions = {}) {
       notify,
     })
     registerIngest({ db, gateway, dispatcher, artifacts, notify })
+    const commands = new AgentCommands(gateway)
     live = new LiveControl({
       db,
       ui: uiGateway,
       agents: gateway,
-      commands: new AgentCommands(gateway),
+      commands,
       secrets,
       idleMs: options.liveIdleMs ?? 600_000,
       notify,
     })
-    return { gateway, uiGateway, runs: { dispatcher, secrets }, live }
+    recordings = new RecordingService({
+      db,
+      store,
+      artifacts,
+      ui: uiGateway,
+      agents: gateway,
+      commands,
+      live,
+      secrets,
+      idleMs: options.liveIdleMs ?? 600_000,
+      notify,
+    })
+    return { gateway, uiGateway, runs: { dispatcher, secrets }, live, recordings }
   }, options.logging)
   if (!gateway || !dispatcher) throw new Error('run server not wired')
   dispatcher.attachLogger(server.app.log)
@@ -116,7 +131,8 @@ export async function startRunServer(options: RunServerOptions = {}) {
     db: server.db,
     dispatcher,
     notify: events,
-    expire: (lease) => live?.expire(lease) ?? Promise.resolve(false),
+    expire: async (lease) =>
+      ((await live?.expire(lease)) ?? false) || ((await recordings?.expire(lease)) ?? false),
     intervalMs: 60_000,
     log: server.app.log,
   })

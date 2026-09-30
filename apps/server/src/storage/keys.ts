@@ -40,6 +40,25 @@ export function runItemResultKey(tenantId: string, runId: string, runItemId: str
   return `${runItemPrefix(tenantId, runId, runItemId)}result.json`
 }
 
+export const RECORDING_FILES = ['screen.jpg', 'tree.json', 'element.png'] as const
+export type RecordingFile = (typeof RECORDING_FILES)[number]
+
+/** Everything a recording uploaded (data-model §5); removed with the recording. */
+export function recordingPrefix(tenantId: string, recordingId: string): string {
+  return `${tenantPrefix(tenantId)}recordings/${uuid.parse(recordingId)}/`
+}
+
+/** One file of step `n`'s snapshot. */
+export function recordingStepKey(
+  tenantId: string,
+  recordingId: string,
+  n: number,
+  file: RecordingFile,
+): string {
+  const step = z.number().int().positive().parse(n)
+  return `${recordingPrefix(tenantId, recordingId)}${step}/${file}`
+}
+
 /** True when `key` belongs to `tenantId`; check before presigning any key that came from outside. */
 export function keyBelongsTo(key: string, tenantId: string): boolean {
   return key.startsWith(tenantPrefix(tenantId)) && !key.includes('..')
