@@ -8,6 +8,9 @@ import {
 } from '@coral/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { realClock } from '../../core/clock'
+import { openCvMatcher } from '../../core/image/opencv'
+import { imageInfo } from '../../core/image/size'
+import { snapshotFromPng } from '../../core/recorder/crop'
 import { checkHit, touchTargetAt } from '../../core/hit-test'
 import { center, contains } from '../../core/locator/geometry'
 import { resolve } from '../../core/locator/resolve'
@@ -155,6 +158,38 @@ describe('AndroidDriver on a real device', () => {
     expect([...png.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47])
     expect(png.length).toBeGreaterThan(10_000)
   })
+
+  it('finds the menu button by its picture after the menu opened and closed (US6, R12)', async () => {
+    const size = await driver.windowSize()
+    const menu = [...walkTree(await stableTree())].find((n) => n.platform_id.endsWith(':id/menuIV'))
+    if (!menu) throw new Error('no menu button on the first screen')
+    const first = await driver.screenshot()
+    const width = imageInfo(first)?.width ?? size.width
+    const reference = snapshotFromPng(first, size, menu.bounds).element
+    if (!reference) throw new Error('could not cut the menu button')
+
+    await tap([{ android_id: 'id/menuIV' }, { desc: 'View menu' }])
+    await stableTree()
+    await driver.back()
+    await stableTree()
+    const again = await driver.screenshot()
+    const matcher = openCvMatcher()
+    await matcher.find(again, reference, { threshold: 0.85 }) // loads OpenCV
+    const started = Date.now()
+    const match = await matcher.find(again, reference, {
+      threshold: 0.85,
+      scale: (imageInfo(again)?.width ?? width) / width,
+    })
+    const ms = Date.now() - started
+    console.log(
+      `[image] menu ${JSON.stringify(menu.bounds)} → ${JSON.stringify(match)} in ${ms} ms`,
+    )
+    expect(match?.score).toBeGreaterThanOrEqual(0.85)
+    const k = size.width / width
+    expect(Math.abs((match?.bounds.x ?? -99) * k - menu.bounds.x)).toBeLessThanOrEqual(4)
+    expect(Math.abs((match?.bounds.y ?? -99) * k - menu.bounds.y)).toBeLessThanOrEqual(4)
+    expect(ms).toBeLessThan(1000)
+  }, 60_000)
 
   it('streams a live-view frame: JPEG ≤ 300 KB within 1 s (research R4)', async () => {
     await driver.streamFrame({ maxEdge: 1280, quality: 60 })
