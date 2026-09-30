@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Adb, type ExecFn } from './adb'
-import { AndroidLifecycle, MemoryInstallRegistry } from './lifecycle'
+import { AndroidLifecycle, MemoryInstallRegistry, STOP_POLL_MS, STOP_POLLS } from './lifecycle'
 
 const APP = 'com.saucelabs.mydemoapp.android'
 
@@ -8,11 +8,12 @@ function setup(
   opts: {
     emulator?: boolean
     apiLevel?: number
-    replies?: Record<string, string>
+    replies?: Record<string, string | (() => string)>
     fail?: string[]
   } = {},
 ) {
   const calls: string[] = []
+  const slept: number[] = []
   const exec: ExecFn = (_file, args) => {
     const key = args.slice(2).join(' ')
     calls.push(key)
@@ -20,7 +21,7 @@ function setup(
     const reply =
       Object.entries(opts.replies ?? {}).find(([prefix]) => key.startsWith(prefix))?.[1] ??
       (key.includes('pm clear') || key.startsWith('install') ? 'Success\n' : '')
-    return Promise.resolve(Buffer.from(reply))
+    return Promise.resolve(Buffer.from(typeof reply === 'function' ? reply() : reply))
   }
   const registry = new MemoryInstallRegistry()
   const lifecycle = new AndroidLifecycle(new Adb('adb', exec).device('emu-1'), {
@@ -28,9 +29,14 @@ function setup(
     apiLevel: opts.apiLevel ?? 34,
     emulator: opts.emulator ?? true,
     registry,
+    clock: { now: () => 0, sleep: (ms) => (slept.push(ms), Promise.resolve()) },
   })
-  return { lifecycle, calls, registry }
+  return { lifecycle, calls, registry, slept }
 }
+
+/** `dumpsys activity activities` while an activity of `pkg` is still there. */
+const ACTIVITIES = (pkg: string) =>
+  `  * Hist  #0: ActivityRecord{e51d8fa u0 ${pkg}/.view.activities.MainActivity t17 f}\n`
 
 describe('AndroidLifecycle', () => {
   it('installs with -r -d (never -g) and skips an unchanged build', async () => {
@@ -46,6 +52,8 @@ describe('AndroidLifecycle', () => {
     await lifecycle.resetApp(APP)
     await lifecycle.grantPermissions(APP, ['camera', 'notifications', 'location'])
     expect(calls).toEqual([
+      `shell am force-stop ${APP}`,
+      'shell dumpsys activity activities',
       `shell pm clear ${APP}`,
       `shell pm grant ${APP} android.permission.CAMERA`,
       // notifications is not a runtime permission before API 33.
@@ -53,6 +61,30 @@ describe('AndroidLifecycle', () => {
       `shell pm grant ${APP} android.permission.ACCESS_COARSE_LOCATION`,
     ])
     await expect(lifecycle.resetApp('com.x; reboot')).rejects.toThrow('invalid Android package')
+  })
+
+  it('clears data only once the stopped app has no activity left (launch race)', async () => {
+    let polls = 0
+    const { lifecycle, calls, slept } = setup({
+      replies: {
+        'shell dumpsys activity activities': () =>
+          // Two polls still list the app; another package with the same prefix never counts.
+          (polls++ < 2 ? ACTIVITIES(APP) : '') + ACTIVITIES(`${APP}.other`),
+      },
+    })
+    await lifecycle.resetApp(APP)
+    expect(calls).toEqual([
+      `shell am force-stop ${APP}`,
+      ...Array<string>(3).fill('shell dumpsys activity activities'),
+      `shell pm clear ${APP}`,
+    ])
+    expect(slept).toEqual([STOP_POLL_MS, STOP_POLL_MS])
+
+    // An activity that never goes away delays the reset by 5 s at most.
+    const stuck = setup({ replies: { 'shell dumpsys activity activities': ACTIVITIES(APP) } })
+    await stuck.lifecycle.resetApp(APP)
+    expect(stuck.slept).toHaveLength(STOP_POLLS)
+    expect(stuck.calls.at(-1)).toBe(`shell pm clear ${APP}`)
   })
 
   it('disables animations and restores them only on real devices', async () => {

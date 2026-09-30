@@ -1,4 +1,5 @@
 import { androidPermissions, type Permission } from '@coral/shared'
+import { realClock, type Clock } from '../../core/clock'
 import type { TargetLifecycle } from '../../core/driver'
 import { AdbError, type AdbDeviceClient } from './adb'
 
@@ -10,6 +11,10 @@ function assertPackage(appId: string): string {
   if (!PACKAGE.test(appId)) throw new AdbError(`invalid Android package name: ${appId}`)
   return appId
 }
+
+/** resetApp polls `dumpsys activity` this often, at most this many times, after the stop. */
+export const STOP_POLL_MS = 100
+export const STOP_POLLS = 50
 
 export const ANIMATION_SETTINGS = [
   'window_animation_scale',
@@ -42,6 +47,8 @@ export interface AndroidLifecycleOptions {
   apiLevel: number
   emulator: boolean
   registry?: InstallRegistry
+  /** Waits between polls; tests pass a fake one. */
+  clock?: Clock
 }
 
 /**
@@ -79,8 +86,24 @@ export class AndroidLifecycle implements TargetLifecycle {
     this.registry.set(this.device.udid, appId, sha256)
   }
 
+  /**
+   * Clears the app's data. When `pm clear` removes the task of an activity still on screen,
+   * Android kills the package's processes one second later (KILL_TASK_PROCESSES_TIMEOUT_MS in
+   * ActivityTaskSupervisor) — also the process of a launch that came in between, which then never
+   * shows (seen on the CI emulator). Stopping the app first and waiting until the activity manager
+   * has dropped its activities makes that kill happen at once, before any launch.
+   */
   async resetApp(appId: string): Promise<void> {
-    const out = await this.device.shell(['pm', 'clear', assertPackage(appId)])
+    const pkg = assertPackage(appId)
+    await this.stopApp(pkg)
+    const activity = new RegExp(`ActivityRecord\\{\\S+ u\\d+ ${pkg.replaceAll('.', '\\.')}/`)
+    const clock = this.options.clock ?? realClock
+    // Up to 5 s; after that the data is cleared all the same.
+    for (let poll = 0; poll < STOP_POLLS; poll += 1) {
+      if (!activity.test(await this.device.shell(['dumpsys', 'activity', 'activities']))) break
+      await clock.sleep(STOP_POLL_MS)
+    }
+    const out = await this.device.shell(['pm', 'clear', pkg])
     if (!/Success/.test(out)) throw new AdbError(`pm clear ${appId} failed: ${out.trim()}`)
   }
 
