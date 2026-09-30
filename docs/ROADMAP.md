@@ -2,7 +2,7 @@
 
 Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definition of Done (DoD)** đã đạt. Chi tiết kỹ thuật tham chiếu `docs/SPEC.md` (ký hiệu §, quyết định ký hiệu D). Mỗi phase là một feature Spec Kit trong `specs/` (D22).
 
-**Phase hiện tại:** Phase 2 — bắt đầu 2026-09-29 (`specs/003-phase-2-web-recorder`). Phase 1 đạt DoD ngày 2026-09-29 (các task 🔌 chạy trên emulator Android 14 trong CI — D37). Phase 0 đạt DoD ngày 2026-09-28.
+**Phase hiện tại:** Phase 3 — chưa bắt đầu; feature Spec Kit `specs/004-phase-3-…` tạo bằng `/speckit-specify` khi Huynh đồng ý. Phase 2 đạt DoD ngày 2026-09-30 (Recorder ghi, lưu và chạy lại 3/3 trên emulator Android 14 của CI — Device run 36686819869). Phase 1 đạt DoD ngày 2026-09-29 (các task 🔌 chạy trên emulator Android 14 trong CI — D37). Phase 0 đạt DoD ngày 2026-09-28.
 
 ---
 
@@ -75,9 +75,10 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 - [x] Click trên live view → quy đổi tỷ lệ → tap thật trên thiết bị (cần lease `live`).
 - [x] Recorder (§11.1): hit-test element tại điểm click → trích đủ chuỗi locator + cắt ảnh + snapshot → thêm step vào editor.
 - [x] Editor YAML có preview ảnh từng step; lưu vào git repo của project (§13).
-- [ ] Locator `image`: template matching bằng OpenCV WASM trong `packages/runner` (D27).
+- [x] Locator `image`: template matching bằng OpenCV WASM trong `packages/runner` (D27).
 
-**DoD:** ghi một flow 5 step từ web, lưu thành test case, chạy lại pass 3/3 lần.
+**DoD:** ✅ đạt 2026-09-30 trên emulator Android 14 của CI (Device run 36686819869, `4b9f137`; chi tiết `specs/003-phase-2-web-recorder/quickstart.md`).
+- Ghi một flow 5 step từ web, lưu thành test case, chạy lại pass 3/3 lần — ghi 9 step (menu, Log In, đăng nhập bằng `${secret:…}`, Login), lưu 943 ms, chạy lại 3/3 `passed`, 0 giá trị secret trong YAML, `snap/`, bản ghi và log.
 
 ---
 

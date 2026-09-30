@@ -160,7 +160,7 @@ Monorepo (plan.md → Project Structure): `apps/web/src/`, `apps/server/src/`, `
 - [x] T050 [US6] Runner `core/image/matcher.ts` (interface `ImageMatcher.find(screenPng, templatePng, { threshold, scale }) → { bounds, score } | undefined`) + `core/image/opencv.ts` (nạp lười `@techstark/opencv-js`, thang xám, `matchTemplate TM_CCOEFF_NORMED`, co ảnh tham chiếu theo `screen_width`); test `matcher.test.ts` trên `fixtures/images/` — **SC-005**: tìm đúng nút đổi chữ/id, không khớp khi không có nút, ≤ 1 s
 - [x] T051 [US6] Runner `run-testcase.ts`: `resolveTarget()` bất đồng bộ — thử chuỗi theo thứ tự, gặp `image` thì chụp màn hình + matcher (asset qua `RunOptions.assets(path) → bytes`), khớp → element ảo (bounds vùng khớp), `locator_used_index`, `degraded`; kiểm "bị che" ở mức cửa sổ; test `run-testcase.image.test.ts` (FakeDriver `renderScreens`: id đổi → ảnh khớp, degraded; không khớp → `TARGET_NOT_FOUND`)
 - [x] T052 [US6] Giao ảnh cho agent: dispatcher đọc file ảnh mà test case tham chiếu tại commit của item, chép lên S3 `<tenant>/assets/<sha256>` (nếu chưa có), thêm `items[].assets` presigned GET; agent tải và cache theo sha256 (`<cacheDir>/assets/`), sai sha → item `error`; `coral run --project-root` (mặc định: cha của `testcases/` hoặc thư mục YAML) đọc ảnh từ đĩa; test `dispatcher-assets.int.test.ts`, `jobs.test.ts` ca assets, `run.test.ts` (CLI) ca image
-- [ ] T053 [US6] 🔌 `android-driver.device.test.ts`: template matching trên ảnh chụp thật của My Demo App (cắt nút menu từ khung đầu, tìm lại sau khi mở/đóng menu) và `coral run` một test case có id sai + locator ảnh → `degraded`, `passed`
+- [x] T053 [US6] 🔌 `android-driver.device.test.ts`: template matching trên ảnh chụp thật của My Demo App (cắt nút menu từ khung đầu, tìm lại sau khi mở/đóng menu) và `coral run` một test case có id sai + locator ảnh → `degraded`, `passed`
 
 **Checkpoint**: US6 xong.
 
@@ -184,8 +184,8 @@ Monorepo (plan.md → Project Structure): `apps/web/src/`, `apps/server/src/`, `
 
 - [x] T057 [P] Đồng bộ tài liệu: SPEC §15 (payload `stream.*`, `device.command`, `job.assign.assets`), §16 (route control/recordings/snapshots, `WS /ws/ui` xác thực bằng `ui.auth`), §7.2 (dạng object của `image`), §21 Decision log cho quyết định mới (xác thực `/ws/ui` trong băng; recorder tap tâm element; bản ghi ở server); CLAUDE.md "Lệnh thường dùng" thêm `test:e2e`, `dev:fake-device`; README mục Web
 - [x] T058 [P] Kiểm tra SC-008 cho Recorder: `scripts/phase1-e2e.mjs --scan-secrets` mở rộng quét `recordings/*` và `snap/` của test case vừa lưu; test tích hợp quét sau E2E US4 → 0
-- [ ] T059 Chạy đủ cổng chất lượng (format, lint, boundaries, typecheck, test, test:int, test:e2e, build) + quickstart §1; push; CI xanh cả các job (`checks`, `infra`, `integration`, `e2e`, `Device`)
-- [ ] T060 Đóng Phase 2: tự kiểm từng mục DoD (quickstart checklist), đánh dấu `[x]` Phase 2 trong `docs/ROADMAP.md`, báo cáo Huynh kèm ảnh (ghi trình duyệt đã kiểm: Chromium tự động; Firefox/Edge kiểm tay — FR-024), chuyển "Phase hiện tại" → Phase 3
+- [x] T059 Chạy đủ cổng chất lượng (format, lint, boundaries, typecheck, test, test:int, test:e2e, build) + quickstart §1; push; CI xanh cả các job (`checks`, `infra`, `integration`, `e2e`, `Device`)
+- [x] T060 Đóng Phase 2: tự kiểm từng mục DoD (quickstart checklist), đánh dấu `[x]` Phase 2 trong `docs/ROADMAP.md`, báo cáo Huynh kèm ảnh (ghi trình duyệt đã kiểm: Chromium tự động; Firefox/Edge kiểm tay — FR-024), chuyển "Phase hiện tại" → Phase 3
 
 ---
 

@@ -56,6 +56,11 @@ Mở `recorded-login`, đổi `timeout_ms` một step → **Save** → History c
 
 `pnpm test` chạy bộ ảnh `fixtures/images/` (≥ 95 % tìm đúng, 0 khớp nhầm). Trên emulator: sửa test case vừa ghi cho `android_id`/`text` của một step sai đi → chạy → step `passed`, `degraded`, locator đã dùng là `image`.
 
+**Kết quả (2026-09-30):**
+- `pnpm test` (T050, `matcher.test.ts`): nút Login tìm đúng trên màn gốc và ở 10/10 chỗ đã dời dưới id mới (≥ 95 %); 0 khớp nhầm trên ≥ 12 màn không có nút (các dump Android, màn của app mẫu, bottom sheet cùng kiểu, nút cùng kiểu khác chữ); ảnh mẫu phẳng hoặc to hơn màn hình không bao giờ khớp; màn rộng 720 px cho điểm dưới ngưỡng → không khớp, không tap mù.
+- Emulator Android 14, Device run 36686819869 (`4b9f137`), T053: driver cắt nút menu từ ảnh chụp thật, mở rồi đóng menu, tìm lại → score 1.00, lệch 0 px, 197 ms. `coral run` test case `mydemo-image` (`android_id` sai + locator ảnh) → s2 `passed`, `degraded`, `locator_used_index: 1`.
+- Run trước đó (36684990093) cho thấy ảnh chụp giữ lại sau một step có thể trễ hơn cây element: emulator bị ANR lúc mở app, ảnh sau s1 vẫn là màn splash nên nút menu cắt ra trắng trơn — matcher từ chối (đúng, không tap mù). Test giờ cắt ảnh như Recorder (cây ổn định rồi chụp) và chỉ dùng khi tìm lại đúng chỗ trên ảnh chụp kế tiếp.
+
 ## 7. Chuẩn bị từ web (US7)
 
 Tạo app, tải APK, tạo agent token (hiện một lần, **Copy**), đặt vào `.env` `CORAL_AGENT_TOKEN`, khởi động agent → thiết bị hiện trên `/devices`.
@@ -64,4 +69,7 @@ Tạo app, tải APK, tạo agent token (hiện một lần, **Copy**), đặt v
 
 ## Checklist DoD Phase 2
 
-- [x] Ghi một flow 5 step từ web, lưu thành test case, chạy lại pass 3/3 lần (emulator CI) — US4, Device run 36673674533 (9 step, 3/3 `passed`)
+- [x] Ghi một flow 5 step từ web, lưu thành test case, chạy lại pass 3/3 lần (emulator CI) — US4, Device run 36673674533 (9 step, 3/3 `passed`); chạy lại trên commit cuối, Device run 36686819869 (`4b9f137`): lưu 943 ms, 3/3 `passed`, 0 secret (12 tài liệu quét + log server/agent)
+- [x] Mọi job CI xanh trên commit cuối: `checks`, `infra`, `integration`, `e2e` (CI run 36686819824) và `Device` (run 36686819869)
+- [x] Trình duyệt (FR-024): Chromium tự động (`pnpm test:e2e`, job `e2e` — US1–US5, US7)
+- [ ] Trình duyệt (FR-024): Firefox và Edge kiểm tay — chờ Huynh (Edge dùng engine Chromium; ngoài DoD của ROADMAP)
