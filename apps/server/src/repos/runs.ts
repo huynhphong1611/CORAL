@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, exists, lt } from 'drizzle-orm'
+import { and, asc, desc, eq, exists, isNotNull, lt } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { runItems, runs, runSteps, testCases } from '../db/schema'
 import { notFound } from '../http/errors'
@@ -126,6 +126,37 @@ export function runsRepo(db: Db, tenantId: string) {
         .from(runSteps)
         .where(and(eq(runSteps.tenantId, tenantId), eq(runSteps.runItemId, itemId)))
         .orderBy(asc(runSteps.stepIndex))
+    },
+
+    /** The steps of the latest finished item of a test case that recorded any (FR-019). */
+    async lastItemSteps(
+      testCaseId: string,
+    ): Promise<{ item: RunItemRow; steps: RunStepRow[] } | undefined> {
+      const [item] = await db
+        .select()
+        .from(runItems)
+        .where(
+          and(
+            eq(runItems.tenantId, tenantId),
+            eq(runItems.testCaseId, testCaseId),
+            isNotNull(runItems.finishedAt),
+            exists(
+              db
+                .select({ id: runSteps.id })
+                .from(runSteps)
+                .where(and(eq(runSteps.tenantId, tenantId), eq(runSteps.runItemId, runItems.id))),
+            ),
+          ),
+        )
+        .orderBy(desc(runItems.finishedAt))
+        .limit(1)
+      if (!item) return undefined
+      const steps = await db
+        .select()
+        .from(runSteps)
+        .where(and(eq(runSteps.tenantId, tenantId), eq(runSteps.runItemId, item.id)))
+        .orderBy(asc(runSteps.stepIndex))
+      return { item, steps }
     },
   }
 }

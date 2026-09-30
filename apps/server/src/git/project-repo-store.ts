@@ -221,6 +221,21 @@ export class ProjectRepoStore {
     return out.split('\n').filter(Boolean)
   }
 
+  /** Which of `paths` are files at `commit` (default HEAD): image references (FR-022). */
+  async existingFiles(
+    tenantId: string,
+    projectId: string,
+    paths: readonly string[],
+    commit = 'HEAD',
+  ): Promise<Set<string>> {
+    if (paths.length === 0) return new Set()
+    const repo = this.repoPath(tenantId, projectId)
+    if (!/^[0-9a-f]{4,64}$|^HEAD$/.test(commit)) throw new Error(`invalid commit: ${commit}`)
+    const wanted = new Set(paths.map(safePath))
+    const out = await this.git(repo).raw(['ls-tree', '-r', '--name-only', commit, '--', ...wanted])
+    return new Set(out.split('\n').filter((path) => wanted.has(path)))
+  }
+
   private async commit(
     git: SimpleGit,
     paths: string[],

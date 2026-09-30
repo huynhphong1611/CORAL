@@ -71,6 +71,26 @@ export function testCasesRepo(
       return store.history(tenantId, row.projectId, row.pathInRepo)
     },
 
+    /** Paths under the test case's `snap/<slug>/` at `commit` (default: head). */
+    snapshotFiles(row: TestCaseRow, commit?: string): Promise<string[]> {
+      return store.listFiles(
+        tenantId,
+        row.projectId,
+        snapshotDir(row.slug),
+        commit ?? row.headCommit,
+      )
+    },
+
+    /** Bytes of a repo file at `commit` (default: head), or null; the caller checks the path. */
+    readBytes(row: TestCaseRow, path: string, commit?: string): Promise<Buffer | null> {
+      return store.readBytes(tenantId, row.projectId, path, commit ?? row.headCommit)
+    },
+
+    /** Which of `paths` are in the project repo now (image references, FR-022). */
+    existingFiles(projectId: string, paths: readonly string[]): Promise<Set<string>> {
+      return store.existingFiles(tenantId, projectId, paths)
+    },
+
     async create(
       projectId: string,
       input: { testCase: TestCase; yaml: string; author: GitAuthor; userId: string },

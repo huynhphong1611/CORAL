@@ -103,7 +103,7 @@ export function buildServer(
   if (deps.db && deps.store) {
     const repos = createRepos({ db: deps.db, store: deps.store })
     registerProjectRoutes(app, { repos })
-    registerTestCaseRoutes(app, { repos })
+    registerTestCaseRoutes(app, { repos, ...(deps.artifacts ? { artifacts: deps.artifacts } : {}) })
     const connections = deps.gateway ?? deps.connections
     registerAgentRoutes(app, { repos, ...(connections ? { connections } : {}) })
     if (deps.live) registerControlRoutes(app, { repos, live: deps.live })
