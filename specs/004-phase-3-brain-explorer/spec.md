@@ -70,6 +70,7 @@ Trong lúc chạy, người dùng theo dõi tiến độ trên web: số bước
 7. **Given** một trong các giới hạn ngân sách (bước, độ sâu, thời gian, chi phí) bị chạm, hoặc người dùng bấm dừng, **When** dừng, **Then** exploration kết thúc với lý do cụ thể. App map và trace đã có được lưu.
 8. **Given** project đã có app map từ lần trước, **When** exploration mới kết thúc, **Then** app map được gộp: màn hình trùng giữ tên cũ, màn hình và chuyển màn mới được thêm. Mỗi lần gộp là một commit.
 9. **Given** agent mất kết nối giữa chừng, **When** hết thời gian chờ, **Then** exploration kết thúc với lý do "thiết bị mất kết nối", phần đã có được lưu và thiết bị được thả.
+10. **Given** AI đã gõ dữ liệu thử tự đặt vào một form (ví dụ form đăng ký) mà skill không cho phép gửi, **When** AI chọn nút gửi của form, **Then** thao tác bị từ chối và ghi vào trace. AI vẫn được Back hoặc đi nơi khác. Ô tìm kiếm/lọc không bị hạn chế này.
 
 ---
 
@@ -261,6 +262,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 **Tri thức của project**
 - **FR-015**: Người dùng (`owner`, `admin`, `member`) MUST đọc và sửa được `AGENTS.md` và các skill của project.
   - Skill có tên, mô tả và nội dung (chuẩn `SKILL.md`, P4).
+  - Skill khai báo được dữ liệu thử (tài khoản test qua `${secret:TÊN}`, dữ liệu mẫu) và các form AI được phép gửi (FR-022a).
   - Mỗi lần lưu hợp lệ là một commit; skill sai định dạng bị từ chối kèm lỗi.
 
 **Công cụ qua MCP**
@@ -295,6 +297,15 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
   - tọa độ khi có element dùng được.
 
   Mọi lần từ chối được ghi vào trace và tính vào ngân sách bước.
+- **FR-022a**: Dữ liệu AI gõ vào ô nhập MUST là một trong hai loại:
+  - lấy từ skill (tài khoản test, dữ liệu mẫu);
+  - dữ liệu thử AI tự đặt: ngắn (≤ 64 ký tự), không phải giá trị secret.
+
+  Khi trên màn hình đã có dữ liệu tự đặt, kiểm tra an toàn MUST từ chối thao tác **gửi** trên màn hình đó: chạm vào element không phải ô nhập, hoặc phím Enter/Done của bàn phím. Hai ngoại lệ:
+  - ô đang gõ là ô tìm kiếm/lọc;
+  - skill của project cho phép gửi form trên màn hình đó.
+
+  Back và rời màn hình luôn được phép.
 - **FR-023**: Fingerprint màn hình MUST bỏ qua nội dung chữ và phần tử lặp trong danh sách, để cùng một màn hình với dữ liệu khác nhau cho cùng fingerprint. Runner dùng cùng hàm này cho kỳ vọng `screen` của test case (D24). Kỳ vọng `screen` được hỗ trợ khi chạy lại, dựa trên app map của project.
 - **FR-024**: Explorer MUST:
   - ưu tiên element và màn hình chưa đi qua;
@@ -389,7 +400,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 - **SC-004** (DoD): Import 10 test case thủ công (CSV) của app mẫu → ≥ 7 thành `active`; 100% test case còn lại có lý do (`needs_human` / `ambiguous` / `app_mismatch`) kèm bằng chứng.
 
 **An toàn và dữ liệu**
-- **SC-005**: 0 thao tác vào element thuộc `never_tap` do Explorer thực hiện. Điều này đúng cả khi màn hình chứa chữ dụ AI bấm; kiểm bằng màn hình thử có nút cấm và chữ dụ.
+- **SC-005**: 0 thao tác vào element thuộc `never_tap` và 0 lần gửi form bằng dữ liệu tự đặt khi skill không cho phép (FR-022a), do Explorer thực hiện. Điều này đúng cả khi màn hình chứa chữ dụ AI bấm; kiểm bằng màn hình thử có nút cấm và chữ dụ.
 - **SC-006**: 100% locator trong test case do AI sinh khớp đúng element trong snapshot của bước trace tương ứng; 0 locator do AI tự đặt.
 - **SC-007**: 0 giá trị secret xuất hiện dạng chữ trong nội dung gửi tới provider AI, nhật ký lời gọi AI và công cụ, test case, app map, trace đã lưu.
 - **SC-008**: 0 lần ngữ cảnh AI, app map, nhật ký hay chi phí của một tenant/project lộ sang tenant/project khác trong kiểm thử cô lập.
@@ -438,3 +449,4 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 - Q: Phase 3 có màn web cho prompt, import và tri thức project không, hay chỉ API? → A: Có màn web tối giản: ô nhập prompt, trang import (tải file, chọn cột, xem trước, báo cáo), sửa `AGENTS.md`/skills/`mcp.yaml` bằng editor của Phase 2 (FR-041).
 - Q: Sau khi khám phá xong, Test writer tự viết test case ngay hay chờ người dùng chọn, và tối đa bao nhiêu test case mỗi lần? → A: Tự viết ngay khi exploration kết thúc, tối đa 5 test case (đổi được khi bắt đầu); AI chọn các flow đáng giá nhất (US3, FR-020, FR-028).
 - Q: Có lưu nội dung đã gửi cho AI và câu trả lời (đã che secret) để xem lại không? → A: Có, lưu 30 ngày (chữ gửi đi, ảnh thu nhỏ, câu trả lời, lý do AI đưa ra), xem được từ từng bước của trace trên web; sau đó chỉ còn số liệu (FR-006a, FR-039, Key Entities).
+- Q: Khi khám phá gặp ô nhập liệu, AI có được tự bịa dữ liệu rồi gửi form không? → A: Được gõ dữ liệu thử tự đặt; chỉ được gửi form khi dữ liệu lấy từ skill hoặc skill cho phép form đó; tìm kiếm/lọc luôn được (US2 kịch bản 10, FR-015, FR-022a).
