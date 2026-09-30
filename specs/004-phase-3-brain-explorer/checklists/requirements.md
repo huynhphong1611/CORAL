@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -34,6 +34,10 @@
 - Iteration 1 (2026-09-30): two open markers, asked to Huynh:
   - Q1 (Assumptions): where and with which keys the DoD runs against real AI providers.
   - Q2 (FR-041): web screens for prompt, import and project knowledge, or API only.
+- Answers (2026-09-30), recorded under Clarifications:
+  - Q1: B, Huynh runs the DoD on his machine with his own keys; CI uses scripted fake providers only.
+  - Q2: A, minimal web screens for prompt, import and project knowledge (Phase 2 editor).
+  - All items now pass.
 - Terms kept from SPEC on purpose, as names of existing domain concepts, not implementation choices:
   `brains.yaml` (§14.3), `mcp.yaml` (§14.5), `AGENTS.md` / `SKILL.md` (§13, P4),
   `coral/manualcase@1` (§11.3), lease `exploration` (D16), `${secret:NAME}` (D19),
@@ -51,5 +55,5 @@
   - Test writer and validation: US3, FR-028–FR-032;
   - prompt: US5, FR-033;
   - import: US6, FR-034–FR-038;
-  - web: FR-039–FR-041.
+  - web: FR-039–FR-041 (FR-041 widened by Q2).
 - Every DoD item maps to a criterion: SC-001 to SC-004.

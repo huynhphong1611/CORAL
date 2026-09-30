@@ -346,7 +346,12 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 - **FR-040**: Web MUST có màn **Brain config**:
   - xem và sửa cấu hình bộ não của tenant (FR-004), có kiểm tra lỗi trước khi lưu; chỉ `owner`/`admin` sửa;
   - xem chi phí AI (FR-010).
-- **FR-041**: Tạo test case từ prompt, import test case thủ công, và sửa `AGENTS.md`/skills/`mcp.yaml` MUST làm được qua API. [NEEDS CLARIFICATION: Phase 3 có làm màn web cho prompt, import (tải file, chọn cột, xem báo cáo) và sửa tri thức project không, hay chỉ API — ROADMAP chỉ ghi màn Explorations và Brain config?]
+- **FR-041**: Web MUST có màn tối giản cho các việc còn lại:
+  - **Tạo test case từ prompt**: ô nhập mục tiêu, chọn build/thiết bị/ngân sách, theo dõi như một exploration, xem test case được sinh (FR-033).
+  - **Import**: tải file lên, chọn cột (CSV/Excel), xem trước và lỗi theo dòng, bắt đầu job, theo dõi tiến độ, hủy, xem báo cáo cuối (FR-034–FR-038).
+  - **Tri thức project**: sửa `AGENTS.md`, skills và `mcp.yaml` bằng editor của Phase 2, có kiểm tra lỗi khi gõ và lưu thành commit (FR-015, FR-016). Chỉ `owner`/`admin` sửa được `mcp.yaml`.
+
+  Mọi thao tác trên cũng làm được qua API.
 
 **Chung**
 - **FR-042**: Mọi dữ liệu mới của phase này (exploration, trace, app map, lời gọi AI, lời gọi công cụ, job import, cấu hình) MUST thuộc đúng tenant và chỉ người của tenant đó thấy (P5). Truy cập tài nguyên của tenant khác trả về như không tồn tại.
@@ -403,7 +408,8 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 - Explorer điều khiển thiết bị từng bước qua agent, bằng các lệnh của Phase 2. Agent không dùng AI (P1).
 
 **Provider AI và kiểm DoD**
-- Provider được kiểm thật cho DoD là Claude và Gemini; Copilot làm sau cùng, sau cờ (R7). Kiểm tự động (unit, tích hợp, E2E) dùng provider giả lập có kịch bản, không tốn tiền. [NEEDS CLARIFICATION: DoD với AI thật chạy ở đâu và bằng key nào — key Claude và Gemini đặt trong GitHub secrets để workflow Device chạy (chạy tay, tốn tiền mỗi lần), hay Huynh chạy trên máy của mình?]
+- Kiểm tự động (unit, tích hợp, E2E, workflow CI) chỉ dùng provider giả lập có kịch bản: không tốn tiền, không cần key AI trên GitHub.
+- DoD với AI thật (Claude và Gemini) do **Huynh chạy trên máy của mình** với key riêng và emulator cục bộ. Dự án cung cấp script kiểm DoD và hướng dẫn trong quickstart; Huynh gửi lại kết quả và ảnh để báo cáo đóng phase. Copilot làm sau cùng, sau cờ (R7).
 - Trước khi có bảng `secrets` mã hóa (Phase 5): key của nền tảng đọc từ biến môi trường của server; key riêng của tenant và credential MCP đọc từ `CORAL_SECRET_<NAME>` (chỉ dev, D19).
 - Tenant chưa cấu hình bộ não thì dùng cấu hình mặc định của nền tảng nếu server có key. Nếu không có key, các tính năng AI báo "chưa cấu hình" thay vì lỗi mơ hồ.
 - Đơn giá theo model là dữ liệu cấu hình (bảng mặc định của nền tảng, tenant ghi đè được), không nằm trong code.
@@ -420,3 +426,10 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 **Kiểm thử**
 - MCP server giả lập (trả OTP) và bộ 10 test case thủ công CSV của app mẫu là fixture của dự án, dùng để kiểm DoD.
 - Định dạng export của TestRail/Zephyr/Xray để sau (§11.3). Excel chỉ hỗ trợ `.xlsx`.
+
+## Clarifications
+
+### Session 2026-09-30
+
+- Q: DoD với AI thật chạy ở đâu và bằng key nào? → A: Huynh chạy trên máy của mình với key riêng; dự án cung cấp script kiểm DoD và hướng dẫn; CI chỉ dùng provider giả lập (Assumptions).
+- Q: Phase 3 có màn web cho prompt, import và tri thức project không, hay chỉ API? → A: Có màn web tối giản: ô nhập prompt, trang import (tải file, chọn cột, xem trước, báo cáo), sửa `AGENTS.md`/skills/`mcp.yaml` bằng editor của Phase 2 (FR-041).
