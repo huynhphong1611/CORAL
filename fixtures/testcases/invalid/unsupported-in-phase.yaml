@@ -1,0 +1,8 @@
+schema: coral/testcase@1
+id: unsupported-in-phase
+intent: 'expect.screen cần bản đồ app (Phase 3)'
+platforms: [android]
+steps:
+  - id: s1
+    action: launch
+    expect: { screen: login }

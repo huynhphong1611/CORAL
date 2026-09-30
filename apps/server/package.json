@@ -1,0 +1,45 @@
+{
+  "name": "@coral/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "coral control plane: REST + WebSocket API, auth, orchestrator, job queue.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "build": "tsdown",
+    "start": "node --env-file-if-exists=../../.env dist/main.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts",
+    "db:seed": "tsx --env-file-if-exists=../../.env src/seed.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1142.0",
+    "@aws-sdk/lib-storage": "^3.1142.0",
+    "@aws-sdk/s3-request-presigner": "^3.1142.0",
+    "@coral/shared": "workspace:*",
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/multipart": "^10.1.2",
+    "@fastify/websocket": "^11.3.1",
+    "@node-rs/argon2": "^2.2.1",
+    "bullmq": "^5.81.5",
+    "drizzle-orm": "^0.45.3",
+    "fastify": "^5.12.5",
+    "jose": "^6.2.12",
+    "pg": "^8.23.0",
+    "simple-git": "^4.0.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.0",
+    "@types/pg": "^8.23.1",
+    "@types/ws": "^8.18.1",
+    "drizzle-kit": "^0.31.11",
+    "tsdown": "^0.23.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2",
+    "ws": "^8.22.0"
+  }
+}

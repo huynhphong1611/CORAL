@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Runs in Node and in the browser: no Node or DOM globals.
+    "types": []
+  },
+  "include": ["src"]
+}

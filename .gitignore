@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+
+# build output and caches
+dist/
+.turbo/
+coverage/
+e2e-results/
+*.tsbuildinfo
+.vite/
+
+# env and secrets
+.env
+.env.*
+!.env.example
+
+# runtime data (git repos, uploads) — see CORAL_DATA_DIR
+data/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# coral run output
+coral-results/

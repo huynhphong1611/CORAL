@@ -1,0 +1,55 @@
+# Sauce Labs My Demo App (Android native): log in with the public demo account (research R15).
+# Resource ids are to be confirmed on a real emulator (T041); text/desc fallbacks keep the flow
+# running meanwhile and mark the step degraded.
+# Secrets: CORAL_SECRET_TEST_USER / CORAL_SECRET_TEST_PASSWORD (in .env, never committed).
+schema: coral/testcase@1
+id: mydemo-login
+intent: 'Mở menu, đăng nhập bằng tài khoản demo rồi thấy danh sách sản phẩm'
+tags: [smoke, auth, fixture]
+platforms: [android]
+preconditions:
+  app_state: fresh
+variables:
+  username: ${secret:TEST_USER}
+  password: ${secret:TEST_PASSWORD}
+steps:
+  - id: s1
+    action: launch
+    expect: { visible_text: 'Products', timeout_ms: 15000 }
+  - id: s2
+    action: tap
+    target:
+      - android_id: 'id/menuIV'
+      - desc: 'View menu'
+    expect: { visible_text: 'Log In' }
+  - id: s3
+    action: tap
+    target:
+      - text: 'Log In'
+      - text_contains: 'Log In'
+    expect:
+      visible:
+        - android_id: 'id/nameET'
+        - class_index: { class: EditText, index: 0 }
+  - id: s4
+    action: type
+    target:
+      - android_id: 'id/nameET'
+      - class_index: { class: EditText, index: 0 }
+    value: ${var:username}
+  - id: s5
+    action: type
+    target:
+      - android_id: 'id/passwordET'
+      - class_index: { class: EditText, index: 1 }
+    value: ${var:password}
+  - id: s6
+    action: hide_keyboard
+  - id: s7
+    action: tap
+    target:
+      - android_id: 'id/loginBtn'
+      - rel: { below: { android_id: 'id/passwordET' }, class: Button }
+    expect:
+      - visible_text: 'Products'
+      - not_visible: { android_id: 'id/loginBtn' }

@@ -1,0 +1,11 @@
+schema: coral/testcase@1
+id: duplicate-step-id
+intent: 'hai step trùng id'
+platforms: [android]
+steps:
+  - id: s1
+    action: launch
+  - id: s2
+    action: back
+  - id: s2
+    action: back

@@ -1,0 +1,28 @@
+{
+  "name": "@coral/runner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic test runner (no AI, SPEC P1): platform-neutral core + device drivers (D09, D28).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@coral/shared": "workspace:*",
+    "@techstark/opencv-js": "5.0.0-release.1",
+    "fast-png": "^8.0.0",
+    "fast-xml-parser": "^5.11.1",
+    "fflate": "^0.8.3",
+    "jpeg-js": "^0.4.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

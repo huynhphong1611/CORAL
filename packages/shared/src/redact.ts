@@ -1,0 +1,66 @@
+/** Secrets shorter than this are not masked: they would match ordinary text (research R13). */
+export const MIN_SECRET_LENGTH = 4
+export const MASK = '***'
+
+export interface Redactor {
+  /** Replaces every occurrence of a secret value in a string. */
+  text(input: string): string
+  /** Deep copy of a JSON-like value with every string redacted. */
+  value<T>(input: T): T
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Builds a redactor for the secret values used by one run (SPEC §8.6, D19). */
+export function createRedactor(secrets: Iterable<string>): Redactor {
+  const values = [...new Set(secrets)]
+    .filter((value) => value.length >= MIN_SECRET_LENGTH)
+    // Longest first so a secret that contains another is masked as a whole.
+    .sort((a, b) => b.length - a.length)
+  const pattern = values.length > 0 ? new RegExp(values.map(escapeRegExp).join('|'), 'gu') : null
+
+  const text = (input: string): string => (pattern ? input.replace(pattern, MASK) : input)
+
+  const value = <T>(input: T): T => {
+    if (!pattern) return input
+    if (typeof input === 'string') return text(input) as T
+    if (Array.isArray(input)) return input.map((item: unknown) => value(item)) as T
+    if (input !== null && typeof input === 'object') {
+      return Object.fromEntries(
+        Object.entries(input as Record<string, unknown>).map(([k, v]) => [k, value(v)]),
+      ) as T
+    }
+    return input
+  }
+
+  return { text, value }
+}
+
+/**
+ * Deep copy of a JSON-like value where every secret value inside a string is replaced by its
+ * reference `${secret:NAME}` (`secrets`: name → value): what the Recorder read on the screen — a
+ * step's locators, suggested expectations, an inspected element — never holds a secret value,
+ * yet still matches at run time, when the reference is filled in again (SPEC §7.4, FR-014).
+ */
+export function referenceSecrets<T>(input: T, secrets: Readonly<Record<string, string>>): T {
+  const entries = Object.entries(secrets)
+    .filter(([, value]) => value.length >= MIN_SECRET_LENGTH)
+    // Longest first so a secret that contains another is replaced as a whole.
+    .sort(([, a], [, b]) => b.length - a.length)
+  if (entries.length === 0) return input
+  const byValue = new Map(entries.map(([name, value]) => [value, name]))
+  const pattern = new RegExp(entries.map(([, value]) => escapeRegExp(value)).join('|'), 'gu')
+  const map = (value: unknown): unknown => {
+    if (typeof value === 'string') {
+      return value.replace(pattern, (match) => `\${secret:${byValue.get(match) ?? ''}}`)
+    }
+    if (Array.isArray(value)) return value.map(map)
+    if (value !== null && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, map(v)]))
+    }
+    return value
+  }
+  return map(input) as T
+}

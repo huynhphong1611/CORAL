@@ -1,0 +1,17 @@
+# Android + iOS: every target keeps at least one locator per platform (D14).
+schema: coral/testcase@1
+id: cross-platform
+intent: 'Mở màn Profile trên cả Android và iOS'
+platforms: [android, ios]
+steps:
+  - id: s1
+    action: launch
+  - id: s2
+    action: tap
+    target:
+      - android_id: 'id/tab_profile'
+      - ios_id: 'tabProfile'
+    expect:
+      visible:
+        - android_id: 'id/profileTV'
+        - ios_id: 'profileTitle'

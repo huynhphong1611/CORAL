@@ -1,0 +1,259 @@
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+import { Adb, type ExecFn } from './adb'
+import { AndroidDriver, FOCUSED_SELECTOR, type U2Rpc } from './android-driver'
+import { encodeRgb } from '../../core/image/png'
+import { jpegHeader } from '../../testing/jpeg'
+import { AndroidLifecycle } from './lifecycle'
+import { U2RpcError } from './u2-client'
+
+const APP = 'com.saucelabs.mydemoapp.android'
+const LOGIN_XML = readFileSync(
+  new URL('../../../../../fixtures/android/login.xml', import.meta.url),
+  'utf8',
+)
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])
+
+function setup(
+  opts: {
+    imeShown?: boolean
+    screencap?: Buffer
+    windows?: string
+    /** Answers a u2 method instead of the defaults (undefined → default). */
+    answer?: (method: string, params: unknown[]) => unknown
+  } = {},
+) {
+  const rpc: { method: string; params: unknown[] }[] = []
+  const u2: U2Rpc & { started: number; stopped: number } = {
+    started: 0,
+    stopped: 0,
+    start() {
+      this.started += 1
+      return Promise.resolve()
+    },
+    stop() {
+      this.stopped += 1
+      return Promise.resolve()
+    },
+    call<T>(method: string, params: unknown[] = []) {
+      rpc.push({ method, params })
+      const answer = opts.answer?.(method, params)
+      if (answer instanceof Error) return Promise.reject(answer)
+      if (answer !== undefined) return Promise.resolve(answer as T)
+      const result =
+        method === 'dumpWindowHierarchy'
+          ? LOGIN_XML
+          : method === 'deviceInfo'
+            ? { displayWidth: 1080, displayHeight: 2400 }
+            : true
+      return Promise.resolve(result as T)
+    },
+  }
+  const adbCalls: string[] = []
+  const exec: ExecFn = (_f, args) => {
+    const key = args.slice(2).join(' ')
+    adbCalls.push(key)
+    if (key === 'exec-out screencap -p') return Promise.resolve(opts.screencap ?? PNG)
+    if (key === 'shell dumpsys window windows') {
+      return opts.windows === undefined
+        ? Promise.reject(new Error('dumpsys failed'))
+        : Promise.resolve(Buffer.from(opts.windows))
+    }
+    if (key === 'shell dumpsys input_method')
+      return Promise.resolve(Buffer.from(`  mInputShown=${opts.imeShown ? 'true' : 'false'}\n`))
+    return Promise.resolve(Buffer.from(''))
+  }
+  const device = new Adb('adb', exec).device('emu-1')
+  const driver = new AndroidDriver(
+    device,
+    u2,
+    new AndroidLifecycle(device, { appId: APP, apiLevel: 34, emulator: true }),
+  )
+  return { driver, rpc, adbCalls, u2 }
+}
+
+describe('AndroidDriver', () => {
+  it('reads the tree and the window size through u2', async () => {
+    const { driver, rpc } = setup()
+    const tree = await driver.tree()
+    expect(tree[0]?.package_or_bundle).toBe(APP)
+    expect(await driver.windowSize()).toEqual({ width: 1080, height: 2400 })
+    expect(rpc.map((r) => [r.method, r.params])).toEqual([
+      ['dumpWindowHierarchy', [false, 50]],
+      ['deviceInfo', []],
+    ])
+  })
+
+  it('orders windows by the window manager z-order read alongside the dump', async () => {
+    // Deliberately odd z-order (app above the status bar) to show that it is what decides.
+    const windows = [
+      `  Window #0 Window{1 u0 ${APP}/${APP}.Main}:`,
+      `    mOwnerUid=10190 showForAllUsers=false package=${APP} appop=NONE`,
+      '    Frames: parent=[0,0][1080,2400] display=[0,0][1080,2400] frame=[0,0][1080,2400]',
+      '  Window #1 Window{2 u0 StatusBar}:',
+      '    mOwnerUid=10120 showForAllUsers=true package=com.android.systemui appop=NONE',
+      '    Frames: parent=[0,0][1080,80] display=[0,0][1080,80] frame=[0,0][1080,80]',
+    ].join('\n')
+    const { driver, adbCalls } = setup({ windows })
+    expect((await driver.tree()).map((w) => w.package_or_bundle)).toEqual([
+      'com.android.systemui',
+      APP,
+    ])
+    expect(adbCalls).toContain('shell dumpsys window windows')
+    // dumpsys failing (setup default) falls back to window classes: status bar on top.
+    expect((await setup().driver.tree()).at(-1)?.package_or_bundle).toBe('com.android.systemui')
+  })
+
+  it('maps gestures and text input to u2 calls', async () => {
+    const { driver, rpc } = setup()
+    await driver.tapAt({ x: 10, y: 20 })
+    await driver.longPressAt({ x: 10, y: 20 }, 1500)
+    await driver.swipe({ x: 1, y: 2 }, { x: 3, y: 4 }, 300)
+    await driver.back()
+    await driver.type('Mật khẩu có dấu ✓')
+    await driver.clearText()
+    expect(rpc.map((r) => [r.method, r.params])).toEqual([
+      ['click', [10, 20]],
+      ['click', [10, 20, 1500]],
+      ['swipe', [1, 2, 3, 4, 60]],
+      ['pressKey', ['back']],
+      ['setText', [FOCUSED_SELECTOR, 'Mật khẩu có dấu ✓']],
+      ['clearTextField', [FOCUSED_SELECTOR]],
+    ])
+  })
+
+  it('presses Home and stops an app for the live view (US3)', async () => {
+    const { driver, rpc, adbCalls } = setup()
+    await driver.home()
+    expect(rpc.at(-1)).toEqual({ method: 'pressKey', params: ['home'] })
+    await driver.stopApp(APP)
+    expect(adbCalls.at(-1)).toBe(`shell am force-stop ${APP}`)
+    await expect(driver.stopApp('not a package; rm -rf /')).rejects.toThrow()
+  })
+
+  it('hides the keyboard only when it is shown', async () => {
+    const hidden = setup({ imeShown: false })
+    await hidden.driver.hideKeyboard()
+    expect(hidden.rpc).toEqual([])
+    const shown = setup({ imeShown: true })
+    await shown.driver.hideKeyboard()
+    expect(shown.rpc).toEqual([{ method: 'pressKey', params: ['back'] }])
+  })
+
+  it('takes PNG screenshots with screencap and rejects anything else', async () => {
+    expect(Buffer.from(await setup().driver.screenshot())).toEqual(PNG)
+    await expect(
+      setup({ screencap: Buffer.from('error: closed') }).driver.screenshot(),
+    ).rejects.toThrow('PNG')
+  })
+
+  it('open() starts u2 and disables animations; close() stops u2', async () => {
+    const { driver, u2, adbCalls } = setup()
+    await driver.open()
+    await driver.close()
+    expect([u2.started, u2.stopped]).toEqual([1, 1])
+    expect(adbCalls.filter((c) => c.startsWith('shell settings put'))).toHaveLength(3)
+  })
+
+  it('delegates the lifecycle to adb', async () => {
+    const { driver, adbCalls } = setup()
+    await driver.launch(APP)
+    expect(adbCalls).toContain(`shell monkey -p ${APP} -c android.intent.category.LAUNCHER 1`)
+  })
+
+  it('shares the device and u2 server with a driver bound to another app', async () => {
+    const { driver, u2, rpc } = setup()
+    await driver.open()
+    const other = driver.forApp('com.example.other')
+    await other.tapAt({ x: 1, y: 2 })
+    expect(rpc.at(-1)).toEqual({ method: 'click', params: [1, 2] })
+    // One server for both: opening the bound driver is not needed.
+    expect(u2.started).toBe(1)
+  })
+})
+
+describe('AndroidDriver.streamFrame (research R4)', () => {
+  const screenPng = encodeRgb({ width: 1080, height: 2400, data: new Uint8Array(1080 * 2400 * 3) })
+
+  it('asks u2 for a JPEG scaled to max_edge, with the screen size and rotation', async () => {
+    const jpeg = jpegHeader(576, 1280)
+    const { driver, rpc, adbCalls } = setup({
+      answer: (method) =>
+        method === 'takeScreenshot'
+          ? Buffer.from(jpeg)
+              .toString('base64')
+              .replace(/(.{20})/g, '$1\n')
+          : method === 'deviceInfo'
+            ? { displayWidth: 1080, displayHeight: 2400, displayRotation: 0 }
+            : undefined,
+    })
+    const frame = await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    expect(frame).toMatchObject({
+      mime: 'image/jpeg',
+      width: 576,
+      height: 1280,
+      deviceWidth: 1080,
+      deviceHeight: 2400,
+      rotation: 0,
+    })
+    expect([...frame.image]).toEqual([...jpeg])
+    expect(rpc.find((r) => r.method === 'takeScreenshot')?.params).toEqual([1280 / 2400, 60])
+    expect(adbCalls).not.toContain('exec-out screencap -p')
+  })
+
+  it('never upscales and reports a rotated screen', async () => {
+    const { driver, rpc } = setup({
+      answer: (method) =>
+        method === 'takeScreenshot'
+          ? Buffer.from(jpegHeader(800, 480)).toString('base64')
+          : method === 'deviceInfo'
+            ? { displayWidth: 800, displayHeight: 480, displayRotation: 1 }
+            : undefined,
+    })
+    const frame = await driver.streamFrame({ maxEdge: 1280, quality: 40 })
+    expect(frame.rotation).toBe(90)
+    expect(rpc.find((r) => r.method === 'takeScreenshot')?.params).toEqual([1, 40])
+  })
+
+  it('falls back to screencap PNG for good when u2 has no takeScreenshot', async () => {
+    const { driver, rpc } = setup({
+      screencap: Buffer.from(screenPng),
+      answer: (method) =>
+        method === 'takeScreenshot' ? new U2RpcError('method not found', -32601) : undefined,
+    })
+    const first = await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    expect(first).toMatchObject({ mime: 'image/png', width: 1080, height: 2400 })
+    await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    expect(rpc.filter((r) => r.method === 'takeScreenshot')).toHaveLength(1)
+  })
+
+  it('sends one PNG frame when u2 cannot capture the screen, then tries JPEG again', async () => {
+    let captured = false
+    const { driver, rpc } = setup({
+      screencap: Buffer.from(screenPng),
+      answer: (method) => {
+        if (method !== 'takeScreenshot') return undefined
+        // u2 answers null when it cannot capture the screen.
+        const answer = captured ? Buffer.from(jpegHeader(576, 1280)).toString('base64') : null
+        captured = true
+        return answer
+      },
+    })
+    const first = await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    const second = await driver.streamFrame({ maxEdge: 1280, quality: 60 })
+    expect([first.mime, second.mime]).toEqual(['image/png', 'image/jpeg'])
+    expect(rpc.filter((r) => r.method === 'takeScreenshot')).toHaveLength(2)
+  })
+
+  it('does not hide other u2 failures', async () => {
+    const { driver } = setup({
+      answer: (method) =>
+        method === 'takeScreenshot'
+          ? new U2RpcError('UiAutomation not connected', -32001)
+          : undefined,
+    })
+    await expect(driver.streamFrame({ maxEdge: 1280, quality: 60 })).rejects.toThrow(
+      'UiAutomation not connected',
+    )
+  })
+})

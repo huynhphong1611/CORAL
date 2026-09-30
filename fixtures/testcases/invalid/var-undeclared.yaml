@@ -1,0 +1,10 @@
+schema: coral/testcase@1
+id: var-undeclared
+intent: 'dùng biến chưa khai báo'
+platforms: [android]
+steps:
+  - id: s1
+    action: type
+    target:
+      - android_id: 'id/nameET'
+    value: ${var:username}

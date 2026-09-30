@@ -1,0 +1,12 @@
+schema: coral/testcase@1
+id: image-in-expect
+intent: 'locator ảnh chỉ dùng cho target ở Phase 2'
+platforms: [android]
+steps:
+  - id: s1
+    action: tap
+    target:
+      - android_id: 'id/loginBtn'
+    expect:
+      visible:
+        - image: snap/image-locator/s2/element.png

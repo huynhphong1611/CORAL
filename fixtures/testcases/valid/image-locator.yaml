@@ -1,0 +1,22 @@
+# Image locators (contracts/testcase-image-locator.md): short and long form, after the structured
+# locators. The images live in the project repo — here fixtures/testcases/snap/.
+schema: coral/testcase@1
+id: image-locator
+intent: 'Mở menu rồi vào màn đăng nhập, tìm nút bằng ảnh khi id và chữ không còn khớp'
+platforms: [android]
+steps:
+  - id: s1
+    action: launch
+  - id: s2
+    action: tap
+    target:
+      - android_id: 'id/menuIV'
+      - desc: 'View menu'
+      - image: snap/image-locator/s2/element.png
+    expect: { visible_text: 'Log In' }
+  - id: s3
+    action: tap
+    target:
+      - text: 'Log In'
+      - image: { path: snap/image-locator/s3/element.png, threshold: 0.9, screen_width: 1080 }
+    expect: { visible_text: 'Login' }

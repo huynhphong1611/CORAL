@@ -1,0 +1,36 @@
+# SC-003 (T060): the camera permission is NOT granted up front, so Android asks while the QR
+# scanner opens and the popup guard must allow it (rule android_permission). Sauce Labs My Demo
+# App (research R15); resource ids and the scanner screen text are to be confirmed on a real
+# emulator — fallbacks keep the flow running meanwhile.
+schema: coral/testcase@1
+id: mydemo-camera-permission
+intent: 'Mở màn quét QR khi chưa cấp quyền camera; popup xin quyền phải được xử lý tự động'
+tags: [permissions, popup, fixture]
+platforms: [android]
+preconditions:
+  app_state: fresh # no grant_permissions on purpose
+steps:
+  - id: s1
+    action: launch
+    expect: { visible_text: 'Products', timeout_ms: 15000 }
+  - id: s2
+    action: tap
+    target:
+      - android_id: 'id/menuIV'
+      - desc: 'View menu'
+    expect: { visible_text: 'QR Code Scanner' }
+  - id: s3
+    action: tap
+    target:
+      - text: 'QR Code Scanner'
+      - text_contains: 'QR Code'
+  # The permission dialog is on screen now; this expect fails until the guard allows it, so
+  # popups_handled of s4 records android_permission.
+  - id: s4
+    action: assert
+    expect:
+      - not_visible:
+          - text: 'While using the app'
+          - text: 'Khi dùng ứng dụng'
+        timeout_ms: 3000
+      - not_visible: { text: 'Log In' }
