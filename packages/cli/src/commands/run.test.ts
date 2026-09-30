@@ -1,7 +1,8 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FakeDriver, el, windows } from '@coral/runner/testing'
+import { snapshotFromPng } from '@coral/runner'
+import { FakeDriver, el, renderTree, windows } from '@coral/runner/testing'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CliDeps, DeviceRow, RunnableDriver } from '../deps'
 import { createProgram } from '../program'
@@ -90,7 +91,13 @@ beforeAll(async () => {
 afterAll(() => rm(dir, { recursive: true, force: true }))
 
 function setup(
-  opts: { devices?: DeviceRow[]; env?: Record<string, string>; permissionPopup?: boolean } = {},
+  opts: {
+    devices?: DeviceRow[]
+    env?: Record<string, string>
+    permissionPopup?: boolean
+    /** Screenshots drawn from the tree (image locators). */
+    renderScreens?: boolean
+  } = {},
 ) {
   const created: string[] = []
   let driver: FakeDriver | undefined
@@ -119,6 +126,7 @@ function setup(
           home: { frames: [home] },
         },
         start: 'login',
+        ...(opts.renderScreens ? { renderScreens: true } : {}),
       })
       const runnable = Object.assign(driver, {
         open: () => Promise.resolve(),
@@ -145,6 +153,27 @@ function setup(
     return { out, err, code, created, driver }
   }
   return { run }
+}
+
+/** A project folder: testcases/<name>.yaml tapping Login by its picture (snap/…/element.png). */
+async function imageProject(withImage: boolean) {
+  const root = await mkdtemp(join(tmpdir(), 'coral-project-'))
+  await mkdir(join(root, 'testcases'))
+  await writeFile(
+    join(root, 'testcases', 'login.yaml'),
+    TESTCASE.replace(
+      "{ text: 'Login' }]",
+      "{ image: { path: 'snap/login/s3/element.png', screen_width: 1080 } }]",
+    ),
+  )
+  if (withImage) {
+    const screen = renderTree(login, { width: 1080, height: 2400 })
+    const size = { width: 1080, height: 2400 }
+    const element = snapshotFromPng(screen, size, { x: 100, y: 300, w: 800, h: 120 }).element
+    await mkdir(join(root, 'snap', 'login', 's3'), { recursive: true })
+    await writeFile(join(root, 'snap', 'login', 's3', 'element.png'), element ?? new Uint8Array())
+  }
+  return root
 }
 
 describe('coral run', () => {
@@ -242,6 +271,56 @@ describe('coral run', () => {
     expect(result.err).toContain(message)
     expect(result.created).toEqual([])
   })
+
+  it('finds image locators under the project root (the folder holding testcases/)', async () => {
+    const root = await imageProject(true)
+    try {
+      const out = join(root, 'out')
+      const result = await setup({ renderScreens: true }).run([
+        'run',
+        join(root, 'testcases', 'login.yaml'),
+        '--app',
+        APP,
+        '--out',
+        out,
+      ])
+      expect(result.err).toBe('')
+      expect(result.code).toBe(0)
+      expect(result.out).toMatch(/✓ s3 +tap .*\(degraded\)/)
+      const saved = JSON.parse(await readFile(join(out, 'login', 'result.json'), 'utf8')) as {
+        steps: unknown[]
+      }
+      expect(saved.steps[2]).toMatchObject({ locator_used_index: 1, degraded: true })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }, 60_000)
+
+  it('refuses a missing image before touching the device (exit 2)', async () => {
+    const root = await imageProject(false)
+    try {
+      const result = await setup().run(['run', join(root, 'testcases', 'login.yaml'), '--app', APP])
+      expect(result.code).toBe(2)
+      expect(result.err).toContain('image_not_found')
+      expect(result.created).toEqual([])
+      // Another root that has the file makes it valid.
+      const other = await imageProject(true)
+      const again = await setup({ renderScreens: true }).run([
+        'run',
+        join(root, 'testcases', 'login.yaml'),
+        '--app',
+        APP,
+        '--project-root',
+        other,
+        '--out',
+        join(other, 'out'),
+      ])
+      expect(again.code).toBe(0)
+      await rm(other, { recursive: true, force: true })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }, 60_000)
 
   it('requires --app', async () => {
     expect((await setup().run(['run', join(dir, 'login.yaml')])).code).toBe(2)

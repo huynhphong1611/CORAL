@@ -4,26 +4,50 @@ import { join } from 'node:path'
 
 const sha256 = (data: Uint8Array) => createHash('sha256').update(data).digest('hex')
 
-/**
- * The local path of a build (`<cacheDir>/builds/<sha256>.apk`): downloaded once per sha256 and
- * checked against it — for jobs and for a recording's `prepare`.
- */
-export async function cachedBuild(
-  build: { download_url: string; sha256: string },
-  cacheDir: string,
-  fetchImpl: typeof fetch = fetch,
+interface Download {
+  download_url: string
+  sha256: string
+}
+
+/** `<cacheDir>/<dir>/<sha256><ext>`: downloaded once per sha256 and checked against it. */
+async function cached(
+  what: string,
+  item: Download,
+  dir: string,
+  ext: string,
+  fetchImpl: typeof fetch,
 ): Promise<string> {
-  const dir = join(cacheDir, 'builds')
-  const path = join(dir, `${build.sha256}.apk`)
-  const cached = await readFile(path).catch(() => undefined)
-  if (cached && sha256(cached) === build.sha256) return path
-  const res = await fetchImpl(build.download_url)
-  if (!res.ok) throw new Error(`build download failed: HTTP ${res.status}`)
+  const path = join(dir, `${item.sha256}${ext}`)
+  const kept = await readFile(path).catch(() => undefined)
+  if (kept && sha256(kept) === item.sha256) return path
+  const res = await fetchImpl(item.download_url)
+  if (!res.ok) throw new Error(`${what} download failed: HTTP ${res.status}`)
   const data = new Uint8Array(await res.arrayBuffer())
-  if (sha256(data) !== build.sha256) throw new Error('build checksum mismatch')
+  if (sha256(data) !== item.sha256) throw new Error(`${what} checksum mismatch`)
   await mkdir(dir, { recursive: true })
   const partial = `${path}.${process.pid}.partial`
   await writeFile(partial, data)
   await rename(partial, path)
   return path
+}
+
+/**
+ * The local path of a build (`<cacheDir>/builds/<sha256>.apk`): downloaded once per sha256 and
+ * checked against it — for jobs and for a recording's `prepare`.
+ */
+export function cachedBuild(
+  build: Download,
+  cacheDir: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  return cached('build', build, join(cacheDir, 'builds'), '.apk', fetchImpl)
+}
+
+/** The local path of an `image` locator's reference (`<cacheDir>/assets/<sha256>`, R12). */
+export function cachedAsset(
+  asset: Download,
+  cacheDir: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  return cached('asset', asset, join(cacheDir, 'assets'), '', fetchImpl)
 }

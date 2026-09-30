@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import {
   validatePopupsSource,
   validateTestCaseSource,
@@ -6,7 +7,7 @@ import {
 } from '@coral/shared'
 import { createPopupGuard, runTestCase, type Clock, type DeviceDriver } from '@coral/runner'
 import type { Logger } from 'pino'
-import { cachedBuild } from './builds'
+import { cachedAsset, cachedBuild } from './builds'
 import type { AgentConnection } from './connection'
 import type { DeviceLease, DeviceSessions } from './device-sessions'
 import type { SecretValues } from './log'
@@ -110,8 +111,8 @@ export class JobManager {
           break
         }
         const startedAt = new Date()
-        const parsed = validateTestCaseSource(item.yaml, item.test_case_id)
-        if (!parsed.value) {
+        /** The item could not start: an error result, then the next item. */
+        const itemError = () => {
           connection.send('item.result', {
             run_id: job.run_id,
             run_item_id: item.run_item_id,
@@ -122,6 +123,30 @@ export class JobManager {
           })
           summary.failed += 1
           status = 'error'
+          failureCode ??= 'DRIVER_ERROR'
+        }
+        const parsed = validateTestCaseSource(item.yaml, item.test_case_id)
+        if (!parsed.value) {
+          itemError()
+          continue
+        }
+        // The reference images of `image` locators, cached by sha256 (research R12).
+        let files: Map<string, string>
+        try {
+          files = new Map(
+            await Promise.all(
+              item.assets.map(
+                async (asset) =>
+                  [
+                    asset.path,
+                    await cachedAsset(asset, this.deps.cacheDir, this.deps.fetch),
+                  ] as const,
+              ),
+            ),
+          )
+        } catch (error) {
+          this.deps.log?.error({ err: error, run: job.run_id }, 'image assets not available')
+          itemError()
           continue
         }
         const result = await runTestCase({
@@ -137,6 +162,11 @@ export class JobManager {
           ),
           stableTimeoutMs: job.limits.stable_timeout_ms,
           signal,
+          assets: (path) => {
+            const file = files.get(path)
+            if (!file) return Promise.reject(new Error(`image ${path} did not come with the job`))
+            return readFile(file)
+          },
           // Install once, before the first test case (research R7).
           ...(index === 0 ? { build: { path: apk, sha256: job.build.sha256 } } : {}),
           ...(this.deps.clock ? { clock: this.deps.clock } : {}),

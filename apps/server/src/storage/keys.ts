@@ -16,6 +16,12 @@ export function buildKey(tenantId: string, buildId: string): string {
   return `${tenantPrefix(tenantId)}builds/${uuid.parse(buildId)}.apk`
 }
 
+/** A reference image of an `image` locator, stored by content (research R12). */
+export function assetKey(tenantId: string, sha256: string): string {
+  if (!/^[0-9a-f]{64}$/.test(sha256)) throw new Error('invalid sha256')
+  return `${tenantPrefix(tenantId)}assets/${sha256}`
+}
+
 export function runItemPrefix(tenantId: string, runId: string, runItemId: string): string {
   return `${tenantPrefix(tenantId)}runs/${uuid.parse(runId)}/${uuid.parse(runItemId)}/`
 }

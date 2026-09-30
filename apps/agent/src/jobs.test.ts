@@ -3,7 +3,8 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { protocol } from '@coral/shared'
-import { FakeClock, FakeDriver, el, windows } from '@coral/runner/testing'
+import { snapshotFromPng } from '@coral/runner'
+import { FakeClock, FakeDriver, el, renderTree, windows } from '@coral/runner/testing'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DeviceSessions } from './device-sessions'
 import { JobManager } from './jobs'
@@ -63,7 +64,12 @@ const home = windows(
   }),
 )
 
-const assign = (items: string[] = [LOGIN]): protocol.Payload<'job.assign'> => ({
+type Asset = protocol.Payload<'job.assign'>['items'][number]['assets'][number]
+
+const assign = (
+  items: string[] = [LOGIN],
+  assets: Asset[][] = [],
+): protocol.Payload<'job.assign'> => ({
   run_id: RUN,
   device_udid: 'emulator-5554',
   build: { build_id: RUN, package: APP, download_url: 'http://s3.test/build.apk', sha256: APK_SHA },
@@ -72,7 +78,7 @@ const assign = (items: string[] = [LOGIN]): protocol.Payload<'job.assign'> => ({
     test_case_id: RUN,
     commit: 'a1b2c3d',
     yaml,
-    assets: [],
+    assets: assets[i] ?? [],
   })),
   popups_yaml: 'schema: coral/popups@1\n',
   secrets: { TEST_USER: 'bob@example.com' },
@@ -85,7 +91,16 @@ beforeAll(async () => {
 })
 afterAll(() => rm(cacheDir, { recursive: true, force: true }))
 
-function setup(opts: { apk?: Buffer; onSend?: (type: string, manager: JobManager) => void } = {}) {
+function setup(
+  opts: {
+    apk?: Buffer
+    onSend?: (type: string, manager: JobManager) => void
+    /** Bytes served for these download URLs (image assets). */
+    files?: Record<string, Uint8Array>
+    /** FakeDriver screenshots drawn from the tree (image locators). */
+    renderScreens?: boolean
+  } = {},
+) {
   const sent: { type: string; payload: Record<string, unknown>; re?: string }[] = []
   const uploads: { url: string; contentType: string; body: string }[] = []
   let downloads = 0
@@ -122,7 +137,8 @@ function setup(opts: { apk?: Buffer; onSend?: (type: string, manager: JobManager
       return Promise.resolve(new Response(null, { status: 200 }))
     }
     downloads += 1
-    return Promise.resolve(new Response(opts.apk ?? APK, { status: 200 }))
+    const file = opts.files?.[url]
+    return Promise.resolve(new Response(file ?? opts.apk ?? APK, { status: 200 }))
   }) as unknown as typeof fetch
   const manager = new JobManager({
     connection: connection as never,
@@ -139,6 +155,7 @@ function setup(opts: { apk?: Buffer; onSend?: (type: string, manager: JobManager
             home: { frames: [home] },
           },
           start: 'login',
+          ...(opts.renderScreens ? { renderScreens: true } : {}),
         })
         const entry = { driver, opened: 0, closed: 0 }
         drivers.push(entry)
@@ -285,6 +302,59 @@ describe('JobManager', () => {
       }),
     )
     await t.manager.drain()
+    expect(t.sent.at(-1)).toMatchObject({
+      type: 'job.done',
+      payload: { status: 'error', failure_code: 'DRIVER_ERROR' },
+    })
+  })
+
+  it('downloads the image assets of an item and finds its image locators with them', async () => {
+    // The Login button as the Recorder cut it; the test case's id locator no longer matches.
+    const screen = renderTree(login, { width: 1080, height: 2400 })
+    const reference = snapshotFromPng(
+      screen,
+      { width: 1080, height: 2400 },
+      {
+        x: 100,
+        y: 300,
+        w: 800,
+        h: 120,
+      },
+    ).element
+    if (!reference) throw new Error('no reference image')
+    const sha = createHash('sha256').update(reference).digest('hex')
+    const url = 'http://s3.test/assets/login.png'
+    const t = setup({ renderScreens: true, files: { [url]: reference } })
+    const yaml = LOGIN.replace(
+      "target: [{ text: 'Login' }]",
+      "target: [{ android_id: 'id/signIn' }, { image: { path: 'snap/login/s3/element.png', screen_width: 1080 } }]",
+    )
+    t.manager.handle(
+      protocol.envelope(
+        'job.assign',
+        assign([yaml], [[{ path: 'snap/login/s3/element.png', sha256: sha, download_url: url }]]),
+      ),
+    )
+    await t.manager.drain()
+    const s3 = t.sent.find((m) => m.type === 'step.result' && m.payload.step_id === 's3')
+    expect(s3?.payload).toMatchObject({ status: 'passed', locator_used_index: 1, degraded: true })
+    expect(t.sent.find((m) => m.type === 'item.result')?.payload).toMatchObject({
+      status: 'passed',
+    })
+    expect(await readdir(join(cacheDir, 'assets'))).toContain(sha)
+  }, 60_000)
+
+  it('ends an item with error when an asset does not match its sha256, then goes on', async () => {
+    const url = 'http://s3.test/assets/tampered.png'
+    const t = setup({ files: { [url]: Buffer.from('not the image') } })
+    const asset = { path: 'snap/login/s3/element.png', sha256: 'f'.repeat(64), download_url: url }
+    t.manager.handle(protocol.envelope('job.assign', assign([LOGIN, LOGIN], [[asset]])))
+    await t.manager.drain()
+    const items = t.sent.filter((m) => m.type === 'item.result').map((m) => m.payload)
+    expect(items).toMatchObject([
+      { run_item_id: ITEM_1, status: 'error', failure_code: 'DRIVER_ERROR' },
+      { run_item_id: ITEM_2, status: 'passed' },
+    ])
     expect(t.sent.at(-1)).toMatchObject({
       type: 'job.done',
       payload: { status: 'error', failure_code: 'DRIVER_ERROR' },

@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { validateDocumentSource, type ValidationIssue } from '@coral/shared'
 import { Command, Option } from 'commander'
 import type { CliIo } from '../io'
+import { fileExistsIn, projectRootOf } from '../project-root'
 
 export interface FileReport {
   file: string
@@ -24,7 +25,14 @@ export function validateCommand(io: CliIo): Command {
     .addOption(
       new Option('--format <format>', 'output format').choices(['text', 'json']).default('text'),
     )
-    .action(async (files: string[], options: { format: 'text' | 'json' }) => {
+    .option(
+      '--project-root <dir>',
+      'also check that image locator files exist under this folder (image_not_found)',
+    )
+    .action(async (files: string[], options: { format: 'text' | 'json'; projectRoot?: string }) => {
+      const fileExists = options.projectRoot
+        ? fileExistsIn(projectRootOf('', options.projectRoot))
+        : undefined
       const reports: FileReport[] = []
       for (const file of files) {
         let source: string
@@ -35,7 +43,11 @@ export function validateCommand(io: CliIo): Command {
           io.setExitCode(2)
           return
         }
-        const { valid, errors, warnings } = validateDocumentSource(source, file)
+        const { valid, errors, warnings } = validateDocumentSource(
+          source,
+          file,
+          fileExists ? { fileExists } : {},
+        )
         reports.push({ file, valid, errors, warnings })
       }
 

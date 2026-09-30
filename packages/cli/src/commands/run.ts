@@ -21,6 +21,7 @@ import { Command, Option } from 'commander'
 
 import { AdbMissingError, type CliDeps, type RunnableDriver } from '../deps'
 import type { CliIo } from '../io'
+import { assetsIn, fileExistsIn, projectRootOf } from '../project-root'
 import { formatIssue } from './validate'
 
 interface RunOptions {
@@ -31,6 +32,7 @@ interface RunOptions {
   out?: string
   stableTimeout: string
   format: 'text' | 'json'
+  projectRoot?: string
 }
 
 /** `CORAL_SECRET_<NAME>` → `{ NAME: value }` (dev-only secret source, D19). */
@@ -62,8 +64,12 @@ function formatStep(event: Extract<RunEvent, { type: 'step' }>): string {
   }${failure}\n`
 }
 
-async function loadTestCases(files: string[]): Promise<TestCase[]> {
-  const testCases: TestCase[] = []
+/** The test cases with the project root their `image` paths start from (FR-022). */
+async function loadTestCases(
+  files: string[],
+  projectRoot: string | undefined,
+): Promise<{ testCase: TestCase; root: string }[]> {
+  const loaded: { testCase: TestCase; root: string }[] = []
   const problems: string[] = []
   for (const file of files) {
     let source: string
@@ -72,12 +78,13 @@ async function loadTestCases(files: string[]): Promise<TestCase[]> {
     } catch (error) {
       throw new UsageError(`cannot read ${file}: ${(error as Error).message}`)
     }
-    const result = validateTestCaseSource(source, file)
+    const root = projectRootOf(file, projectRoot)
+    const result = validateTestCaseSource(source, file, { fileExists: fileExistsIn(root) })
     if (!result.valid || !result.value) problems.push(...result.errors.map(formatIssue))
-    else testCases.push(result.value)
+    else loaded.push({ testCase: result.value, root })
   }
   if (problems.length > 0) throw new UsageError(`invalid test case:\n${problems.join('\n')}`)
-  return testCases
+  return loaded
 }
 
 async function loadPopups(file: string | undefined): Promise<Popups> {
@@ -116,6 +123,10 @@ export function runCommand(io: CliIo, deps: () => CliDeps): Command {
     )
     .option('--out <dir>', 'result folder (default ./coral-results/<timestamp>/)')
     .option('--stable-timeout <ms>', 'max wait for a stable screen (§8.3)', '3000')
+    .option(
+      '--project-root <dir>',
+      'where image locator paths start (default: the folder holding testcases/, or the YAML’s)',
+    )
     .addOption(
       new Option('--format <format>', 'output format').choices(['text', 'json']).default('text'),
     )
@@ -129,7 +140,8 @@ export function runCommand(io: CliIo, deps: () => CliDeps): Command {
           throw new UsageError('--stable-timeout must be an integer ≥ 300')
         }
         // Everything that can be checked without a device comes first.
-        const testCases = await loadTestCases(files)
+        const loaded = await loadTestCases(files, options.projectRoot)
+        const testCases = loaded.map((l) => l.testCase)
         const popups = await loadPopups(options.popups)
         for (const testCase of testCases) {
           if (!testCase.platforms.includes('android')) {
@@ -160,7 +172,7 @@ export function runCommand(io: CliIo, deps: () => CliDeps): Command {
         driver = await d.createDriver({ udid, appId: options.app })
         await driver.open()
 
-        for (const [i, testCase] of testCases.entries()) {
+        for (const [i, { testCase, root }] of loaded.entries()) {
           if (options.format === 'text') io.out(`▶ ${testCase.id}  (${udid})\n`)
           const result = await runTestCase({
             driver,
@@ -170,6 +182,7 @@ export function runCommand(io: CliIo, deps: () => CliDeps): Command {
             secrets,
             sink,
             stableTimeoutMs,
+            assets: assetsIn(root),
             // Install once, before the first test case.
             ...(build && i === 0 ? { build } : {}),
             onEvent: (event) => {

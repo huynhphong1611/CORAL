@@ -1,4 +1,5 @@
-import { referencedSecrets, validateTestCaseSource, type protocol } from '@coral/shared'
+import { createHash } from 'node:crypto'
+import { imagePaths, referencedSecrets, validateTestCaseSource, type protocol } from '@coral/shared'
 import { DelayedError, Queue, Worker, type ConnectionOptions, type Job } from 'bullmq'
 import type { FastifyBaseLogger } from 'fastify'
 import type { AgentGateway } from '../agents/gateway'
@@ -7,6 +8,7 @@ import type { ProjectRepoStore } from '../git/project-repo-store'
 import { POPUPS_PATH } from '../repos/projects'
 import { runControl, runHolder, type RunControl, type RunNotifier } from '../repos/run-control'
 import type { RunRow } from '../repos/runs'
+import { assetKey } from '../storage/keys'
 import type { ArtifactStore } from '../storage/s3'
 import type { RunQueue } from './create'
 import type { SecretSource } from './secrets'
@@ -280,21 +282,21 @@ export class RunDispatcher implements RunQueue {
       return yaml
     }
     const rows = await this.control.itemsWithPaths(run.id)
-    const items = await Promise.all(
-      rows.map(async ({ item, pathInRepo }) => ({
-        run_item_id: item.id,
-        test_case_id: item.testCaseId,
-        commit: item.commit,
-        yaml: await read(pathInRepo, item.commit),
-        // Image locator assets arrive with US6 (T052).
-        assets: [],
-      })),
-    )
     const names = new Set<string>()
-    for (const item of items) {
-      const parsed = validateTestCaseSource(item.yaml, item.run_item_id)
-      if (parsed.value) for (const name of referencedSecrets(parsed.value)) names.add(name)
-    }
+    const items = await Promise.all(
+      rows.map(async ({ item, pathInRepo }) => {
+        const yaml = await read(pathInRepo, item.commit)
+        const parsed = validateTestCaseSource(yaml, item.id).value
+        if (parsed) for (const name of referencedSecrets(parsed)) names.add(name)
+        return {
+          run_item_id: item.id,
+          test_case_id: item.testCaseId,
+          commit: item.commit,
+          yaml,
+          assets: parsed ? await this.assets(run, imagePaths(parsed), item.commit) : [],
+        }
+      }),
+    )
     return {
       run_id: run.id,
       device_udid: device.udid,
@@ -312,6 +314,30 @@ export class RunDispatcher implements RunQueue {
         stable_timeout_ms: this.options.stableTimeoutMs ?? 3000,
       },
     }
+  }
+
+  /**
+   * The reference images of `image` locators, read from the project repo at the item's commit and
+   * handed to the agent by content (research R12, FR-022): `<tenant>/assets/<sha256>`, uploaded
+   * once, fetched through a presigned URL. A missing file fails the assignment.
+   */
+  private async assets(
+    run: RunRow,
+    paths: readonly string[],
+    commit: string,
+  ): Promise<protocol.Payload<'job.assign'>['items'][number]['assets']> {
+    return Promise.all(
+      paths.map(async (path) => {
+        const bytes = await this.options.store.readBytes(run.tenantId, run.projectId, path, commit)
+        if (!bytes) throw new Error(`${path} missing at ${commit}`)
+        const sha256 = createHash('sha256').update(bytes).digest('hex')
+        const key = assetKey(run.tenantId, sha256)
+        if ((await this.options.artifacts.size(key)) === undefined) {
+          await this.options.artifacts.putBytes(key, bytes, 'image/png')
+        }
+        return { path, sha256, download_url: (await this.options.artifacts.presignGet(key)).url }
+      }),
+    )
   }
 
   /** Run timeout (research R9): tell the agent to stop and end the run as TIMEOUT. */

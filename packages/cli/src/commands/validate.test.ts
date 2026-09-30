@@ -96,6 +96,16 @@ describe('coral validate', () => {
     expect(result.out).toContain(`${file}:1:1  -  schema  schema  unknown schema`)
   })
 
+  it('checks image files under --project-root only when it is given (image_not_found)', async () => {
+    const file = fixture('valid/image-locator.yaml')
+    expect((await coral(['validate', file])).code).toBe(0)
+    const result = await coral(['validate', file, '--project-root', tmp])
+    expect(result.code).toBe(1)
+    expect(result.out).toContain('image_not_found')
+    // fixtures/testcases/ plays the project repo: the referenced images are there.
+    expect((await coral(['validate', file, '--project-root', fixture('')])).code).toBe(0)
+  })
+
   it('exits 2 for unreadable files and bad options', async () => {
     expect((await coral(['validate', join(tmp, 'missing.yaml')])).code).toBe(2)
     expect(
