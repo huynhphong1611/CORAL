@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { walkTree, type ElementNode } from '@coral/shared'
-import { imageInfo, snapshotFromPng } from '@coral/runner'
+import { walkTree } from '@coral/shared'
+import { imageInfo, openCvMatcher, realClock, snapshotFromPng, waitForStable } from '@coral/runner'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { defaultDeps } from '../deps'
 import { createProgram } from '../program'
@@ -20,6 +20,59 @@ beforeAll(async () => {
   out = keep ? join(keep, 'coral-run-test') : await mkdtemp(join(tmpdir(), 'coral-device-run-'))
 })
 afterAll(() => (keep ? undefined : rm(out, { recursive: true, force: true })))
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * The menu button cut from the catalog the way the recorder saves a reference (T040): tree
+ * stable, then a screenshot. The screenshots a run keeps are no good for this: on a slow emulator
+ * the one after mydemo-login's s1 still showed the splash screen while the tree already had the
+ * catalog, and the cut was blank. So the cut must be found again, in place, on the next
+ * screenshot, which a blank or half-drawn one never is.
+ */
+async function cutMenu(timeoutMs = 20_000): Promise<{ element: Uint8Array; width: number }> {
+  const deps = defaultDeps(process.env)
+  const udid =
+    process.env.CORAL_TEST_UDID ??
+    (await deps.listDevices()).find((d) => d.state === 'device')?.udid
+  if (!udid) throw new Error('no device')
+  const driver = await deps.createDriver({ udid, appId: APP })
+  await driver.open()
+  try {
+    const matcher = openCvMatcher()
+    const deadline = Date.now() + timeoutMs
+    let seen = 'nothing yet'
+    for (;;) {
+      const { tree } = await waitForStable(driver, realClock)
+      const menu = [...walkTree(tree)].find(
+        (n) => n.visible && n.platform_id.endsWith(':id/menuIV'),
+      )
+      const screen = await driver.screenshot()
+      const info = imageInfo(screen)
+      const element =
+        menu && info
+          ? snapshotFromPng(screen, { width: info.width, height: info.height }, menu.bounds).element
+          : undefined
+      if (menu && info && element) {
+        const match = await matcher.find(await driver.screenshot(), element, { threshold: 0.95 })
+        const off = match
+          ? Math.max(
+              Math.abs(match.bounds.x - menu.bounds.x),
+              Math.abs(match.bounds.y - menu.bounds.y),
+            )
+          : Infinity
+        if (off <= 2) return { element, width: info.width }
+        seen = match ? `found ${off} px away` : 'cut not found again'
+      } else {
+        seen = menu ? 'no cut' : 'no menu button in the tree'
+      }
+      if (Date.now() > deadline) throw new Error(`menu button: ${seen} after ${timeoutMs} ms`)
+      await sleep(500)
+    }
+  } finally {
+    await driver.close()
+  }
+}
 
 describe('coral run on a real device', () => {
   it('passes mydemo-login in under 60 s', async () => {
@@ -54,19 +107,8 @@ describe('coral run on a real device', () => {
   }, 120_000)
 
   it('taps the menu by its picture when its id changed: degraded, passed (US6 T053)', async () => {
-    // The reference: the menu button cut from the catalog screen of the run above (step s1).
-    const s1 = join(out, 'mydemo-login', '0-s1')
-    const screen = new Uint8Array(await readFile(join(s1, 'screenshot.png')))
-    const tree = JSON.parse(await readFile(join(s1, 'tree.json'), 'utf8')) as ElementNode[]
-    const menu = [...walkTree(tree)].find((n) => n.platform_id.endsWith(':id/menuIV'))
-    if (!menu) throw new Error('no menu button in the catalog tree of mydemo-login s1')
-    // u2 screenshots are taken at the device's resolution: the tree's pixels.
-    const info = imageInfo(screen)
-    if (!info) throw new Error('s1 screenshot is not an image')
-    const { width } = info
-    const size = { width, height: info.height }
-    const element = snapshotFromPng(screen, size, menu.bounds).element
-    if (!element) throw new Error('could not cut the menu button')
+    // The run above ends on the catalog, with the menu button at the top left.
+    const { element, width } = await cutMenu()
 
     const project = await mkdtemp(join(tmpdir(), 'coral-device-image-'))
     const reference = 'snap/mydemo-image/s2/element.png'
