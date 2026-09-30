@@ -1,7 +1,7 @@
 import { api, type Step } from '@coral/shared'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { z } from 'zod'
 import { ApiError } from '../../api/client'
 import { keys, useCoral, useProjects, useRole } from '../../api/queries'
@@ -9,7 +9,7 @@ import { testCaseKeys, useTestCase } from '../../api/testcases'
 import { PageHeader } from '../../components/Layout'
 import { RunDialog } from '../../components/RunDialog'
 import { Badge, buttonClass, Card, errorMessage, QueryState } from '../../components/ui'
-import { YamlEditor, type EditorIssue } from '../../components/YamlEditor'
+import { YamlEditor, type EditorIssue, type YamlEditorHandle } from '../../components/YamlEditor'
 import { en } from '../../i18n/en'
 import { CHECK_MS, checkTestCase, useDebounced, type Problem } from './check'
 import { HistoryPanel } from './HistoryPanel'
@@ -61,6 +61,7 @@ function Editor({ projectId, testCase }: { projectId: string; testCase: api.Test
   const [notice, setNotice] = useState<string | undefined>()
   const [showHistory, setShowHistory] = useState(false)
   const [running, setRunning] = useState(false)
+  const editor = useRef<YamlEditorHandle>(null)
 
   const settled = useDebounced(text, CHECK_MS)
   const checked = useMemo(() => checkTestCase(settled, testCase.slug), [settled, testCase.slug])
@@ -180,7 +181,7 @@ function Editor({ projectId, testCase }: { projectId: string; testCase: api.Test
       </PageHeader>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <div className="min-w-0 flex-1 space-y-3">
+        <div className="min-w-0 flex-1 space-y-3 lg:sticky lg:top-4">
           {conflict && (
             <div
               role="alert"
@@ -199,6 +200,7 @@ function Editor({ projectId, testCase }: { projectId: string; testCase: api.Test
           )}
           {!canWrite && <p className="text-sm text-slate-500">{en.editor.readOnly}</p>}
           <YamlEditor
+            ref={editor}
             value={text}
             onChange={(next) => {
               setText(next)
@@ -214,6 +216,7 @@ function Editor({ projectId, testCase }: { projectId: string; testCase: api.Test
             errors={errors}
             warnings={checked.warnings}
             notice={notice}
+            onReveal={(problem) => editor.current?.reveal(problem)}
           />
           {showHistory && (
             <Card className="p-4">
@@ -245,12 +248,14 @@ function Status({
   errors,
   warnings,
   notice,
+  onReveal,
 }: {
   checking: boolean
   dirty: boolean
   errors: readonly Problem[]
   warnings: readonly Problem[]
   notice: string | undefined
+  onReveal: (problem: Problem) => void
 }) {
   return (
     <div className="space-y-2 text-sm" data-testid="editor-status">
@@ -264,8 +269,12 @@ function Status({
         )}
         {dirty && <Badge tone="amber">{en.editor.unsaved}</Badge>}
       </p>
-      {!checking && errors.length > 0 && <ProblemList problems={errors} tone="error" />}
-      {!checking && warnings.length > 0 && <ProblemList problems={warnings} tone="warning" />}
+      {!checking && errors.length > 0 && (
+        <ProblemList problems={errors} tone="error" onReveal={onReveal} />
+      )}
+      {!checking && warnings.length > 0 && (
+        <ProblemList problems={warnings} tone="warning" onReveal={onReveal} />
+      )}
       {notice && (
         <p role="status" className="rounded-md bg-slate-100 px-3 py-2 text-slate-700">
           {notice}
@@ -275,12 +284,15 @@ function Status({
   )
 }
 
+/** Problems with their place; one with a line takes the cursor there. */
 function ProblemList({
   problems,
   tone,
+  onReveal,
 }: {
   problems: readonly Problem[]
   tone: 'error' | 'warning'
+  onReveal: (problem: Problem) => void
 }) {
   return (
     <div role={tone === 'error' ? 'alert' : undefined}>
@@ -291,8 +303,16 @@ function ProblemList({
         {problems.map((p) => (
           <li key={`${p.path}-${p.code}-${p.line ?? ''}`}>
             {p.line !== undefined && (
-              <span className="font-mono">{en.editor.issueAt(p.line, p.column ?? 1)} · </span>
+              <button
+                type="button"
+                className="font-mono underline-offset-2 hover:underline"
+                title={en.editor.goTo}
+                onClick={() => onReveal(p)}
+              >
+                {en.editor.issueAt(p.line, p.column ?? 1)}
+              </button>
             )}
+            {p.line !== undefined && ' · '}
             {p.step_id && <span className="font-mono">{p.step_id} · </span>}
             {p.code}: {p.message}
           </li>

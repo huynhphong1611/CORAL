@@ -136,6 +136,7 @@ export const en = {
     problems: (n: number) =>
       n === 1 ? '1 problem — fix it to save' : `${n} problems — fix them to save`,
     issueAt: (line: number, column: number) => `Line ${line}:${column}`,
+    goTo: 'Go to this line',
     idChanged: (slug: string) => `id must stay "${slug}" (renaming is not supported)`,
     readOnly: 'Read only: viewers cannot change test cases.',
     conflict:

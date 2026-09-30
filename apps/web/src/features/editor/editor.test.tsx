@@ -160,6 +160,10 @@ describe('the test case editor (T048)', () => {
     expect(within(errors).getByText(/^Line 14:/)).toBeDefined()
     expect(within(errors).getByText(/s3/)).toBeDefined()
     expect(errorLines()).toEqual([14])
+    // The problem's place takes the cursor there.
+    await userEvent.click(within(errors).getByRole('button', { name: /^Line 14:/ }))
+    const { head } = view().state.selection.main
+    expect(view().state.doc.lineAt(head).number).toBe(14)
     expect(saveButton()).toHaveProperty('disabled', true)
     expect(screen.getByText('1 problem — fix it to save')).toBeDefined()
 

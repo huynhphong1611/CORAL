@@ -10,7 +10,7 @@ import {
   keymap,
   lineNumbers,
 } from '@codemirror/view'
-import { useEffect, useRef } from 'react'
+import { useEffect, useImperativeHandle, useRef, type Ref } from 'react'
 
 /** A problem to mark in the text: 1-based line and column, like `validateTestCaseSource`. */
 export interface EditorIssue {
@@ -18,6 +18,12 @@ export interface EditorIssue {
   message: string
   line?: number | undefined
   column?: number | undefined
+}
+
+/** What the page can ask of the editor. */
+export interface YamlEditorHandle {
+  /** Puts the cursor on the issue's line and column, scrolled into view. */
+  reveal: (issue: Pick<EditorIssue, 'line' | 'column'>) => void
 }
 
 const theme = EditorView.theme({
@@ -28,7 +34,10 @@ const theme = EditorView.theme({
 })
 
 /** Where an issue sits in the document: from its column to the end of its line. */
-export function issueRange(doc: Text, issue: EditorIssue): { from: number; to: number } {
+export function issueRange(
+  doc: Text,
+  issue: Pick<EditorIssue, 'line' | 'column'>,
+): { from: number; to: number } {
   const line = doc.line(Math.min(Math.max(issue.line ?? 1, 1), doc.lines))
   const from = line.from + Math.min(Math.max((issue.column ?? 1) - 1, 0), line.length)
   const to = line.to > from ? line.to : Math.min(from + 1, doc.length)
@@ -46,18 +55,37 @@ export function YamlEditor({
   issues,
   readOnly = false,
   label,
+  ref,
 }: {
   value: string
   onChange: (value: string) => void
   issues: readonly EditorIssue[]
   readOnly?: boolean
   label: string
+  ref?: Ref<YamlEditorHandle>
 }) {
   const parent = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | undefined>(undefined)
   const changed = useRef(onChange)
   changed.current = onChange
   const editable = useRef(new Compartment())
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      reveal: (issue) => {
+        const current = view.current
+        if (!current) return
+        const { from } = issueRange(current.state.doc, issue)
+        current.dispatch({
+          selection: { anchor: from },
+          effects: EditorView.scrollIntoView(from, { y: 'center' }),
+        })
+        current.focus()
+      },
+    }),
+    [],
+  )
 
   useEffect(() => {
     if (!parent.current) return undefined
