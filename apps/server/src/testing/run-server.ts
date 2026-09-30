@@ -215,6 +215,10 @@ export async function startRunServer(options: RunServerOptions = {}) {
       if (!streams) throw new Error('run server not wired')
       return streams
     },
+    get recordings(): RecordingService {
+      if (!recordings) throw new Error('run server not wired')
+      return recordings
+    },
     close,
   }
 }

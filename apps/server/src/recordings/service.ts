@@ -22,6 +22,7 @@ import { buildsRepo } from '../repos/builds'
 import { liveRepo } from '../repos/live'
 import { projectsRepo } from '../repos/projects'
 import {
+  expiredRecordings,
   recordingHolder,
   recordingsOnAgent,
   recordingsRepo,
@@ -343,6 +344,12 @@ export class RecordingService {
     })
     await this.close(row, 'saved', 'released')
     await this.repo(caller.tenantId).markSaved(row.id, saved.id, input.slug, input.intent)
+    // The snapshots live in the project repo now.
+    await this.options.artifacts
+      .removePrefix(recordingPrefix(caller.tenantId, id))
+      .catch((error: unknown) =>
+        this.options.log?.warn({ err: error, recording: id }, 'cannot remove saved snapshots'),
+      )
     return {
       test_case_id: saved.id,
       head_commit: saved.headCommit,
@@ -358,6 +365,25 @@ export class RecordingService {
     }
     await this.close(row, 'discarded', 'released')
     await this.options.artifacts.removePrefix(recordingPrefix(caller.tenantId, id))
+  }
+
+  /**
+   * The cleanup job (T043, research R10): unsaved recordings untouched for 7 days are `expired`,
+   * their device let go and their snapshots removed. Returns how many.
+   */
+  async expireOld(now = new Date()): Promise<number> {
+    let count = 0
+    for (const { id, tenantId } of await expiredRecordings(this.options.db, now)) {
+      try {
+        const row = await this.repo(tenantId).get(id)
+        await this.close(row, 'expired', 'idle_timeout')
+        await this.options.artifacts.removePrefix(recordingPrefix(tenantId, id))
+        count += 1
+      } catch (error) {
+        this.options.log?.error({ err: error, recording: id }, 'cannot expire recording')
+      }
+    }
+    return count
   }
 
   /** For the lease sweeper: an expired `recording:` lease stops its recording (idle). */
@@ -599,7 +625,7 @@ export class RecordingService {
    */
   async close(
     row: RecordingRow,
-    status: 'stopped' | 'discarded' | 'saved',
+    status: 'stopped' | 'discarded' | 'saved' | 'expired',
     reason: EndReason,
   ): Promise<void> {
     const changed = await this.repo(row.tenantId).setStatus(row.id, status, [

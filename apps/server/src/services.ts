@@ -18,6 +18,9 @@ import { createArtifactStore } from './storage/s3'
 import { UiGateway } from './ui/gateway'
 import { RunEvents } from './ui/run-events'
 
+/** How often expired recordings are cleaned up. */
+const RECORDING_CLEANUP_MS = 60 * 60 * 1000
+
 /**
  * Everything coral-server needs besides the HTTP app: Postgres, S3 (bucket + lifecycle), the git
  * store, the agent gateway, the BullMQ dispatcher, the result ingestion (T054) and the browser
@@ -101,6 +104,7 @@ export async function startServices(
   }
 
   let sweeper: ReturnType<typeof startLeaseSweeper> | undefined
+  let cleanup: NodeJS.Timeout | undefined
   return {
     deps,
     /** Call once the app (and its logger) exists. */
@@ -117,9 +121,19 @@ export async function startServices(
         expire: async (lease) => (await live.expire(lease)) || recordings.expire(lease),
         log,
       })
+      // Recordings untouched for 7 days go, with their snapshots (T043).
+      const expireRecordings = () =>
+        recordings
+          .expireOld()
+          .then((count) => count > 0 && log.info({ count }, 'recordings expired'))
+          .catch((error: unknown) => log.error({ err: error }, 'recording cleanup failed'))
+      void expireRecordings()
+      cleanup = setInterval(() => void expireRecordings(), RECORDING_CLEANUP_MS)
+      cleanup.unref()
     },
     async close() {
       sweeper?.stop()
+      if (cleanup) clearInterval(cleanup)
       notify.stop()
       streams.stop()
       await dispatcher.close()

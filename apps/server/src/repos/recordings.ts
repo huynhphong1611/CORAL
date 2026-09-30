@@ -258,7 +258,7 @@ export function recordingsOnAgent(db: Db, agentId: string) {
 /** Unsaved recordings past `expires_at`, every tenant (the cleanup job, T043). */
 export function expiredRecordings(db: Db, now = new Date()) {
   return db
-    .select({ id: recordings.id, tenantId: recordings.tenantId, steps: recordings.steps })
+    .select({ id: recordings.id, tenantId: recordings.tenantId })
     .from(recordings)
     .where(and(inArray(recordings.status, ['recording', 'stopped']), lt(recordings.expiresAt, now)))
 }

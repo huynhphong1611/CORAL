@@ -2,6 +2,7 @@ import { api, type protocol, type Step } from '@coral/shared'
 import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { devices, testCases } from '../db/schema'
+import { recordingStepKey } from '../storage/keys'
 import { fakeAgent } from '../testing/fake-agent'
 import { startRunServer, type RunServer } from '../testing/run-server'
 import type { TestUser } from '../testing/test-server'
@@ -193,6 +194,10 @@ describe('saving a recording (US4, T042)', () => {
       (await server.call(huynh, { method: 'GET', url: `/recordings/${first}` })).body,
     )
     expect(recording).toMatchObject({ status: 'saved', test_case_id: saved.test_case_id })
+    // The snapshots live in the repo now: their S3 copies are gone.
+    expect(
+      await server.artifacts.size(recordingStepKey(huynh.tenantId, first, 2, 'element.png')),
+    ).toBeUndefined()
     const view = api.deviceViewSchema
       .array()
       .parse((await server.call(huynh, { method: 'GET', url: '/devices' })).body)
