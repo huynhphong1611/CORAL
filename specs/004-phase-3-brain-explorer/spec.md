@@ -241,6 +241,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 - **FR-006**: Mọi lời gọi AI MUST được ghi lại: vai trò, provider, model, token vào/ra, chi phí, thời gian, thành công, và hoạt động liên quan (exploration, import, prompt).
   - Chi phí tính từ số token và đơn giá theo model; đơn giá là cấu hình.
   - Model không có đơn giá thì không được gọi, để giới hạn chi phí luôn có hiệu lực.
+- **FR-006a**: Nội dung của mỗi lời gọi AI MUST được lưu **30 ngày** cùng hoạt động liên quan: chữ đã gửi (đã che secret, FR-013), ảnh thu nhỏ đã gửi, câu trả lời, lý do AI đưa ra, các lần hỏi lại vì sai định dạng và các lần gọi công cụ. Người xem được hoạt động đó mở được nội dung này từ bước tương ứng của trace trên web. Sau 30 ngày chỉ còn số liệu của FR-006.
 - **FR-007**: Khi chạm một giới hạn chi phí, hệ thống MUST chặn mọi lời gọi mới trong phạm vi giới hạn đó (tenant trong ngày, exploration, job import). Hoạt động bị ảnh hưởng dừng với lý do "hết ngân sách" và giữ kết quả đã có.
 - **FR-008**: API key của provider MUST là secret: key mặc định của nền tảng, hoặc key riêng của tenant (BYOK — D20). Key không bao giờ xuất hiện trong log, câu trả lời API hay giao diện.
 - **FR-009**: Adapter GitHub Copilot MUST mặc định tắt. Chỉ bật bằng cờ cấu hình và dùng token Copilot của chính tenant. Các DoD không phụ thuộc Copilot (D20, R7).
@@ -343,6 +344,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
   - nút dừng;
   - xem app map: màn hình có ảnh và tên, chuyển màn;
   - phát hiện (crash);
+  - ở mỗi bước trace: AI đã thấy gì và trả lời gì (FR-006a);
   - test case được sinh cùng trạng thái.
 - **FR-040**: Web MUST có màn **Brain config**:
   - xem và sửa cấu hình bộ não của tenant (FR-004), có kiểm tra lỗi trước khi lưu; chỉ `owner`/`admin` sửa;
@@ -362,7 +364,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 ### Key Entities *(include if feature involves data)*
 
 - **Cấu hình bộ não (brain config)**: theo tenant. Gồm vai trò → provider + model, danh sách dự phòng, giới hạn chi phí, đơn giá theo model, cờ bật Copilot. Nhập/xuất dạng `brains.yaml`.
-- **Lời gọi AI (brain call)**: vai trò, provider, model, token, chi phí, thời gian, thành công, hoạt động liên quan.
+- **Lời gọi AI (brain call)**: vai trò, provider, model, token, chi phí, thời gian, thành công, hoạt động liên quan. Kèm nội dung đã che secret (chữ gửi đi, ảnh thu nhỏ, câu trả lời, lý do), giữ 30 ngày.
 - **Khai báo MCP**: theo project, trong kho git (`mcp.yaml`). Gồm server, địa chỉ, credential dạng tham chiếu secret, công cụ được phép, công cụ có tác dụng phụ đã bật.
 - **Lời gọi công cụ (tool call)**: server, công cụ, tham số đã che secret, kết quả, thời gian, lời gọi AI liên quan.
 - **Tri thức project**: `AGENTS.md` và các skill (tên, mô tả, nội dung) trong kho git của project.
@@ -435,3 +437,4 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 - Q: DoD với AI thật chạy ở đâu và bằng key nào? → A: Huynh chạy trên máy của mình với key riêng; dự án cung cấp script kiểm DoD và hướng dẫn; CI chỉ dùng provider giả lập (Assumptions).
 - Q: Phase 3 có màn web cho prompt, import và tri thức project không, hay chỉ API? → A: Có màn web tối giản: ô nhập prompt, trang import (tải file, chọn cột, xem trước, báo cáo), sửa `AGENTS.md`/skills/`mcp.yaml` bằng editor của Phase 2 (FR-041).
 - Q: Sau khi khám phá xong, Test writer tự viết test case ngay hay chờ người dùng chọn, và tối đa bao nhiêu test case mỗi lần? → A: Tự viết ngay khi exploration kết thúc, tối đa 5 test case (đổi được khi bắt đầu); AI chọn các flow đáng giá nhất (US3, FR-020, FR-028).
+- Q: Có lưu nội dung đã gửi cho AI và câu trả lời (đã che secret) để xem lại không? → A: Có, lưu 30 ngày (chữ gửi đi, ảnh thu nhỏ, câu trả lời, lý do AI đưa ra), xem được từ từng bước của trace trên web; sau đó chỉ còn số liệu (FR-006a, FR-039, Key Entities).
