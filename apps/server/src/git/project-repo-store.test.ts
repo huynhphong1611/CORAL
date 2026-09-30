@@ -93,4 +93,55 @@ describe('ProjectRepoStore', () => {
       'invalid commit',
     )
   })
+
+  it('commits files and binary snapshots in one commit, replacing a whole directory', async () => {
+    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 255])
+    const first = await store.commitFiles(tenant, project, {
+      files: {
+        'testcases/rec.yaml': 'v1\n',
+        'snap/rec/s1/element.png': png,
+        'snap/rec/s2/tree.json': '[]',
+      },
+      author: huynh,
+      message: 'testcase: rec (recorder)',
+    })
+    expect(await store.readBytes(tenant, project, 'snap/rec/s1/element.png', first)).toEqual(
+      Buffer.from(png),
+    )
+    expect(await store.listFiles(tenant, project, 'snap/rec', first)).toEqual([
+      'snap/rec/s1/element.png',
+      'snap/rec/s2/tree.json',
+    ])
+    const history = await store.history(tenant, project, 'snap/rec/s1/element.png')
+    expect(history.map((v) => v.commit)).toEqual([first])
+
+    // Re-recorded: the old folder goes, the new one comes, the YAML changes — one commit.
+    const second = await store.commitFiles(tenant, project, {
+      files: { 'testcases/rec.yaml': 'v2\n', 'snap/rec/s3/screen.jpg': png },
+      removeDirs: ['snap/rec'],
+      author: huynh,
+      message: 'testcase: rec (recorder)',
+    })
+    expect(await store.listFiles(tenant, project, 'snap/rec', second)).toEqual([
+      'snap/rec/s3/screen.jpg',
+    ])
+    expect(await store.readFile(tenant, project, 'testcases/rec.yaml', second)).toBe('v2\n')
+    expect(await store.history(tenant, project, 'testcases/rec.yaml')).toHaveLength(2)
+    // Nothing changed: no new commit.
+    expect(
+      await store.commitFiles(tenant, project, {
+        files: { 'testcases/rec.yaml': 'v2\n' },
+        author: huynh,
+        message: 'same',
+      }),
+    ).toBe(second)
+    await expect(
+      store.commitFiles(tenant, project, {
+        files: {},
+        removeDirs: ['../x'],
+        author: huynh,
+        message: 'x',
+      }),
+    ).rejects.toThrow('unsafe repository path')
+  })
 })

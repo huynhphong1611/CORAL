@@ -3,14 +3,17 @@ import {
   numberRecordedStep,
   protocol,
   recordingToYaml,
+  snapshotPath,
+  validateTestCaseSource,
   type api,
   type RecordingStep,
+  type ValidationIssue,
 } from '@coral/shared'
 import type { FastifyBaseLogger } from 'fastify'
 import type { AgentGateway, AgentRef } from '../agents/gateway'
 import type { Db } from '../db/client'
 import { activityOf } from '../devices/views'
-import type { ProjectRepoStore } from '../git/project-repo-store'
+import type { GitAuthor, ProjectRepoStore } from '../git/project-repo-store'
 import { HttpError } from '../http/errors'
 import type { AgentCommands, CommandResult } from '../live/agent-commands'
 import { toAgentCommand, type Caller, type LiveControl } from '../live/control'
@@ -52,7 +55,7 @@ const PREPARE_TIMEOUT_MS = 180_000
 export interface RecordingServiceOptions {
   db: Db
   store: ProjectRepoStore
-  artifacts: Pick<ArtifactStore, 'presignPut' | 'presignGet' | 'removePrefix'>
+  artifacts: Pick<ArtifactStore, 'presignPut' | 'presignGet' | 'removePrefix' | 'getBytes'>
   ui: Pick<UiGateway, 'on' | 'broadcastToTenant'>
   agents: Pick<AgentGateway, 'isOnline' | 'onAgentOffline'>
   commands: Pick<AgentCommands, 'send'>
@@ -65,6 +68,12 @@ export interface RecordingServiceOptions {
 }
 
 const failed = (code: string, message: string) => ({ code, message })
+
+/** 400 `validation_failed` with the problems `coral validate` reports (as for test cases). */
+function invalidYaml(errors: ValidationIssue[]): HttpError {
+  const issues = errors.map(({ file: _file, ...issue }) => issue)
+  return new HttpError(400, 'validation_failed', 'YAML is not valid', issues)
+}
 const iso = (date: Date) => date.toISOString()
 
 /**
@@ -259,6 +268,86 @@ export class RecordingService {
     })
     const issue = ({ file: _file, ...rest }: (typeof validation.errors)[number]) => rest
     return { yaml, warnings: [...validation.errors, ...validation.warnings].map(issue) }
+  }
+
+  /**
+   * POST …/save (FR-017): validated like `coral validate` — image locators must point at the
+   * snapshots being committed — then one commit with the YAML and `snap/<slug>/<step_id>/…`
+   * copied from S3; the recording is `saved` and the device let go. 409 `slug_exists` unless
+   * `replace` with the current `base_commit`.
+   */
+  async save(
+    caller: Caller & { author: GitAuthor },
+    id: string,
+    input: api.SaveRecording,
+  ): Promise<api.SavedRecording> {
+    const row = await this.own(caller, id)
+    this.editable(row)
+    const { db, store } = this.options
+    const projects = projectsRepo(db, caller.tenantId, store)
+    const testCases = testCasesRepo(db, caller.tenantId, store, projects)
+
+    // What will be committed: each recorded step's snapshot, under the test case's step id.
+    const files = new Map<string, string>()
+    for (const step of row.steps) {
+      const { screen, tree, element } = step.snapshot
+      files.set(snapshotPath(input.slug, step.step.id, 'screen.jpg'), screen)
+      files.set(snapshotPath(input.slug, step.step.id, 'tree.json'), tree)
+      if (element) files.set(snapshotPath(input.slug, step.step.id, 'element.png'), element)
+    }
+    const result = validateTestCaseSource(input.yaml, `${input.slug}.yaml`, {
+      fileExists: (path) => files.has(path),
+    })
+    if (!result.valid || !result.value) throw invalidYaml(result.errors)
+    const testCase = result.value
+    if (testCase.id !== input.slug) {
+      throw new HttpError(
+        400,
+        'validation_failed',
+        `id "${testCase.id}" must be the slug "${input.slug}"`,
+      )
+    }
+    const existing = await testCases.bySlug(row.projectId, input.slug)
+    if (existing && !input.replace) {
+      throw new HttpError(
+        409,
+        'slug_exists',
+        `test case "${input.slug}" already exists`,
+        undefined,
+        {
+          test_case_id: existing.id,
+          head_commit: existing.headCommit,
+        },
+      )
+    }
+
+    // Only the steps the test case still has; their snapshot objects, straight from S3.
+    const stepIds = new Set(testCase.steps.map((s) => s.id))
+    const snapshots: Record<string, Uint8Array> = {}
+    await Promise.all(
+      [...files].map(async ([path, key]) => {
+        if (!stepIds.has(path.split('/')[2] ?? '')) return
+        const bytes = await this.options.artifacts.getBytes(key)
+        if (bytes) snapshots[path] = bytes
+      }),
+    )
+    const saved = await testCases.saveRecorded(row.projectId, {
+      testCase,
+      yaml: input.yaml,
+      snapshots,
+      author: caller.author,
+      userId: caller.userId,
+      ...(existing && input.replace && input.base_commit
+        ? { replace: { id: existing.id, baseCommit: input.base_commit } }
+        : {}),
+    })
+    await this.close(row, 'saved', 'released')
+    await this.repo(caller.tenantId).markSaved(row.id, saved.id, input.slug, input.intent)
+    return {
+      test_case_id: saved.id,
+      head_commit: saved.headCommit,
+      warnings: result.warnings.map(({ file: _file, ...issue }) => issue),
+    }
   }
 
   /** DELETE: discarded, device let go, snapshots removed. */

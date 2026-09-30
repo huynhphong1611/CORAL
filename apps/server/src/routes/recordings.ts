@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import { parseInput } from '../http/errors'
 import type { RecordingService } from '../recordings/service'
 import type { Repos } from '../repos'
-import { scope } from './context'
+import { gitAuthor, scope } from './context'
 
 /**
  * The Recorder's REST side (contracts/rest-api-phase2.md, US4): start, read, edit, stop, resume,
@@ -58,6 +58,21 @@ export function registerRecordingRoutes(
   app.get('/recordings/:id/yaml', async (request) => {
     const { id } = parseInput(api.idParamsSchema, request.params)
     return recordings.yaml(scope(deps.repos, request).auth.tenantId, id)
+  })
+
+  app.post('/recordings/:id/save', async (request, reply) => {
+    const { id } = parseInput(api.idParamsSchema, request.params)
+    const input = parseInput(api.saveRecordingSchema, request.body)
+    const s = scope(deps.repos, request)
+    const author = await gitAuthor(deps.repos, s.auth)
+    const saved = await recordings.save({ ...s.auth, author }, id, input)
+    await s.audit({
+      actor: `user:${s.auth.userId}`,
+      action: 'recording.save',
+      target: id,
+      meta: { test_case_id: saved.test_case_id, slug: input.slug },
+    })
+    return reply.status(201).send(saved)
   })
 
   app.delete('/recordings/:id', async (request, reply) => {

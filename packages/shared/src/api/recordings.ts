@@ -74,9 +74,11 @@ export const saveRecordingSchema = z
   .refine((p) => !p.replace || p.base_commit !== undefined, {
     message: 'replace needs base_commit',
   })
+export type SaveRecording = z.infer<typeof saveRecordingSchema>
 
 export const savedRecordingSchema = z.object({
   test_case_id: z.uuid(),
   head_commit: commitSha,
   warnings: z.array(validationIssueSchema),
 })
+export type SavedRecording = z.infer<typeof savedRecordingSchema>

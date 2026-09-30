@@ -40,6 +40,8 @@ export interface ArtifactStore {
   presignGet(key: string): Promise<PresignedUrl>
   /** Streams an object of unknown length (multipart upload); aborts when the stream fails. */
   putStream(key: string, body: Readable, contentType: string): Promise<void>
+  /** The object's bytes, or undefined when it does not exist. */
+  getBytes(key: string): Promise<Uint8Array | undefined>
   /** Size in bytes, or undefined when the object does not exist. */
   size(key: string): Promise<number | undefined>
   remove(key: string): Promise<void>
@@ -113,6 +115,16 @@ export function createArtifactStore(config: ServerConfig['s3']): ArtifactStore {
         params: { Bucket, Key: key, Body: body, ContentType: contentType },
         leavePartsOnError: false,
       }).done()
+    },
+
+    async getBytes(key) {
+      try {
+        const res = await client.send(new GetObjectCommand({ Bucket, Key: key }))
+        return res.Body ? await res.Body.transformToByteArray() : undefined
+      } catch (error) {
+        if ((error as { name?: string }).name === 'NoSuchKey') return undefined
+        throw error
+      }
     },
 
     async size(key) {

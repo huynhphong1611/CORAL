@@ -13,6 +13,8 @@ export type TestCaseRow = typeof testCases.$inferSelect
 const PENDING_COMMIT = '0'.repeat(40)
 
 export const testCasePath = (slug: string) => `testcases/${slug}.yaml`
+/** The Recorder's snapshots of a test case (data-model §4). */
+export const snapshotDir = (slug: string) => `snap/${slug}`
 
 /**
  * Test cases live in the project's git repo; this table is the index (D15, D31). Every change is
@@ -114,6 +116,105 @@ export function testCasesRepo(
         }
         throw error
       }
+    },
+
+    /**
+     * A test case from the Recorder (FR-017): the YAML and its `snap/<slug>/` folder in one commit,
+     * `source = recorder`. With `replace`, the existing test case of that slug is overwritten when
+     * its head is still `baseCommit` (409 otherwise) and its old snapshots go in the same commit.
+     */
+    async saveRecorded(
+      projectId: string,
+      input: {
+        testCase: TestCase
+        yaml: string
+        snapshots: Record<string, Uint8Array | string>
+        author: GitAuthor
+        userId: string
+        replace?: { id: string; baseCommit: string }
+      },
+    ): Promise<TestCaseRow> {
+      await projects.get(projectId)
+      const { testCase } = input
+      const pathInRepo = testCasePath(testCase.id)
+      const commitAll = () =>
+        store.commitFiles(tenantId, projectId, {
+          files: { [pathInRepo]: input.yaml, ...input.snapshots },
+          removeDirs: [snapshotDir(testCase.id)],
+          author: input.author,
+          message: `testcase: ${testCase.id} (recorder)`,
+        })
+      const meta = {
+        intent: testCase.intent,
+        tags: testCase.tags ?? [],
+        platforms: [...testCase.platforms],
+        source: 'recorder' as const,
+        updatedBy: input.userId,
+      }
+      if (input.replace) {
+        const { id, baseCommit } = input.replace
+        return db.transaction(async (tx) => {
+          const [locked] = await tx
+            .update(testCases)
+            .set({ updatedAt: new Date() })
+            .where(
+              and(
+                inTenant,
+                eq(testCases.id, id),
+                eq(testCases.slug, testCase.id),
+                eq(testCases.headCommit, baseCommit),
+              ),
+            )
+            .returning()
+          if (!locked) throw conflict('stale_base_commit', 'test case changed since base_commit')
+          const commit = await commitAll()
+          const [saved] = await tx
+            .update(testCases)
+            .set({ ...meta, headCommit: commit, updatedAt: new Date() })
+            .where(eq(testCases.id, id))
+            .returning()
+          if (!saved) throw new Error('test case not stored')
+          return saved
+        })
+      }
+      try {
+        return await db.transaction(async (tx) => {
+          const [row] = await tx
+            .insert(testCases)
+            .values({
+              tenantId,
+              projectId,
+              slug: testCase.id,
+              pathInRepo,
+              headCommit: PENDING_COMMIT,
+              ...meta,
+            })
+            .returning()
+          if (!row) throw new Error('test case not stored')
+          const commit = await commitAll()
+          const [saved] = await tx
+            .update(testCases)
+            .set({ headCommit: commit })
+            .where(eq(testCases.id, row.id))
+            .returning()
+          if (!saved) throw new Error('test case not stored')
+          return saved
+        })
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          throw conflict('slug_exists', `test case "${testCase.id}" already exists`)
+        }
+        throw error
+      }
+    },
+
+    /** The test case of a slug in the project, if any. */
+    async bySlug(projectId: string, slug: string): Promise<TestCaseRow | undefined> {
+      const [row] = await db
+        .select()
+        .from(testCases)
+        .where(and(inTenant, eq(testCases.projectId, projectId), eq(testCases.slug, slug)))
+      return row
     },
 
     /** Optimistic update: 409 when `baseCommit` is not the head any more (no silent overwrite). */
