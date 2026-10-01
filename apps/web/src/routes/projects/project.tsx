@@ -16,6 +16,7 @@ import {
   Tabs,
   Td,
   Th,
+  type Tone,
 } from '../../components/ui'
 import { NewAppForm, UploadBuild } from '../../features/setup/AppForms'
 import { en } from '../../i18n/en'
@@ -64,12 +65,13 @@ export function ProjectPage() {
   )
 }
 
-const SOURCE_TONES = {
+const SOURCE_TONES: Record<api.TestCaseSource, Tone> = {
   recorder: 'violet',
   manual: 'slate',
+  ai_explore: 'blue',
   ai_prompt: 'blue',
   ai_import: 'blue',
-} as const
+}
 const STATUS_TONES = { active: 'green', draft: 'slate', quarantined: 'amber' } as const
 
 /** Test cases with Run on each row and on a selection (FR-004); writers only. */

@@ -23,6 +23,10 @@ export const testCase = (
   status: 'active',
   head_commit: 'a'.repeat(40),
   source: 'manual',
+  source_ref: null,
+  draft_reason: null,
+  flags: [],
+  validation: null,
   updated_at: at,
   ...over,
 })

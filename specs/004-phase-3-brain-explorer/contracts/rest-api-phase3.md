@@ -12,7 +12,7 @@ Bổ sung cho `specs/002-phase-1-android-runner/contracts/rest-api.md` và `spec
 | Method | Path | Body → Response |
 |---|---|---|
 | GET | `/brains/config` | → `{ source: "tenant"\|"platform"\|"none", yaml, config, providers: [{ id, enabled, vision }] }`. `Accept: application/yaml` → chỉ YAML. |
-| PUT 🔑 | `/brains/config` | Body là YAML (`Content-Type: application/yaml`) hoặc JSON `coral/brains@1` → 200 như GET.<br>400 `validation_failed` kèm `issues[{ path, line, column, code, message }]`. Các `code`: `unknown_provider`, `provider_disabled`, `vision_required`, `price_missing`, `invalid_limit`, `schema`.<br>Ghi `audit_log` (`brains.config.update`). |
+| PUT 🔑 | `/brains/config` | Body là YAML (`Content-Type: application/yaml`) hoặc JSON `coral/brains@1` → 200 như GET.<br>400 `validation_failed` kèm `details[{ path, line, column, code, message }]` (cùng dạng lỗi YAML của Phase 1). Các `code`: `unknown_provider`, `provider_disabled`, `vision_required`, `price_missing`, `invalid_limit`, `schema`.<br>Ghi `audit_log` (`brains.config.update`). |
 | GET | `/usage/ai?from&to&group=day\|role\|provider` | → `{ rows: [{ key, calls, tokens_in, tokens_out, cost_usd }], total_cost_usd, today: { cost_usd, limit_usd } }` (FR-010). Ngày theo UTC. |
 | GET | `/brain-calls/:id` | → `{ id, role, provider, model, attempt, ok, error, tokens_in, tokens_out, cost_usd, latency_ms, created_at, content: BrainCallContent \| null, tool_calls: ToolCall[] }`. `content` = null khi quá 30 ngày (FR-006a). Ảnh trong `content` là URL presigned. |
 
@@ -33,7 +33,7 @@ Bổ sung cho `specs/002-phase-1-android-runner/contracts/rest-api.md` và `spec
 
 | Method | Path | Body → Response |
 |---|---|---|
-| POST ✍ | `/explorations` | `{ project_id, app_id, build_id, device_id, goal?, budget?: { max_steps?, max_depth?, max_minutes?, max_cost_usd? }, max_tests? }` → 201 `Exploration`.<br>`goal` có → `kind = prompt`. Giá trị thiếu lấy mặc định: 60 / 8 / 20 / `limits.max_cost_usd_per_exploration`; `max_tests` = 5 (1 khi `kind = prompt`).<br>Lỗi: 409 `device_busy` \| `device_offline` \| `brains_not_configured` \| `daily_limit_reached`. |
+| POST ✍ | `/explorations` | `{ project_id, app_id, build_id, device_id, goal?, budget?: { max_steps?, max_depth?, max_minutes?, max_cost_usd? }, max_tests? }` → 201 `Exploration`.<br>`goal` có → `kind = prompt`. Giá trị thiếu lấy mặc định: 60 / 8 / 20 / `limits.max_cost_usd_per_exploration`; `max_tests` = 5 (1 khi `kind = prompt`).<br>Giới hạn: `goal` ≤ 1 000 ký tự; `max_steps` ≤ 500, `max_depth` ≤ 50, `max_minutes` ≤ 240, `max_cost_usd` ≤ 10 000; `max_tests` 1–20.<br>Lỗi: 409 `device_busy` \| `device_offline` \| `brains_not_configured` \| `daily_limit_reached`. |
 | GET | `/explorations?project_id&status` | → `Exploration[]` (không kèm bước). |
 | GET | `/explorations/:id` | → `Exploration` + `appmap` (màn hình và chuyển màn của exploration này, URL ảnh presigned) + `test_cases[]` (`{ id, slug, status, draft_reason, flags }`) + `findings[]`. |
 | GET | `/explorations/:id/steps?after=<n>&limit=` | → `ExplorationStep[]`: `{ n, segment, screen: { id, name }, decision, status, refusal, step, flags, brain_call_id, screenshot_url, cost_usd, created_at }`. |

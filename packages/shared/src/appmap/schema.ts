@@ -28,7 +28,7 @@ export type AppMapScreen = z.infer<typeof appMapScreenSchema>
 /** A recorded step without id and expectation: how to go from one screen to the next. */
 export type TransitionAction = Omit<Step, 'id' | 'expect' | 'snapshot'>
 
-const transitionActionSchema = z.custom<TransitionAction>((value) => {
+export const transitionActionSchema = z.custom<TransitionAction>((value) => {
   if (typeof value !== 'object' || value === null) return false
   if ('id' in value || 'expect' in value || 'snapshot' in value) return false
   return stepSchema.safeParse({ ...value, id: 'transition' }).success

@@ -78,7 +78,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `api/live.ts`: `activity.kind` thêm `exploration`.
 
   Test ca mới trong `protocol.test.ts`, `ui.test.ts`.
-- [ ] T011 [P] `packages/shared/src/api/`: DTO của contracts/rest-api-phase3.md (brains config, usage, brain call + content, knowledge, Exploration, ExplorationStep, ImportPreview, ImportJob, trường mới của test case); mã lỗi mới `brains_not_configured`, `daily_limit_reached`, `no_cases`, `stdio_not_allowed`. Test `api.test.ts` ca mới.
+- [x] T011 [P] `packages/shared/src/api/`: DTO của contracts/rest-api-phase3.md (brains config, usage, brain call + content, knowledge, Exploration, ExplorationStep, ImportPreview, ImportJob, trường mới của test case); mã lỗi mới `brains_not_configured`, `daily_limit_reached`, `no_cases`, `stdio_not_allowed`. Test `api.test.ts` ca mới.
 - [ ] T012 Migration `apps/server/src/db/migrations/000N_phase3` + `schema.ts` theo data-model §1. Mọi bảng mới có `tenant_id not null`.
   - `test_cases`:
     - `source` thêm `ai_explore`;

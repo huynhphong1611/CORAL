@@ -77,6 +77,11 @@ const toSummary = (row: TestCaseRow) =>
     status: row.status,
     head_commit: row.headCommit,
     source: row.source,
+    source_ref: row.sourceRef,
+    // The validation columns arrive with the Phase 3 migration (T012–T013).
+    draft_reason: null,
+    flags: [],
+    validation: null,
     updated_at: iso(row.updatedAt),
   }) satisfies api.TestCaseSummary
 

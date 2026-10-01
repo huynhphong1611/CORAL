@@ -1,8 +1,10 @@
 import { z } from 'zod'
 import { actionDecisionSchema } from '../ai/decisions'
-import { FINGERPRINT_PATTERN, SCREEN_ID_PATTERN } from '../appmap/schema'
+import { FINGERPRINT_PATTERN, SCREEN_ID_PATTERN, transitionActionSchema } from '../appmap/schema'
+import { MAX_LIMIT_USD } from '../brains/schema'
 import { stepSchema } from '../testcase/schema'
 import { timestamp } from './common'
+import { DRAFT_REASONS, TEST_CASE_FLAGS, TEST_CASE_STATUSES } from './testcases'
 
 // Values of data-model §1, verbatim: the DB check constraints use the same lists.
 
@@ -63,7 +65,7 @@ export const explorationBudgetSchema = z.object({
   max_steps: z.number().int().min(1).max(500),
   max_depth: z.number().int().min(1).max(50),
   max_minutes: z.number().int().min(1).max(240),
-  max_cost_usd: z.number().positive().max(10_000),
+  max_cost_usd: z.number().positive().max(MAX_LIMIT_USD),
 })
 export type ExplorationBudget = z.infer<typeof explorationBudgetSchema>
 
@@ -80,6 +82,8 @@ export const explorationStatsSchema = z.object({
   cost_usd: z.number().nonnegative(),
   tests_written: count,
   tests_active: count,
+  // Set once the app map reached its limits and new screens were no longer added.
+  appmap_full: z.boolean().optional(),
 })
 export type ExplorationStats = z.infer<typeof explorationStatsSchema>
 
@@ -123,3 +127,99 @@ export const explorationStepSchema = z.object({
   created_at: timestamp,
 })
 export type ExplorationStepView = z.infer<typeof explorationStepSchema>
+
+/** Defaults of `POST /explorations`; `max_cost_usd` comes from `limits` of brains.yaml. */
+export const DEFAULT_EXPLORATION_BUDGET = { max_steps: 60, max_depth: 8, max_minutes: 20 } as const
+export const DEFAULT_MAX_TESTS = 5
+/** A goal (US5) asks for one test case unless the body says otherwise. */
+export const DEFAULT_MAX_TESTS_WITH_GOAL = 1
+export const MAX_TESTS_LIMIT = 20
+export const MAX_GOAL_LENGTH = 1000
+
+/** `POST /explorations`: a goal makes it `kind = prompt`. */
+export const createExplorationSchema = z.object({
+  project_id: z.uuid(),
+  app_id: z.uuid(),
+  build_id: z.uuid(),
+  device_id: z.uuid(),
+  goal: z.string().trim().min(1).max(MAX_GOAL_LENGTH).optional(),
+  budget: explorationBudgetSchema.partial().optional(),
+  max_tests: z.number().int().min(1).max(MAX_TESTS_LIMIT).optional(),
+})
+export type CreateExploration = z.infer<typeof createExplorationSchema>
+
+export const explorationSchema = z.object({
+  id: z.uuid(),
+  project_id: z.uuid(),
+  app_id: z.uuid(),
+  build_id: z.uuid(),
+  device_id: z.uuid(),
+  kind: z.enum(EXPLORATION_KINDS),
+  goal: z.string().nullable(),
+  budget: explorationBudgetSchema,
+  max_tests: z.number().int().min(1).max(MAX_TESTS_LIMIT),
+  status: z.enum(EXPLORATION_STATUSES),
+  stop_reason: z.enum(STOP_REASONS).nullable(),
+  stats: explorationStatsSchema,
+  created_by: z.object({ id: z.uuid(), name: z.string() }),
+  created_at: timestamp,
+  started_at: timestamp.nullable(),
+  finished_at: timestamp.nullable(),
+})
+export type Exploration = z.infer<typeof explorationSchema>
+
+export const listExplorationsQuerySchema = z.object({
+  project_id: z.uuid().optional(),
+  status: z.enum(EXPLORATION_STATUSES).optional(),
+})
+export type ListExplorationsQuery = z.infer<typeof listExplorationsQuerySchema>
+
+/** `GET /explorations/:id/steps?after=<n>&limit=`. */
+export const explorationStepsQuerySchema = z.object({
+  after: z.coerce.number().int().nonnegative().default(0),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+})
+
+/** A crash or ANR the Explorer met: a bug candidate for Phase 4. */
+export const findingSchema = z.object({
+  id: z.uuid(),
+  step_n: z.number().int().positive(),
+  kind: z.enum(FINDING_KINDS),
+  log_excerpt: z.string(),
+  screenshot_url: z.url().nullable(),
+  created_at: timestamp,
+})
+export type Finding = z.infer<typeof findingSchema>
+
+/** The screens and transitions one exploration saw, with presigned screenshot URLs. */
+export const explorationAppMapSchema = z.object({
+  screens: z.array(
+    z.object({
+      id: screenIdSchema,
+      name: z.string(),
+      fingerprint: fingerprintSchema,
+      is_new: z.boolean(),
+      screenshot_url: z.url().nullable(),
+    }),
+  ),
+  transitions: z.array(
+    z.object({ from: screenIdSchema, to: screenIdSchema, action: transitionActionSchema }),
+  ),
+})
+export type ExplorationAppMap = z.infer<typeof explorationAppMapSchema>
+
+/** `GET /explorations/:id`. */
+export const explorationDetailSchema = explorationSchema.extend({
+  appmap: explorationAppMapSchema,
+  test_cases: z.array(
+    z.object({
+      id: z.uuid(),
+      slug: z.string(),
+      status: z.enum(TEST_CASE_STATUSES),
+      draft_reason: z.enum(DRAFT_REASONS).nullable(),
+      flags: z.array(z.enum(TEST_CASE_FLAGS)),
+    }),
+  ),
+  findings: z.array(findingSchema),
+})
+export type ExplorationDetail = z.infer<typeof explorationDetailSchema>
