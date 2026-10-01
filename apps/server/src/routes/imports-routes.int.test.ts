@@ -166,10 +166,12 @@ describe('import routes (US6, T053)', { timeout: 60_000 }, () => {
       (await call(mai, 'GET', `/imports/${started}`)).body,
     )
     expect(detail.manual_commit).toMatch(/^[0-9a-f]{40}$/)
-    expect(detail.items.map((i) => [i.n, i.title, i.status])).toEqual([
-      [1, 'Log in with the demo account', 'pending'],
-      [2, 'Open the cart', 'pending'],
+    // The job works through them one by one: the first is on its way.
+    expect(detail.items.map((i) => [i.n, i.title])).toEqual([
+      [1, 'Log in with the demo account'],
+      [2, 'Open the cart'],
     ])
+    expect(detail.items[1]?.status).toBe('pending')
     // Started once: no longer a preview.
     expect((await start(huynh, started)).status).toBe(409)
     expect(
@@ -178,21 +180,35 @@ describe('import routes (US6, T053)', { timeout: 60_000 }, () => {
     ).toBe(409)
     expect((await call(huynh, 'DELETE', `/imports/${started}`)).status).toBe(409)
 
+    // Cancelled: the case on its way ends first (its exploration stopped), the other is left.
     const cancelled = await call(huynh, 'POST', `/imports/${started}/cancel`)
     expect(cancelled.status).toBe(202)
-    const after = api.importJobDetailSchema.parse(
+    let after = api.importJobDetailSchema.parse(
       (await call(huynh, 'GET', `/imports/${started}`)).body,
     )
+    for (let i = 0; after.status === 'running' && i < 300; i += 1) {
+      await new Promise((r) => setTimeout(r, 100))
+      after = api.importJobDetailSchema.parse(
+        (await call(huynh, 'GET', `/imports/${started}`)).body,
+      )
+    }
     expect(after).toMatchObject({
       status: 'cancelled',
-      stats: { total: 2, done: 2, not_processed: 2 },
-      report: { total: 2, active: 0, not_processed: 2 },
+      stats: { total: 2, done: 2 },
+      report: { total: 2 },
     })
-    expect(after.items.map((i) => i.status)).toEqual(['not_processed', 'not_processed'])
+    expect(after.items[1]?.status).toBe('not_processed')
+    expect(['active', 'draft', 'not_processed']).toContain(after.items[0]?.status)
+    expect((await call(huynh, 'POST', `/imports/${started}/cancel`)).status).toBe(409)
     expect(
       await server.artifacts.getBytes(importSourceKey(huynh.tenantId, started, 'csv')),
     ).toBeUndefined()
-    expect((await tab.next('import.updated')).payload).toMatchObject({ status: 'cancelled' })
+    // The tab heard the case start and end, then the job end.
+    let last = await tab.next('import.updated')
+    while ((last.payload as { status: string }).status === 'running') {
+      last = await tab.next('import.updated')
+    }
+    expect(last.payload).toMatchObject({ status: 'cancelled' })
 
     const list = api.importJobSchema
       .array()

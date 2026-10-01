@@ -422,7 +422,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `import.watch` trên `/ws/ui`.
 
   Test `imports-routes.int.test.ts`.
-- [ ] T054 [US6] Dịch vụ `apps/server/src/imports/service.ts` (research R14):
+- [x] T054 [US6] Dịch vụ `apps/server/src/imports/service.ts` (research R14):
   - **Xử lý tuần tự** từng item `pending`:
     1. exploration `kind = import` với mục tiêu từ manualcase, ngân sách = phần còn lại của job chia đều số case còn lại, ≤ 25 bước;
     2. writer `max_tests = 1` + `outcome`;

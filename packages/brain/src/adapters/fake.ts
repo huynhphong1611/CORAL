@@ -104,6 +104,11 @@ export interface FakeKnowledge {
   skills?: { name: string; description: string }[]
 }
 
+/** A goal or a manual case the fake cannot do alone: a code sent to a phone, a fingerprint. */
+const NEEDS_HUMAN = /\b(otp|sms|captcha|fingerprint|face id)\b|vân tay|mã xác (thực|nhận)|tin nhắn/i
+/** Steps that say too little to follow (`Làm gì đó…`, `something?`). */
+const AMBIGUOUS = /\.\.\.|…|\?|\bsomething\b|gì đó|tùy ý/i
+
 /** Words of a goal that say where to go (`Open the cart…` → cart), common words left out. */
 const GOAL_NOISE = new Set([
   'open',
@@ -158,6 +163,14 @@ export function fakeDecide(
       reason: reason(`The goal needs a forbidden action: ${input.refused}`),
     }
   }
+  // A goal it cannot follow alone ends at once (US6): a person has to give a code, or the steps
+  // say too little.
+  if (input.goal && NEEDS_HUMAN.test(input.goal)) {
+    return { action: 'done', goal_reached: false, reason: 'A person has to give a code (OTP, SMS)' }
+  }
+  if (input.goal && AMBIGUOUS.test(input.goal)) {
+    return { action: 'done', goal_reached: false, reason: 'The steps say too little to follow' }
+  }
   if (input.onlyBack) return { action: 'back', reason: 'Maximum depth reached' }
   // A gullible AI (FR-014 tests): text on a screen with nothing listed tells it to tap, so it taps
   // the middle of the screen — once; the safety checks are what must stop it.
@@ -180,6 +193,52 @@ export function fakeDecide(
   }
   const label = next.text ?? next.desc ?? next.id ?? `#${next.n}`
   return { action: 'tap', element: next.n, reason: reason(`Try "${label}", not tried yet`) }
+}
+
+/**
+ * How a manual case went, by its text and the trace (US6): a code a person has to give, steps
+ * that say too little, or an expected text (quoted) the app never showed. Undefined: written.
+ */
+function judgeManualCase(
+  input: WriteTestInput,
+  done: readonly WriteTestInput['steps'][number][],
+): TestPlan | undefined {
+  const manual = input.manualCase
+  if (!manual) return undefined
+  const text = [
+    manual.title,
+    ...manual.preconditions,
+    ...manual.steps.flatMap((s) => [s.action, s.expected ?? '']),
+  ].join('\n')
+  const evidence = done[done.length - 1]?.n ?? input.steps[input.steps.length - 1]?.n ?? 1
+  if (NEEDS_HUMAN.test(text)) {
+    return {
+      flows: [],
+      outcome: 'needs_human',
+      evidence_step: evidence,
+      explanation: 'A person has to give a code sent to a phone (OTP, SMS)',
+    }
+  }
+  if (AMBIGUOUS.test(text)) {
+    return {
+      flows: [],
+      outcome: 'ambiguous',
+      evidence_step: evidence,
+      explanation: 'The steps say too little to know what to do',
+    }
+  }
+  const expected = [...manual.steps].reverse().find((s) => s.expected)?.expected
+  const target = goalTarget(expected)
+  const seen = input.steps.flatMap((s) => [s.screen, s.after, ...s.textsAfter])
+  if (target && !seen.some((t) => lower(t).includes(lower(target)))) {
+    return {
+      flows: [],
+      outcome: 'app_mismatch',
+      evidence_step: evidence,
+      explanation: `The app never showed "${target}"`,
+    }
+  }
+  return undefined
 }
 
 /** Lowercase words joined by dashes, as a test case slug wants them. */
@@ -205,7 +264,12 @@ function expectOf(step: WriteTestInput['steps'][number]): Flow['expects'] {
  * `maxTests`. A goal or a manual case: one flow, the last segment to its last done step.
  */
 export function fakeWrite(input: WriteTestInput): TestPlan {
-  const done = input.steps.filter((s) => s.status === 'done')
+  // Steps done on the app (the AI's `done` on a goal acts on nothing).
+  const done = input.steps.filter((s) => s.status === 'done' && s.action !== 'done')
+  if (input.manualCase) {
+    const judged = judgeManualCase(input, done)
+    if (judged) return judged
+  }
   if (done.length === 0) {
     return input.kind === 'import'
       ? { flows: [], outcome: 'app_mismatch', explanation: 'No step could be done on the app' }

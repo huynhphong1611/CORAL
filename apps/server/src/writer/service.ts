@@ -2,10 +2,13 @@ import {
   BrainOutputError,
   BrainUnavailableError,
   BudgetExceededError,
+  type ManualCaseInput,
   type TraceStepInput,
 } from '@coral/brain'
 import {
   elementTreeSchema,
+  manualCaseSchema,
+  parseYaml,
   referenceSecrets,
   type api,
   validateTestCaseSource,
@@ -21,6 +24,7 @@ import type { Db } from '../db/client'
 import type { ProjectRepoStore } from '../git/project-repo-store'
 import { explorationsRepo, type ExplorationRow } from '../repos/explorations'
 import { identityRepo } from '../repos/identity'
+import { importsRepo } from '../repos/imports'
 import { projectsRepo } from '../repos/projects'
 import { testCasesRepo, type TestCaseRow } from '../repos/test-cases'
 import { explorationStepKey, type ExplorationFile } from '../storage/keys'
@@ -131,7 +135,9 @@ export class WriterService {
     const { tenantId, projectId } = exploration
     const repo = explorationsRepo(db, tenantId)
     const trace = await repo.steps(exploration.id, { limit: 1000 })
-    const rows = exploration.kind === 'prompt' ? (goalPath(trace) ?? []) : trace
+    // A goal reached (a prompt, or an imported case the AI followed to its end): the way there.
+    const path = exploration.kind === 'explore' ? undefined : goalPath(trace)
+    const rows = exploration.kind === 'prompt' ? (path ?? []) : (path ?? trace)
     const written: Written = { testCases: [], report: { flows: 0, skipped: [], error: null } }
     if (rows.length === 0) return written
     const app = await projectsRepo(db, tenantId, store).getApp(exploration.appId)
@@ -157,12 +163,14 @@ export class WriterService {
       ref: { type: 'exploration', id: exploration.id },
       maxCostUsd: exploration.budget.max_cost_usd,
     })
+    const manualCase = await this.manualCaseOf(exploration)
     let plan
     try {
       plan = await brain.brain.writeTest(
         {
           kind: exploration.kind,
           ...(exploration.goal ? { goal: exploration.goal } : {}),
+          ...(manualCase ? { manualCase } : {}),
           maxTests: exploration.maxTests,
           steps,
         },
@@ -178,6 +186,17 @@ export class WriterService {
       written.report.error = code
       await repo.update(exploration.id, { writerReport: written.report })
       return written
+    }
+
+    // An imported case: how it went; one the writer could not turn into a test has no flow.
+    if (manualCase) {
+      written.report.outcome = plan.outcome
+      if (plan.evidence_step !== undefined) written.report.evidence_step = plan.evidence_step
+      if (plan.explanation) written.report.explanation = plan.explanation
+      if (plan.outcome !== 'written') {
+        await repo.update(exploration.id, { writerReport: written.report })
+        return written
+      }
     }
 
     const projects = projectsRepo(db, tenantId, store)
@@ -201,22 +220,23 @@ export class WriterService {
 
     // A goal: one test, the whole way to it (detours are cut by `assemble`); what the writer
     // expects on the screen of `done` is expected after the last step.
-    const lastActed = writerRows.findLast((row) => row.status === 'done' && row.step !== null)
-    const flows =
-      exploration.kind === 'prompt' && lastActed
-        ? plan.flows.slice(0, 1).map((flow) => ({
-            ...flow,
-            segment: lastActed.segment,
-            end_step: lastActed.n,
-            expects: flow.expects.flatMap((e) =>
-              e.step <= lastActed.n
-                ? [e]
-                : e.visible_text !== undefined
-                  ? [{ step: lastActed.n, visible_text: e.visible_text }]
-                  : [],
-            ),
-          }))
-        : plan.flows.slice(0, exploration.maxTests)
+    const lastActed = path
+      ? writerRows.findLast((row) => row.status === 'done' && row.step !== null)
+      : undefined
+    const flows = lastActed
+      ? plan.flows.slice(0, 1).map((flow) => ({
+          ...flow,
+          segment: lastActed.segment,
+          end_step: lastActed.n,
+          expects: flow.expects.flatMap((e) =>
+            e.step <= lastActed.n
+              ? [e]
+              : e.visible_text !== undefined
+                ? [{ step: lastActed.n, visible_text: e.visible_text }]
+                : [],
+          ),
+        }))
+      : plan.flows.slice(0, exploration.maxTests)
     written.report.flows = flows.length
     const skip = (
       flow: (typeof flows)[number],
@@ -272,7 +292,9 @@ export class WriterService {
         author,
         userId: exploration.userId,
         source: SOURCES[exploration.kind],
-        sourceRef: `exploration:${exploration.id}`,
+        sourceRef: exploration.importItemId
+          ? `import_item:${exploration.importItemId}`
+          : `exploration:${exploration.id}`,
         flags: made.flags,
         draftReason: made.draftReason,
       })
@@ -286,6 +308,23 @@ export class WriterService {
     }
     await repo.update(exploration.id, { writerReport: written.report })
     return written
+  }
+
+  /** The manual case an imported exploration follows (US6), as the project repo holds it. */
+  private async manualCaseOf(exploration: ExplorationRow): Promise<ManualCaseInput | undefined> {
+    if (!exploration.importItemId) return undefined
+    const item = await importsRepo(this.options.db, exploration.tenantId).getItem(
+      exploration.importItemId,
+    )
+    const yaml = await this.options.store.readFile(
+      exploration.tenantId,
+      exploration.projectId,
+      item.manualPath,
+    )
+    const parsed = manualCaseSchema.safeParse(yaml === null ? undefined : parseYaml(yaml).value)
+    if (!parsed.success) return { title: item.title, preconditions: [], steps: [] }
+    const { title, preconditions, steps } = parsed.data
+    return { title, preconditions, steps }
   }
 
   /** The trace as the writer reads it: steps, screens before and after, new text, candidates. */

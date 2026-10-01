@@ -169,6 +169,59 @@ describe('fake adapter scenario (research R2)', () => {
     })
   })
 
+  it('judges a manual case: a code a person gives, too little said, a text never shown', () => {
+    const catalog = screen([el(1, ['new'], { desc: 'View menu' })])
+    expect(fakeDecide(decide(catalog, { goal: 'Type the OTP code from the SMS' }))).toMatchObject({
+      action: 'done',
+      goal_reached: false,
+    })
+    expect(fakeDecide(decide(catalog, { goal: 'Tap something...' }))).toMatchObject({
+      action: 'done',
+      goal_reached: false,
+    })
+    const step = (n: number, over: Partial<TraceStepInput> = {}): TraceStepInput => ({
+      n,
+      segment: 1,
+      screen: 'Catalog',
+      after: 'My Cart',
+      newScreen: true,
+      action: 'tap "Displays number of items in your cart" (#2)',
+      status: 'done',
+      textsAfter: ['Total: $ 29.99'],
+      candidates: [],
+      flags: [],
+      ...over,
+    })
+    const write = (steps: TraceStepInput[], manual: { action: string; expected?: string }) =>
+      fakeWrite({
+        kind: 'import',
+        maxTests: 1,
+        steps,
+        manualCase: { title: 'Case', preconditions: [], steps: [manual] },
+      })
+    expect(write([step(1)], { action: 'Type the code sent by SMS' })).toMatchObject({
+      flows: [],
+      outcome: 'needs_human',
+      evidence_step: 1,
+    })
+    expect(write([step(1)], { action: 'Tap something…' })).toMatchObject({ outcome: 'ambiguous' })
+    expect(write([step(1)], { action: 'Tap the cart', expected: '"Total: $ 0.00" shows' })).toEqual(
+      {
+        flows: [],
+        outcome: 'app_mismatch',
+        evidence_step: 1,
+        explanation: 'The app never showed "Total: $ 0.00"',
+      },
+    )
+    // Followed to its end (the AI's done acts on nothing): one flow to the last step done.
+    const written = write([step(1), step(2, { action: 'done', textsAfter: [] })], {
+      action: 'Tap the cart',
+      expected: '"My Cart" shows',
+    })
+    expect(written.outcome).toBe('written')
+    expect(written.flows.map((f) => [f.segment, f.end_step])).toEqual([[1, 1]])
+  })
+
   it('writes one flow per screen a segment reached first, keeping the Recorder suggestion', () => {
     const step = (over: Partial<TraceStepInput> & Pick<TraceStepInput, 'n'>): TraceStepInput => ({
       segment: 1,

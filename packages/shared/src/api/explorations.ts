@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { actionDecisionSchema } from '../ai/decisions'
+import { actionDecisionSchema, WRITE_OUTCOMES } from '../ai/decisions'
 import {
   APPMAP_SCHEMA_ID,
   FINGERPRINT_PATTERN,
@@ -120,6 +120,10 @@ export const writerReportSchema = z.object({
     }),
   ),
   error: z.enum(WRITER_ERRORS).nullable(),
+  // An imported case (US6): how the writer says it went, the step that shows it and why.
+  outcome: z.enum(WRITE_OUTCOMES).optional(),
+  evidence_step: z.number().int().positive().optional(),
+  explanation: z.string().optional(),
 })
 export type WriterReport = z.infer<typeof writerReportSchema>
 

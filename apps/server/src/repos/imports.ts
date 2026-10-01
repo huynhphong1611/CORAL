@@ -134,6 +134,15 @@ export function importsRepo(db: Db, tenantId: string) {
         .where(itemOf(jobId, n))
     },
 
+    async getItem(id: string): Promise<ImportItemRow> {
+      const [row] = await db
+        .select()
+        .from(importItems)
+        .where(and(eq(importItems.tenantId, tenantId), eq(importItems.id, id)))
+      if (!row) throw notFound('import item')
+      return row
+    },
+
     /** The first case still to do, if any. */
     async nextPending(jobId: string): Promise<ImportItemRow | undefined> {
       const [row] = await db
@@ -183,6 +192,14 @@ export function importsRepo(db: Db, tenantId: string) {
       return rows.length
     },
   }
+}
+
+/** Jobs a restart left running, every tenant (system scope, at boot). */
+export function runningImportJobs(db: Db) {
+  return db
+    .select({ id: importJobs.id, tenantId: importJobs.tenantId })
+    .from(importJobs)
+    .where(eq(importJobs.status, 'running'))
 }
 
 function inStatuses(statuses: readonly JobStatus[]) {

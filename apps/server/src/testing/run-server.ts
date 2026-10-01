@@ -207,7 +207,10 @@ export async function startRunServer(options: RunServerOptions = {}) {
         artifacts,
         agents: gateway,
         ai,
+        explorations,
         events: new ImportWatchers({ db, ui: uiGateway }),
+        pollMs: 100,
+        retryMs: 300,
       })
     }
     return {
@@ -295,6 +298,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
   }
 
   async function close() {
+    imports?.close()
     sweeper.stop()
     events?.stop()
     streams?.stop()

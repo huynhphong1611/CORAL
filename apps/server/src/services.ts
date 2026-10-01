@@ -126,6 +126,7 @@ export async function startServices(
     artifacts,
     agents: gateway,
     ai,
+    explorations,
     events: new ImportWatchers({ db: database.db, ui: uiGateway }),
   })
 
@@ -172,10 +173,14 @@ export async function startServices(
       writer.attachLogger(log)
       validation.attachLogger(log)
       // Explorations the last run of the server left behind (research R9, clarify 5).
+      // Then the import jobs it left running go on from their first pending case (R14).
       void explorations
         .recoverInterrupted()
         .then((count) => count > 0 && log.warn({ count }, 'explorations interrupted by a restart'))
         .catch((error: unknown) => log.error({ err: error }, 'exploration recovery failed'))
+        .then(() => imports.resume())
+        .then((count) => count > 0 && log.info({ count }, 'import jobs resumed'))
+        .catch((error: unknown) => log.error({ err: error }, 'import recovery failed'))
       sweeper = startLeaseSweeper({
         db: database.db,
         dispatcher,
@@ -197,6 +202,7 @@ export async function startServices(
       cleanup.unref()
     },
     async close() {
+      imports.close()
       sweeper?.stop()
       if (cleanup) clearInterval(cleanup)
       notify.stop()
