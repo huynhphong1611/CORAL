@@ -10,6 +10,7 @@ import { AiService } from './ai/service'
 import type { ServerConfig } from './config'
 import { createDatabase } from './db/client'
 import { ExplorationService } from './explorer/service'
+import { ImportService } from './imports/service'
 import { ValidationService } from './writer/validation'
 import { WriterService, writeAndValidate } from './writer/service'
 import { AgentCommands } from './live/agent-commands'
@@ -26,6 +27,7 @@ import { createArtifactStore } from './storage/s3'
 import { UiGateway } from './ui/gateway'
 import { RunEvents } from './ui/run-events'
 import { ExplorationWatchers } from './ui/exploration-events'
+import { ImportWatchers } from './ui/import-events'
 
 /** How often expired recordings are cleaned up. */
 const RECORDING_CLEANUP_MS = 60 * 60 * 1000
@@ -118,6 +120,14 @@ export async function startServices(
     events: new ExplorationWatchers({ db: database.db, ui: uiGateway }),
     writer: writeAndValidate(writer, validation, database.db),
   })
+  const imports = new ImportService({
+    db: database.db,
+    store,
+    artifacts,
+    agents: gateway,
+    ai,
+    events: new ImportWatchers({ db: database.db, ui: uiGateway }),
+  })
 
   const readiness = async (): Promise<boolean> => {
     const checks = await Promise.allSettled([
@@ -139,6 +149,7 @@ export async function startServices(
     live,
     recordings,
     explorations,
+    imports,
     brains,
     mcpStdioAllowlist: config.ai.mcpStdioAllowlist,
     readiness,
@@ -157,6 +168,7 @@ export async function startServices(
       live.attachLogger(log)
       recordings.attachLogger(log)
       explorations.attachLogger(log)
+      imports.attachLogger(log)
       writer.attachLogger(log)
       validation.attachLogger(log)
       // Explorations the last run of the server left behind (research R9, clarify 5).

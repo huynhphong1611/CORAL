@@ -53,7 +53,13 @@ export const EMPTY_IMPORT_STATS: ImportStats = {
   cost_usd: 0,
 }
 
-/** `import_jobs.budget`; `POST /imports/:id/start` fills what the body leaves out. */
+/** Time an import job may take unless its budget says otherwise. */
+export const DEFAULT_IMPORT_MINUTES = 240
+
+/**
+ * `import_jobs.budget`; `POST /imports/:id/start` fills what the body leaves out: the cost limit
+ * per import of brains.yaml and DEFAULT_IMPORT_MINUTES.
+ */
 export const importBudgetSchema = z.object({
   max_cost_usd: z.number().positive().max(MAX_LIMIT_USD),
   max_minutes: z.number().int().min(1).max(1440),

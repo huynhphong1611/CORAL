@@ -21,6 +21,8 @@ import { envSecrets } from '../runs/secrets'
 import { UiGateway } from '../ui/gateway'
 import { RunEvents } from '../ui/run-events'
 import { ExplorationWatchers } from '../ui/exploration-events'
+import { ImportWatchers } from '../ui/import-events'
+import { ImportService } from '../imports/service'
 import { AgentCommands } from '../live/agent-commands'
 import { LiveControl } from '../live/control'
 import { RecordingService } from '../recordings/service'
@@ -98,6 +100,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
   let live: LiveControl | undefined
   let recordings: RecordingService | undefined
   let explorations: ExplorationService | undefined
+  let imports: ImportService | undefined
   let brains: BrainsSettings | undefined
   const emitted: EmittedEvent[] = []
   const server = await startTestServer(({ db, store, artifacts }) => {
@@ -198,6 +201,14 @@ export async function startRunServer(options: RunServerOptions = {}) {
         ...(writer ? { writer } : {}),
         ...(options.explorer.leaseTtlMs ? { leaseTtlMs: options.explorer.leaseTtlMs } : {}),
       })
+      imports = new ImportService({
+        db,
+        store,
+        artifacts,
+        agents: gateway,
+        ai,
+        events: new ImportWatchers({ db, ui: uiGateway }),
+      })
     }
     return {
       gateway,
@@ -206,6 +217,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
       live,
       recordings,
       ...(explorations ? { explorations } : {}),
+      ...(imports ? { imports } : {}),
       ...(brains ? { brains } : {}),
     }
   }, options.logging)
@@ -311,6 +323,10 @@ export async function startRunServer(options: RunServerOptions = {}) {
     get explorations(): ExplorationService {
       if (!explorations) throw new Error('run server started without the explorer')
       return explorations
+    },
+    get imports(): ImportService {
+      if (!imports) throw new Error('run server started without the explorer')
+      return imports
     },
     emitted,
     close,

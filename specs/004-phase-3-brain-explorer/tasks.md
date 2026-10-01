@@ -414,7 +414,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - lỗi cú pháp theo `line`, scenario hợp lệ vẫn đọc.
 
   Fixture `fixtures/manual/*.feature`. Test `parse-gherkin.test.ts`.
-- [ ] T053 [US6] Route `apps/server/src/routes/imports.ts`:
+- [x] T053 [US6] Route `apps/server/src/routes/imports.ts`:
   - `POST /projects/:id/imports` ✍ (multipart ≤ 5 MB, lưu `<tenant>/imports/<id>/source.<ext>`, trả `ImportPreview`);
   - `PATCH /imports/:id` (mapping, chỉ `preview`);
   - `POST /imports/:id/start` ✍ (ghi `imports/<id>/<nnn>-<slug>.yaml` một commit; tạo `import_items`; `no_cases`; 409 như exploration);

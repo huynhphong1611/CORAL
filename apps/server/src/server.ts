@@ -16,6 +16,7 @@ import { registerAgentRoutes, type AgentConnections } from './routes/agents'
 import type { LiveControl } from './live/control'
 import type { RecordingService } from './recordings/service'
 import type { ExplorationService } from './explorer/service'
+import type { ImportService } from './imports/service'
 import { registerBrainCallRoutes } from './routes/brain-calls'
 import { registerBrainRoutes } from './routes/brains'
 import { registerKnowledgeRoutes } from './routes/knowledge'
@@ -24,6 +25,7 @@ import { registerControlRoutes } from './routes/devices-control'
 import { registerProjectRoutes } from './routes/projects'
 import { registerAppMapRoutes } from './routes/appmap'
 import { registerExplorationRoutes } from './routes/explorations'
+import { registerImportRoutes } from './routes/imports'
 import { registerRecordingRoutes } from './routes/recordings'
 import { registerRunRoutes } from './routes/runs'
 import { registerTestCaseRoutes } from './routes/testcases'
@@ -51,6 +53,8 @@ export interface ServerDeps {
   recordings?: RecordingService
   /** The Explorer (`/explorations`, Phase 3). */
   explorations?: ExplorationService
+  /** Imports of manual test cases (`/imports`, Phase 3). */
+  imports?: ImportService
   /** The AI brains of tenants (`/brains/config`, `/usage/ai`, Phase 3). */
   brains?: BrainsSettings
   /** Names of local (stdio) MCP servers a project's `mcp.yaml` may declare (§14.5). */
@@ -125,6 +129,7 @@ export function buildServer(
     if (deps.explorations) {
       registerExplorationRoutes(app, { repos, explorations: deps.explorations })
     }
+    if (deps.imports) registerImportRoutes(app, { repos, imports: deps.imports })
     registerAppMapRoutes(app, { repos, store: deps.store })
     if (deps.brains) registerBrainRoutes(app, { repos, settings: deps.brains })
     registerKnowledgeRoutes(app, { repos, stdioAllowlist: deps.mcpStdioAllowlist ?? [] })

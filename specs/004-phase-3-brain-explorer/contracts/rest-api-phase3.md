@@ -55,7 +55,7 @@ Bổ sung cho `specs/002-phase-1-android-runner/contracts/rest-api.md` và `spec
 |---|---|---|
 | POST ✍ | `/projects/:id/imports` | Multipart: `file` (≤ 5 MB), `format?` (`csv`\|`xlsx`\|`gherkin`, mặc định đoán theo đuôi), `sheet?` → 201 `ImportPreview`:<br>`{ import_job_id, columns: [{ index, header }], mapping, cases: ManualCase[] (≤ 200), errors: [{ row \| line, code, message }] }` (`code` ∈ `missing_title`, `missing_steps`, `too_long`, `bad_encoding`, `too_many_cases`, `syntax`, `no_mapping` — contracts/manualcase.md). Job ở `preview`. |
 | PATCH ✍ | `/imports/:id` | `{ mapping }` → `ImportPreview` đọc lại theo mapping mới (chỉ khi `preview`). |
-| POST ✍ | `/imports/:id/start` | `{ app_id, build_id, device_id, budget?: { max_cost_usd?, max_minutes? } }` → 202 `ImportJob`.<br>Ghi `imports/<id>/*.yaml` thành một commit, trạng thái `running`.<br>409 như `POST /explorations`; 400 `no_cases` khi không có case hợp lệ. |
+| POST ✍ | `/imports/:id/start` | `{ app_id, build_id, device_id, budget?: { max_cost_usd?, max_minutes? } }` → 202 `ImportJob`.<br>Ngân sách thiếu lấy mặc định: `max_cost_usd` = `limits.max_cost_usd_per_import`, `max_minutes` = 240.<br>Ghi `imports/<id>/*.yaml` thành một commit, trạng thái `running`.<br>409 như `POST /explorations`; 400 `no_cases` khi không có case hợp lệ. |
 | GET | `/imports?project_id` | → `ImportJob[]`. |
 | GET | `/imports/:id` | → `ImportJob` + `items[]`: `{ n, title, status, reason, evidence, exploration_id, test_case_id }` + `report` khi xong. |
 | POST ✍ | `/imports/:id/cancel` | → 202. Case chưa làm thành `not_processed`. |

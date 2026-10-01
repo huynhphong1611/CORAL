@@ -100,3 +100,14 @@ export function explorationStepKey(
 export function keyBelongsTo(key: string, tenantId: string): boolean {
   return key.startsWith(tenantPrefix(tenantId)) && !key.includes('..')
 }
+
+const IMPORT_EXTENSIONS = { csv: 'csv', xlsx: 'xlsx', gherkin: 'feature' } as const
+
+/** The file a person uploaded to import (data-model §5); removed once the job ends. */
+export function importSourceKey(
+  tenantId: string,
+  jobId: string,
+  format: keyof typeof IMPORT_EXTENSIONS,
+): string {
+  return `${tenantPrefix(tenantId)}imports/${uuid.parse(jobId)}/source.${IMPORT_EXTENSIONS[format]}`
+}
