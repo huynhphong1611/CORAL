@@ -91,7 +91,7 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 - [ ] MCP client (§14.5, D29): nạp `mcp.yaml` của project, allowlist tool, vòng gọi tool tối đa 5 lượt, ghi `tool_calls`; thêm MCP SDK vào kiểm tra D08.
 - [x] Bộ tuần tự hóa màn hình: danh sách element đánh số + screenshot resize.
 - [x] Prompt builder: nạp `AGENTS.md` + skill phù hợp của **đúng project** (§13).
-- [ ] Explorer (§10): fingerprint màn hình (`packages/shared`, D24), app map, frontier, ngân sách, kiểm tra `never_tap`.
+- [x] Explorer (§10): fingerprint màn hình (`packages/shared`, D24), app map, frontier, ngân sách, kiểm tra `never_tap`.
 - [ ] Test writer (§11.2) + xác thực 2 lần liên tiếp → `active` / `draft`.
 - [ ] Tạo test case từ prompt (§11.3): Explorer có mục tiêu → Test writer.
 - [ ] Import test case thủ công (§11.3, D31): CSV/Excel + Gherkin → `coral/manualcase@1`; job nền có ngân sách; báo cáo đã tạo / `needs_human` / `ambiguous` / `app_mismatch`.
