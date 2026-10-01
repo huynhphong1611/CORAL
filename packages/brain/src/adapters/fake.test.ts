@@ -94,6 +94,46 @@ describe('fake adapter scenario (research R2)', () => {
     }
   })
 
+  it('types the test data named for the field, a secret too (US4)', () => {
+    const knowledge = {
+      testData: [
+        { name: 'zip', value: '70000' },
+        { name: 'username', secret: 'TEST_USER' },
+        { name: 'password', secret: 'TEST_PASSWORD' },
+      ],
+    }
+    // The sample app's fields: `nameET` under "Username", `passwordET` (a password).
+    const username = screen([el(1, ['new', 'field'], { className: 'EditText', id: 'nameET' })])
+    const password = screen([
+      el(1, ['new', 'field', 'password'], { className: 'EditText', id: 'passwordET' }),
+    ])
+    const zip = screen([el(1, ['new', 'field'], { className: 'EditText', text: 'ZIP code' })])
+    expect(fakeDecide(decide(username), knowledge)).toMatchObject({ test_data: 'username' })
+    expect(fakeDecide(decide(password), knowledge)).toMatchObject({ test_data: 'password' })
+    expect(fakeDecide(decide(zip), knowledge)).toMatchObject({ test_data: 'zip' })
+  })
+
+  it('follows the skills: what a skill speaks of first, a form filled before leaving it', () => {
+    const skills = [{ name: 'login-demo', description: 'Log in with the demo account' }]
+    const menu = screen([el(1, ['new'], { text: 'Catalog' }), el(2, ['new'], { text: 'Log In' })])
+    expect(fakeDecide(decide(menu))).toMatchObject({ action: 'tap', element: 1 })
+    expect(fakeDecide(decide(menu), { testData: [], skills })).toMatchObject({
+      action: 'tap',
+      element: 2,
+    })
+    const login = screen([
+      el(1, ['new'], { desc: 'View menu' }),
+      el(2, ['new', 'field'], { className: 'EditText', id: 'nameET' }),
+    ])
+    expect(fakeDecide(decide(login))).toMatchObject({ action: 'tap', element: 1 })
+    const testData = [{ name: 'username', secret: 'TEST_USER' }]
+    expect(fakeDecide(decide(login), { testData })).toMatchObject({
+      action: 'type',
+      element: 2,
+      test_data: 'username',
+    })
+  })
+
   it('says done once the quoted text of the goal is on screen', () => {
     expect(goalTarget('Add to cart until "Cart (1)" shows')).toBe('Cart (1)')
     expect(goalTarget('Mở giỏ “Giỏ hàng”')).toBe('Giỏ hàng')
@@ -186,6 +226,17 @@ describe('fake adapter through structuredChat', () => {
     })
     // The fake reads the named test data back from the prompt.
     expect(typed.value).toMatchObject({ action: 'type', secret: 'TEST_PASSWORD' })
+    // ...and the skills listed in it.
+    const followed = await structuredChat({
+      adapter,
+      model: 'fake',
+      prompt: decidePrompt(
+        decide(screen([el(1, ['new'], { text: 'Catalog' }), el(2, ['new'], { text: 'Log In' })])),
+        { ...EMPTY_KNOWLEDGE, skills: [{ name: 'login-demo', description: 'Log in first' }] },
+      ),
+      tools: NO_TOOLS,
+    })
+    expect(followed.value).toMatchObject({ action: 'tap', element: 2 })
     const plan = await structuredChat({
       adapter,
       model: 'fake',

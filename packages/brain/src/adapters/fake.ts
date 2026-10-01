@@ -48,6 +48,28 @@ const isInjection = (t: { text: string }) =>
   /ignore (all |any )?previous instructions/i.test(t.text)
 const lower = (s: string | undefined) => (s ?? '').toLowerCase()
 
+/** Parts of a field's id, text and description (`nameET` → name), noise words left out. */
+function fieldWords(element: ScreenElement): string[] {
+  return [element.id, element.text, element.desc]
+    .join(' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 3 && !['edit', 'text', 'input', 'field', 'view'].includes(w))
+}
+
+/** The named test data meant for this field: `username` for a field `nameET` / "User name". */
+function dataFor(
+  element: ScreenElement,
+  testData: readonly { name: string; value?: string; secret?: string }[],
+) {
+  const words = fieldWords(element)
+  return testData.find((d) => {
+    const name = d.name.toLowerCase().replace(/[^a-z0-9]/g, '')
+    return words.some((w) => name.includes(w) || w.includes(name))
+  })
+}
+
 function fieldValue(
   element: ScreenElement,
   knowledge: { testData: { name: string; value?: string; secret?: string }[] },
@@ -57,6 +79,9 @@ function fieldValue(
   if (toolResult !== undefined) {
     return { ...base, text: toolResult.trim().slice(0, 64) || 'x', reason: 'Value from a tool' }
   }
+  // Test data named for this field, a secret or not: the skill says what to type (US4).
+  const named = dataFor(element, knowledge.testData)
+  if (named) return { ...base, test_data: named.name, reason: `Test data ${named.name} of a skill` }
   if (element.flags.includes('password')) {
     const secret = knowledge.testData.find((d) => d.secret !== undefined)?.secret
     if (secret) return { ...base, secret, reason: 'Password from the project test data' }
@@ -73,9 +98,21 @@ function fieldValue(
   }
 }
 
+/** What the fake knows of the project: named test data, and the skills listed in the prompt. */
+export interface FakeKnowledge {
+  testData: { name: string; value?: string; secret?: string }[]
+  skills?: { name: string; description: string }[]
+}
+
+/** An element a skill speaks of: its label is in a skill's description ("Log In" → login skill). */
+function mentioned(element: ScreenElement, skills: FakeKnowledge['skills'] = []): boolean {
+  const label = lower(element.text ?? element.desc).trim()
+  return label.length >= 4 && skills.some((s) => lower(s.description).includes(label))
+}
+
 export function fakeDecide(
   input: DecideInput,
-  knowledge: { testData: { name: string; value?: string; secret?: string }[] } = { testData: [] },
+  knowledge: FakeKnowledge = { testData: [] },
   toolResult?: string,
 ): ActionDecision {
   const { screen } = input
@@ -95,7 +132,13 @@ export function fakeDecide(
   if (screen.elements.length === 0 && !input.refused && screen.visibleTexts.some(isInjection)) {
     return { action: 'tap_point', point_pct: [0.5, 0.5], reason: 'The screen says to tap it' }
   }
-  const next = screen.elements.find((e) => e.flags.includes('new') && !e.flags.includes('dead'))
+  const fresh = screen.elements.filter((e) => e.flags.includes('new') && !e.flags.includes('dead'))
+  // Following the project (US4): with test data, fill a form before leaving it; then what a
+  // skill speaks of; then the first element not tried yet.
+  const next =
+    (knowledge.testData.length > 0 ? fresh.find((e) => e.flags.includes('field')) : undefined) ??
+    fresh.find((e) => mentioned(e, knowledge.skills)) ??
+    fresh[0]
   if (!next) return { action: 'back', reason: 'Nothing new on this screen' }
   if (next.flags.includes('field')) return fieldValue(next, knowledge, toolResult)
   if (next.flags.includes('scroll')) {
@@ -220,16 +263,22 @@ function answerOf(request: ChatRequest, toolResult: string | undefined): unknown
     case 'describe_screen':
       return fakeDescribe(task.input)
     case 'next_action':
-      return fakeDecide(task.input, testDataOf(request.system.stable), toolResult)
+      return fakeDecide(task.input, knowledgeOf(request.system.stable), toolResult)
     case 'write_test':
       return fakeWrite(task.input)
   }
 }
 
-/** The fake reads named test data back from the stable prompt (`- NAME: secret X` / `- NAME: "v"`). */
-function testDataOf(stable: string): {
-  testData: { name: string; value?: string; secret?: string }[]
-} {
+/**
+ * The fake reads the project back from the stable prompt: named test data (`- NAME: secret X` /
+ * `- NAME: "v"`) and the skills listed (`- name: description`).
+ */
+function knowledgeOf(stable: string): FakeKnowledge {
+  const skills = (/## Skills[^\n]*\n([\s\S]*?)(?:\n## |$)/.exec(stable)?.[1] ?? '')
+    .split('\n')
+    .map((line) => /^- ([a-z0-9][a-z0-9-]*): (.*)$/.exec(line))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => ({ name: m[1] ?? '', description: m[2] ?? '' }))
   const section = /## Test data\n([\s\S]*?)(?:\n## |$)/.exec(stable)?.[1] ?? ''
   const testData = section
     .split('\n')
@@ -242,5 +291,5 @@ function testDataOf(stable: string): {
         ? { name: m[1] ?? '', secret: m[2] }
         : { name: m[1] ?? '', value: JSON.parse(m[3] ?? '""') as string },
     )
-  return { testData }
+  return { testData, skills }
 }

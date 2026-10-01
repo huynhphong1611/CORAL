@@ -352,7 +352,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `GET/PUT /projects/:id/mcp` (🔑, `stdio_not_allowed`, `audit_log mcp.update`).
 
   Mỗi lần lưu là một commit; `base_commit` sai → 409 `conflict`. Test `knowledge.int.test.ts` (quyền, xung đột, lỗi schema, tenant khác 404).
-- [ ] T045 [US4] Nối tri thức vào Explorer: `ai/knowledge.ts` → prompt (T030) + kiểm an toàn (T028: `never_tap`, `forbidden`, `allow_submit` của mọi skill hợp nhất) + dữ liệu gõ (`test_data`: giá trị secret thay lúc gửi `record`, kèm `secret` = tên và `redact`). Test `knowledge-explorer.int.test.ts`:
+- [x] T045 [US4] Nối tri thức vào Explorer: `ai/knowledge.ts` → prompt (T030) + kiểm an toàn (T028: `never_tap`, `forbidden`, `allow_submit` của mọi skill hợp nhất) + dữ liệu gõ (`test_data`: giá trị secret thay lúc gửi `record`, kèm `secret` = tên và `redact`). Test `knowledge-explorer.int.test.ts`:
   - nội dung lời gọi AI (S3) không có giá trị `CORAL_SECRET_TEST_USER`;
   - step `type` ghi `${secret:TEST_USER}`;
   - skill của project khác không có trong ngữ cảnh (SC-008).
