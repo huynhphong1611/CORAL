@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { LOG_LEVELS, type LogLevel } from '@coral/shared'
 import { z } from 'zod'
 
@@ -31,7 +32,42 @@ const envSchema = z.object({
   CORAL_RUN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(1_800_000),
   /** A live control session ends after this long without a command (research R7). */
   CORAL_LIVE_IDLE_MS: z.coerce.number().int().min(1000).default(600_000),
+  // --- AI (Phase 3, research R2–R5) ---
+  /** The scripted `fake` providers, for tests, E2E and the CI only. */
+  CORAL_BRAIN_FAKE: z.stringbool().default(false),
+  /** A brains.yaml used by tenants that have none of their own (contracts/brains-yaml.md). */
+  CORAL_BRAINS_DEFAULT: z.string().min(1).optional(),
+  /** Prices per model (data, not code); defaults to apps/server/ai-prices.yaml. */
+  CORAL_AI_PRICES: z.string().min(1).optional(),
+  CORAL_ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  CORAL_GEMINI_API_KEY: z.string().min(1).optional(),
+  /** GitHub Copilot needs this and the tenant's own flag (FR-009). */
+  CORAL_COPILOT_ENABLED: z.stringbool().default(false),
+  /** Names of local (stdio) MCP servers the platform allows, comma-separated (§14.5). */
+  CORAL_MCP_STDIO_ALLOWLIST: z.string().default(''),
+  CORAL_MAX_EXPLORATIONS: z.coerce.number().int().min(1).max(100).default(5),
 })
+
+/** Platform keys of the AI providers; never printed (JSON and string forms are redacted). */
+export interface ProviderKeys {
+  anthropic?: string
+  gemini?: string
+}
+
+const REDACTED = '[redacted]'
+
+function providerKeys(keys: ProviderKeys): ProviderKeys {
+  const hidden = { ...keys }
+  Object.defineProperties(hidden, {
+    toJSON: { value: () => REDACTED },
+    toString: { value: () => REDACTED },
+    [Symbol.for('nodejs.util.inspect.custom')]: { value: () => REDACTED },
+  })
+  return hidden
+}
+
+/** The platform's price table, next to package.json in source and in the bundle (dist/). */
+export const DEFAULT_AI_PRICES = fileURLToPath(new URL('../ai-prices.yaml', import.meta.url))
 
 export interface ServerConfig {
   host: string
@@ -60,6 +96,15 @@ export interface ServerConfig {
     queueTimeoutMs: number
     runTimeoutMs: number
     liveIdleMs: number
+  }
+  ai: {
+    fakeBrains: boolean
+    brainsDefaultPath?: string
+    pricesPath: string
+    keys: ProviderKeys
+    copilotEnabled: boolean
+    mcpStdioAllowlist: string[]
+    maxExplorations: number
   }
 }
 
@@ -102,6 +147,20 @@ export function loadConfig(env: Record<string, string | undefined>): ServerConfi
       queueTimeoutMs: e.CORAL_QUEUE_TIMEOUT_MS,
       runTimeoutMs: e.CORAL_RUN_TIMEOUT_MS,
       liveIdleMs: e.CORAL_LIVE_IDLE_MS,
+    },
+    ai: {
+      fakeBrains: e.CORAL_BRAIN_FAKE,
+      ...(e.CORAL_BRAINS_DEFAULT ? { brainsDefaultPath: e.CORAL_BRAINS_DEFAULT } : {}),
+      pricesPath: e.CORAL_AI_PRICES ?? DEFAULT_AI_PRICES,
+      keys: providerKeys({
+        ...(e.CORAL_ANTHROPIC_API_KEY ? { anthropic: e.CORAL_ANTHROPIC_API_KEY } : {}),
+        ...(e.CORAL_GEMINI_API_KEY ? { gemini: e.CORAL_GEMINI_API_KEY } : {}),
+      }),
+      copilotEnabled: e.CORAL_COPILOT_ENABLED,
+      mcpStdioAllowlist: e.CORAL_MCP_STDIO_ALLOWLIST.split(',')
+        .map((name) => name.trim())
+        .filter((name) => name.length > 0),
+      maxExplorations: e.CORAL_MAX_EXPLORATIONS,
     },
   }
 }

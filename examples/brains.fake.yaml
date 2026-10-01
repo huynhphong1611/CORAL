@@ -1,0 +1,15 @@
+# Brain routing with the scripted fake providers — for dev, E2E and the CI, never for tenants.
+# The server accepts `fake` and `fake-alt` only with CORAL_BRAIN_FAKE=1 (contracts/brains-yaml.md).
+# Point CORAL_BRAINS_DEFAULT at this file to run explorations without any AI key.
+schema: coral/brains@1
+
+roles:
+  explorer: { provider: fake, model: fake }
+  writer: { provider: fake, model: fake }
+
+fallback: [fake-alt]
+
+limits:
+  max_cost_usd_per_day: 20
+  max_cost_usd_per_exploration: 3
+  max_cost_usd_per_import: 10

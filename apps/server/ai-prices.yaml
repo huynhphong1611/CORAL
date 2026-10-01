@@ -1,0 +1,14 @@
+# Prices of the AI models, in USD per million tokens (data, not code — SPEC §14.3, research R4).
+# A tenant overrides or adds models with `prices:` in its brains.yaml. A model without a price is
+# never called, so the cost limits always apply (FR-006).
+#
+# input: uncached input tokens · output: output tokens · cached_input: input read from the cache
+# Claude: https://platform.claude.com/docs/en/about-claude/pricing (checked 2026-09-30)
+# Gemini: add the models you use from https://ai.google.dev/gemini-api/docs/pricing
+schema: coral/ai-prices@1
+models:
+  claude-opus-5-5: { input: 4.0, output: 20.0, cached_input: 0.2 }
+  claude-sonnet-5-5: { input: 2.0, output: 10.0, cached_input: 0.2 }
+  claude-haiku-4-5: { input: 1.0, output: 5.0, cached_input: 0.1 }
+  # The scripted fake providers (CORAL_BRAIN_FAKE=1): a small price so tests can hit the limits.
+  fake: { input: 1.0, output: 1.0, cached_input: 0.1 }
