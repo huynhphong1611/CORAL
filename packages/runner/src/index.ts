@@ -62,3 +62,15 @@ export { MAX_SUGGESTIONS, suggestExpects } from './core/recorder/suggest'
 export { snapshotFromPng, type ScreenSnapshot } from './core/recorder/crop'
 export { LocalDirSink } from './sinks/local-dir'
 export * as android from './drivers/android'
+export {
+  CRASH_LOG_WINDOW_MS,
+  LONG_PRESS_MS,
+  RecorderError,
+  SWIPE_MS,
+  crashExcerpt,
+  inspect,
+  observe,
+  prepare,
+  record,
+  type RecorderDeps,
+} from './commands/recorder'

@@ -1,5 +1,4 @@
 import type { protocol } from '@coral/shared'
-import type { DeviceDriver, RemoteControl } from '@coral/runner'
 import type { Logger } from 'pino'
 import { cachedBuild } from './builds'
 import type { AgentConnection } from './connection'
@@ -13,8 +12,10 @@ import {
   observe,
   prepare,
   record,
+  type DeviceDriver,
   type RecorderDeps,
-} from './recorder'
+  type RemoteControl,
+} from '@coral/runner'
 
 type DeviceCommand = protocol.Payload<'device.command'>
 type AgentCommand = DeviceCommand['command']

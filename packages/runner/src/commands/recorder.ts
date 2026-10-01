@@ -1,3 +1,8 @@
+/**
+ * The device commands of the Recorder and the Explorer (contracts/agent-ws-phase2.md, phase3):
+ * `prepare`, `record`, `inspect`, `observe`. Deterministic, no AI (P1): the agent runs them on
+ * the device it holds; server tests run them on a FakeDriver to stand in for an agent.
+ */
 import {
   RECORDED_STEP_ID,
   RECORDING_SNAP_DIR,
@@ -13,24 +18,19 @@ import {
   type Step,
   protocol,
 } from '@coral/shared'
-import {
-  MAX_POPUPS_PER_STEP,
-  StepFailure,
-  createPopupGuard,
-  extractLocators,
-  findPopups,
-  observedImagesFromPng,
-  pickTarget,
-  realClock,
-  snapshotFromPng,
-  suggestExpects,
-  topNodeAt,
-  waitForStable,
-  type Clock,
-  type DeviceDriver,
-  type Point,
-  type ResolveContext,
-} from '@coral/runner'
+import { realClock, type Clock } from '../core/clock'
+import type { DeviceDriver, Point } from '../core/driver'
+import { StepFailure } from '../core/errors'
+import { topNodeAt } from '../core/hit-test'
+import { observedImagesFromPng } from '../core/image/downscale'
+import type { ResolveContext } from '../core/locator/resolve'
+import { createPopupGuard, findPopups } from '../core/popup-guard'
+import { snapshotFromPng } from '../core/recorder/crop'
+import { extractLocators } from '../core/recorder/locators'
+import { pickTarget } from '../core/recorder/pick'
+import { suggestExpects } from '../core/recorder/suggest'
+import { MAX_POPUPS_PER_STEP } from '../core/run-testcase'
+import { waitForStable } from '../core/stability'
 
 type AgentCommand = protocol.Payload<'device.command'>['command']
 type PrepareCommand = Extract<AgentCommand, { kind: 'prepare' }>

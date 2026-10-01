@@ -1,8 +1,7 @@
 import { DEFAULT_POPUPS_YAML, createRedactor, screenFingerprint, walkTree } from '@coral/shared'
-import { android, imageInfo } from '@coral/runner'
+import { android, imageInfo, observe } from '@coral/runner'
 import { deviceTestEnv } from '@coral/runner/testing'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { observe } from './recorder'
 
 // 🔌 T018: `observe` on an Android emulator with My Demo App (CORAL_TEST_APK installs it first).
 let env: Awaited<ReturnType<typeof deviceTestEnv>>

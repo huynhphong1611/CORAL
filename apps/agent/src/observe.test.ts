@@ -1,10 +1,9 @@
 import { DEFAULT_POPUPS_YAML, MASK, newId, protocol, walkTree } from '@coral/shared'
 import { FakeClock, FakeDriver, SAMPLE_APP, el, sampleApp, windows } from '@coral/runner/testing'
-import { imageInfo } from '@coral/runner'
+import { crashExcerpt, imageInfo } from '@coral/runner'
 import { describe, expect, it } from 'vitest'
 import { DeviceCommands } from './commands'
 import { SecretValues } from './log'
-import { crashExcerpt } from './recorder'
 
 type Command = protocol.Payload<'device.command'>['command']
 
