@@ -17,7 +17,7 @@ import {
 
 type DeviceCommand = protocol.Payload<'device.command'>
 type AgentCommand = DeviceCommand['command']
-type ControlCommand = Exclude<AgentCommand, { kind: 'prepare' | 'record' | 'inspect' }>
+type ControlCommand = Exclude<AgentCommand, { kind: 'prepare' | 'record' | 'inspect' | 'observe' }>
 
 export { LONG_PRESS_MS, SWIPE_MS }
 
@@ -138,6 +138,10 @@ export class DeviceCommands {
     driver: DeviceDriver & Partial<RemoteControl>,
     command: AgentCommand,
   ): Promise<Record<string, unknown> | undefined> {
+    if (command.kind === 'observe') {
+      // The Explorer's look at the screen comes with T018.
+      throw new CommandError('unsupported', 'observe is not supported by this agent yet')
+    }
     if (command.kind !== 'prepare' && command.kind !== 'record' && command.kind !== 'inspect') {
       await control(driver, command)
       return undefined

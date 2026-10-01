@@ -2,8 +2,11 @@ import { z } from 'zod'
 import { newId } from '../ids'
 
 export const PROTOCOL_VERSION = 1
-/** Largest accepted WebSocket message; artifacts go through S3, never through WS. */
-export const MAX_MESSAGE_BYTES = 1_000_000
+/**
+ * Largest accepted JSON message on the agent channel; artifacts go through S3, never through WS.
+ * Room for an `observe` result, which carries the element tree inline (≤ 2 MB, Phase 3).
+ */
+export const MAX_MESSAGE_BYTES = 3 * 1024 * 1024
 
 /** `{ v, type, id, ts, re?, payload }` — SPEC §15, D18. */
 export const envelopeSchema = z.object({

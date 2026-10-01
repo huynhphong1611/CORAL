@@ -79,6 +79,7 @@ const assign = (
     commit: 'a1b2c3d',
     yaml,
     assets: assets[i] ?? [],
+    screens: {},
   })),
   popups_yaml: 'schema: coral/popups@1\n',
   secrets: { TEST_USER: 'bob@example.com' },

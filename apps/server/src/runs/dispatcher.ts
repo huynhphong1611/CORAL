@@ -294,6 +294,8 @@ export class RunDispatcher implements RunQueue {
           commit: item.commit,
           yaml,
           assets: parsed ? await this.assets(run, imagePaths(parsed), item.commit) : [],
+          // Fingerprints for `expect.screen` come with the app map (T019).
+          screens: {},
         }
       }),
     )

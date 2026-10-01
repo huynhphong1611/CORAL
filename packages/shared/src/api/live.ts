@@ -7,9 +7,10 @@ import { timestamp } from './common'
  * page and returned with 409 `device_busy`.
  */
 export const deviceActivitySchema = z.object({
-  kind: z.enum(['idle', 'run', 'live', 'recording', 'offline']),
+  kind: z.enum(['idle', 'run', 'live', 'recording', 'exploration', 'offline']),
   by: z.object({ user_id: z.uuid(), name: z.string() }).optional(),
   run_id: z.uuid().optional(),
+  exploration_id: z.uuid().optional(),
   since: timestamp.optional(),
 })
 export type DeviceActivity = z.infer<typeof deviceActivitySchema>

@@ -94,9 +94,10 @@ export function buildServer(
 
   if (deps.db) registerAuthRoutes(app, { db: deps.db, jwtSecret: config.jwtSecret })
   if (deps.gateway || deps.uiGateway) {
-    // One plugin for both sockets: two would both handle every HTTP upgrade. Binary live-view
-    // frames are the largest messages (JSON is capped lower by each protocol's parser).
-    void app.register(websocket, { options: { maxPayload: protocol.MAX_FRAME_BYTES + 64 * 1024 } })
+    // One plugin for both sockets: two would both handle every HTTP upgrade. The largest messages
+    // are binary live-view frames and `observe` results (each protocol's parser caps its JSON).
+    const maxPayload = Math.max(protocol.MAX_FRAME_BYTES, protocol.MAX_MESSAGE_BYTES) + 64 * 1024
+    void app.register(websocket, { options: { maxPayload } })
   }
   deps.gateway?.register(app)
   deps.uiGateway?.register(app)

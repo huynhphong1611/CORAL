@@ -39,6 +39,33 @@ const recordingStep = {
   recorded_at: '2026-09-29T10:00:00.000Z',
 }
 
+const stats = {
+  steps: 12,
+  refused: 1,
+  screens: 4,
+  new_screens: 2,
+  transitions: 6,
+  findings: 0,
+  cost_usd: 0.31,
+  tests_written: 0,
+  tests_active: 0,
+}
+const explorationStep = {
+  n: 7,
+  segment: 1,
+  screen: { id: 'catalog', name: 'Danh sách sản phẩm', fingerprint: '9f2c4e71a0b3d5e8' },
+  decision: { action: 'tap', element: 2, reason: 'Open the menu, not tried yet' },
+  status: 'done',
+  refusal: null,
+  step: { id: 's7', action: 'tap', target: [{ android_id: 'id/menuIV' }] },
+  flags: [],
+  brain_call_id: id(),
+  screenshot_url: 'http://localhost:9000/b/t/explorations/e/7/screen.jpg?X-Amz-Signature=s',
+  cost_usd: 0.004,
+  created_at: '2026-10-01T10:00:00.000Z',
+}
+const importStats = { total: 10, done: 3, active: 2, draft: 1, not_processed: 0, cost_usd: 1.2 }
+
 /** One valid payload per type. */
 const valid: { [T in UiMessageType]: unknown } = {
   'ui.auth': { access_token: 'eyJhbGciOi.x.y' },
@@ -80,6 +107,32 @@ const valid: { [T in UiMessageType]: unknown } = {
     },
     locators: [{ android_id: 'id/title' }, { text: 'Products' }],
     text: 'Products',
+  },
+  'exploration.watch': { exploration_id: id() },
+  'exploration.unwatch': { exploration_id: id() },
+  'exploration.updated': {
+    exploration_id: id(),
+    status: 'running',
+    stats,
+    current: { n: 7, screen_name: 'Danh sách sản phẩm', action_summary: 'tap "View menu"' },
+  },
+  'exploration.step': { exploration_id: id(), step: explorationStep },
+  'exploration.screen': {
+    exploration_id: id(),
+    screen: {
+      id: 'catalog',
+      name: 'Danh sách sản phẩm',
+      fingerprint: '9f2c4e71a0b3d5e8',
+      is_new: true,
+    },
+  },
+  'import.watch': { import_job_id: id() },
+  'import.unwatch': { import_job_id: id() },
+  'import.updated': {
+    import_job_id: id(),
+    status: 'running',
+    stats: importStats,
+    item: { n: 3, status: 'draft', reason: 'needs_human' },
   },
   error: { code: 'forbidden', message: 'viewer' },
 }
@@ -198,5 +251,65 @@ describe('DeviceCommand (FR-008, FR-009)', () => {
     ]) {
       expect(deviceCommandSchema.safeParse(command).success, JSON.stringify(command)).toBe(false)
     }
+  })
+})
+
+describe('Phase 3 messages (contracts/ui-ws-phase3.md)', () => {
+  it('reports why an exploration stopped with values of the data model', () => {
+    const exploration_id = id()
+    const updated = (extra: object) =>
+      parseUiMessage(
+        raw('exploration.updated', { exploration_id, status: 'done', stats, ...extra }),
+      )
+    expect(updated({ stop_reason: 'goal_not_reached' }).ok).toBe(true)
+    expect(updated({ stop_reason: 'tired' }).ok).toBe(false)
+    expect(updated({ status: 'paused' }).ok).toBe(false)
+    expect(updated({ stats: { ...stats, cost_usd: -1 } }).ok).toBe(false)
+  })
+
+  it('sends trace steps the system took on its own and refused decisions', () => {
+    const exploration_id = id()
+    const step = (extra: object) =>
+      parseUiMessage(
+        raw('exploration.step', { exploration_id, step: { ...explorationStep, ...extra } }),
+      )
+    expect(step({ status: 'popup', decision: null, step: null, brain_call_id: null }).ok).toBe(true)
+    expect(
+      step({ status: 'refused', refusal: 'never_tap', step: null, flags: ['never_tap'] }).ok,
+    ).toBe(true)
+    expect(step({ refusal: 'rude' }).ok).toBe(false)
+    expect(step({ flags: ['unknown_flag'] }).ok).toBe(false)
+    // The AI's decision is checked against the same schema as its answer.
+    expect(
+      step({ decision: { action: 'type', element: 1, text: 'a', secret: 'B', reason: '' } }).ok,
+    ).toBe(false)
+    // A screen not named yet has no id nor name, but always a fingerprint.
+    expect(step({ screen: { id: null, name: null, fingerprint: '9f2c4e71a0b3d5e8' } }).ok).toBe(
+      true,
+    )
+    expect(step({ screen: { id: null, name: null, fingerprint: 'nope' } }).ok).toBe(false)
+  })
+
+  it('reports import progress with the reason of a draft item', () => {
+    const import_job_id = id()
+    const updated = (item: object) =>
+      parseUiMessage(
+        raw('import.updated', { import_job_id, status: 'running', stats: importStats, item }),
+      )
+    expect(updated({ n: 1, status: 'active' }).ok).toBe(true)
+    expect(updated({ n: 1, status: 'draft', reason: 'app_mismatch' }).ok).toBe(true)
+    expect(updated({ n: 1, status: 'draft', reason: 'bored' }).ok).toBe(false)
+    expect(updated({ n: 0, status: 'active' }).ok).toBe(false)
+  })
+
+  it('shows a device busy with an exploration (devices.updated)', () => {
+    const activity = {
+      kind: 'exploration',
+      exploration_id: id(),
+      by: { user_id: id(), name: 'Huynh' },
+    }
+    expect(parseUiMessage(raw('devices.updated', { devices: [{ ...device, activity }] })).ok).toBe(
+      true,
+    )
   })
 })

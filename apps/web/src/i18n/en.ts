@@ -212,6 +212,7 @@ export const en = {
     busyRun: 'busy · run',
     controlledBy: (name: string) => `controlled by ${name}`,
     recordingBy: (name: string) => `recording by ${name}`,
+    exploringBy: (name: string) => `exploring by ${name}`,
     by: (name: string) => `by ${name}`,
   },
   runs: {

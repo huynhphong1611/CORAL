@@ -3,7 +3,10 @@ import { Link } from '@tanstack/react-router'
 import { en } from '../i18n/en'
 import { Badge, shortId, type Tone } from './ui'
 
-/** `idle`, `busy · run …`, `controlled by …`, `recording by …`, `offline` (contracts/web-ui.md). */
+/**
+ * `idle`, `busy · run …`, `controlled by …`, `recording by …`, `exploring by …`, `offline`
+ * (contracts/web-ui.md, web-ui-phase3.md).
+ */
 export function activityLabel(activity: api.DeviceActivity): string {
   switch (activity.kind) {
     case 'idle':
@@ -18,6 +21,8 @@ export function activityLabel(activity: api.DeviceActivity): string {
       return en.devices.controlledBy(activity.by?.name ?? '?')
     case 'recording':
       return en.devices.recordingBy(activity.by?.name ?? '?')
+    case 'exploration':
+      return en.devices.exploringBy(activity.by?.name ?? '?')
   }
 }
 
@@ -27,6 +32,7 @@ const TONE: Record<api.DeviceActivity['kind'], Tone> = {
   run: 'blue',
   live: 'amber',
   recording: 'violet',
+  exploration: 'blue',
 }
 
 /** The activity as a badge; a run links to its page. */
