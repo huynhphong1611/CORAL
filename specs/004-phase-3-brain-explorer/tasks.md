@@ -53,7 +53,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 **⚠️ CRITICAL**: xong phase này mới làm user story
 
-- [ ] T005 [P] `packages/shared/src/ai/decisions.ts` (Zod, contracts/brain.md §3):
+- [x] T005 [P] `packages/shared/src/ai/decisions.ts` (Zod, contracts/brain.md §3):
   - `ScreenSummary`: `name` ≤ 60 ký tự, `purpose`.
   - `ActionDecision`: discriminated union theo `action` ∈ `tap | long_press | type | swipe | back | hide_keyboard | restart_app | tap_point | done`; `element` số nguyên ≥ 1; `type` có đúng một trong `text` (≤ 64 ký tự), `secret`, `test_data`; `swipe.direction` ∈ `up | down | left | right`; `reason` ≤ 300 ký tự.
   - `TestPlan`: `flows` có `slug` theo `coral/testcase@1`, `segment`, `end_step`, `expects` là điều kiện §7.3; `outcome` ∈ `written | needs_human | ambiguous | app_mismatch` kèm `evidence_step`, `explanation`.

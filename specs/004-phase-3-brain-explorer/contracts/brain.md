@@ -75,7 +75,7 @@ Screen 1080x2400 · app com.saucelabs.mydemoapp.android · known as "Catalog" (o
       "intent": "Từ danh sách sản phẩm, mở Sauce Labs Backpack và thấy giá",
       "segment": 2,
       "end_step": 17,
-      "expects": { "17": [ { "visible_text": "$29.99" } ] }
+      "expects": [ { "step": 17, "visible_text": "$29.99" }, { "step": 15, "candidate": 0 } ]
     }
   ],
   "outcome": "written"
@@ -84,7 +84,7 @@ Screen 1080x2400 · app com.saucelabs.mydemoapp.android · known as "Catalog" (o
 - `flows` ≤ `max_tests`.
 - `slug` khớp slug của `coral/testcase@1`.
 - `segment` và `end_step` là số của trace.
-- `expects` dùng điều kiện của §7.3; hệ thống kiểm lại trên snapshot (FR-029).
+- `expects`: mỗi mục là `visible_text` (chữ phải có trên màn hình sau bước đó) **hoặc** `candidate` (số thứ tự trong danh sách kỳ vọng ứng viên mà hệ thống đưa cho bước đó — đề xuất của Recorder, locator đọc từ cây). AI không bao giờ viết locator (P2). Hệ thống kiểm lại trên snapshot (FR-029).
 - `outcome` chỉ dùng khi import (một case): `written | needs_human | ambiguous | app_mismatch`, kèm `evidence_step` và `explanation` khi khác `written`.
 
 ## 4. Công cụ
