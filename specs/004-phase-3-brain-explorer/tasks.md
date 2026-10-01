@@ -408,7 +408,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
   Fixture `fixtures/manual/` (hợp lệ, nhiều dòng/bước, lỗi). Test `parse-csv.test.ts`.
 - [x] T051 [P] [US6] `apps/server/src/imports/parse-xlsx.ts` (`read-excel-file`, sheet đầu hoặc chọn, ô số/ngày thành chữ, cùng `mapping.ts`). Fixture `fixtures/manual/mydemo.xlsx`. Test `parse-xlsx.test.ts`.
-- [ ] T052 [P] [US6] `apps/server/src/imports/parse-gherkin.ts` (`@cucumber/gherkin`):
+- [x] T052 [P] [US6] `apps/server/src/imports/parse-gherkin.ts` (`@cucumber/gherkin`):
   - ánh xạ: `Given` → preconditions; `When`/`And` → steps; `Then` → expected của bước gần nhất;
   - `Background` → preconditions của mọi scenario; `Scenario Outline` × `Examples` → nhiều case, `title` thêm giá trị cột đầu;
   - lỗi cú pháp theo `line`, scenario hợp lệ vẫn đọc.
