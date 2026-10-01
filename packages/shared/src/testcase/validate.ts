@@ -33,8 +33,10 @@ export const VALIDATION_ERROR_CODES = [
   'vision_required',
   'price_missing',
   'invalid_limit',
+  // mcp.yaml (§14.5)
+  'stdio_not_allowed',
 ] as const
-export const VALIDATION_WARNING_CODES = ['no_expect_after_tap'] as const
+export const VALIDATION_WARNING_CODES = ['no_expect_after_tap', 'inline_credential'] as const
 export type ValidationCode =
   (typeof VALIDATION_ERROR_CODES)[number] | (typeof VALIDATION_WARNING_CODES)[number]
 
