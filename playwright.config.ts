@@ -38,6 +38,9 @@ export default defineConfig({
         // says otherwise (dev-only secrets, D19).
         CORAL_SECRET_TEST_USER: process.env.CORAL_SECRET_TEST_USER ?? 'bod@example.com',
         CORAL_SECRET_TEST_PASSWORD: process.env.CORAL_SECRET_TEST_PASSWORD ?? '10203040',
+        // The Explorer's E2E (US2) thinks with the scripted `fake` brain: no network, no cost.
+        CORAL_BRAIN_FAKE: '1',
+        CORAL_BRAINS_DEFAULT: 'examples/brains.fake.yaml',
       },
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

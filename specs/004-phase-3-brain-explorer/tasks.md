@@ -266,7 +266,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
     - Findings.
 
   Test component `explorations.test.tsx` (WS giả cập nhật số liệu; trace mở nội dung AI).
-- [ ] T035 [US2] E2E `e2e/us2-explore.e2e.ts` (thiết bị giả + brain `fake`):
+- [x] T035 [US2] E2E `e2e/us2-explore.e2e.ts` (thiết bị giả + brain `fake`):
   - bắt đầu khám phá → tiến độ tăng trực tiếp;
   - Stop → dừng ≤ 15 s;
   - app map có các màn của app mẫu;

@@ -291,13 +291,12 @@ function Trace({ steps }: { steps: api.ExplorationStepView[] }) {
   const [open, setOpen] = useState<number | undefined>()
   const selected = steps.find((s) => s.n === open)
   return (
-    <div className="grid gap-4 xl:grid-cols-[1fr_520px]">
+    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
       <Table label={t.tabs.trace}>
         <thead>
           <tr>
             <Th className="w-10">{t.trace.n}</Th>
             <Th className="w-16">{t.trace.picture}</Th>
-            <Th>{t.trace.screen}</Th>
             <Th>{t.trace.decision}</Th>
             <Th>{t.trace.status}</Th>
             <Th className="w-20">{t.trace.cost}</Th>
@@ -320,8 +319,10 @@ function Trace({ steps }: { steps: api.ExplorationStepView[] }) {
                   />
                 )}
               </Td>
-              <Td className="text-slate-700">{step.screen.name ?? '—'}</Td>
               <Td>
+                <div className="text-xs text-slate-500">
+                  {t.trace.screen} {step.screen.name ?? '—'}
+                </div>
                 <button type="button" className="text-left font-mono text-xs text-slate-800">
                   {describeStep(step)}
                 </button>
@@ -329,12 +330,12 @@ function Trace({ steps }: { steps: api.ExplorationStepView[] }) {
                   <span className="ml-2 text-xs text-slate-400">({t.trace.system})</span>
                 )}
                 {step.decision && 'reason' in step.decision && (
-                  <div className="max-w-md truncate text-xs text-slate-500">
+                  <div className="max-w-64 truncate text-xs text-slate-500">
                     {step.decision.reason}
                   </div>
                 )}
               </Td>
-              <Td>
+              <Td className="whitespace-nowrap">
                 <Badge tone={STEP_TONES[step.status]}>
                   {step.status}
                   {step.refusal ? `: ${step.refusal}` : ''}
@@ -345,7 +346,11 @@ function Trace({ steps }: { steps: api.ExplorationStepView[] }) {
           ))}
         </tbody>
       </Table>
-      {selected && <StepDetail step={selected} />}
+      {selected && (
+        <div className="xl:sticky xl:top-4">
+          <StepDetail step={selected} />
+        </div>
+      )}
     </div>
   )
 }
