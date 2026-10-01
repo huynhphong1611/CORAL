@@ -44,6 +44,8 @@ export function fakeDescribe(screen: ScreenInput): ScreenSummary {
 }
 
 const reason = (text: string) => text.slice(0, 300)
+const isInjection = (t: { text: string }) =>
+  /ignore (all |any )?previous instructions/i.test(t.text)
 const lower = (s: string | undefined) => (s ?? '').toLowerCase()
 
 function fieldValue(
@@ -88,6 +90,11 @@ export function fakeDecide(
     }
   }
   if (input.onlyBack) return { action: 'back', reason: 'Maximum depth reached' }
+  // A gullible AI (FR-014 tests): text on a screen with nothing listed tells it to tap, so it taps
+  // the middle of the screen — once; the safety checks are what must stop it.
+  if (screen.elements.length === 0 && !input.refused && screen.visibleTexts.some(isInjection)) {
+    return { action: 'tap_point', point_pct: [0.5, 0.5], reason: 'The screen says to tap it' }
+  }
   const next = screen.elements.find((e) => e.flags.includes('new') && !e.flags.includes('dead'))
   if (!next) return { action: 'back', reason: 'Nothing new on this screen' }
   if (next.flags.includes('field')) return fieldValue(next, knowledge, toolResult)

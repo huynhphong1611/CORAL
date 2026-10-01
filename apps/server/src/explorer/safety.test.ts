@@ -49,12 +49,14 @@ describe('checkDecision (research R10, FR-022, FR-022a)', () => {
       ok: false,
       refusal: 'never_tap',
     })
-    // The prompt-injection screen only offers ordinary elements.
+    // The prompt-injection screen lists nothing (its only button is never_tap): an AI that
+    // obeys the text and taps the point is refused.
     const about = context('about')
     expect(about.ctx.tree.some((w) => JSON.stringify(w).includes(INJECTION_TEXT))).toBe(true)
-    for (const element of about.screen.elements) {
-      expect(checkDecision({ action: 'tap', element: element.n, reason }, about.ctx).ok).toBe(true)
-    }
+    expect(about.screen.elements).toEqual([])
+    expect(
+      checkDecision({ action: 'tap_point', point_pct: [0.5, 0.5], reason }, about.ctx),
+    ).toMatchObject({ ok: false, refusal: 'never_tap' })
   })
 
   it('refuses to submit a form after made-up text, unless allow_submit says so', () => {

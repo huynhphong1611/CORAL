@@ -74,24 +74,24 @@ describe('Explorer (US2, T032)', { timeout: 60_000 }, () => {
       app_id: app.id,
       build_id: build.id,
       device_id: deviceId,
-      budget: { max_steps: 12 },
+      budget: { max_steps: 16 },
     })
     expect(started).toMatchObject({
       kind: 'explore',
       max_tests: api.DEFAULT_MAX_TESTS,
-      budget: { max_steps: 12, max_depth: 8, max_minutes: 20, max_cost_usd: 3 },
+      budget: { max_steps: 16, max_depth: 8, max_minutes: 20, max_cost_usd: 3 },
     })
     const row = await until(() => repo.get(started.id), ended)
     expect(row).toMatchObject({ status: 'done', stopReason: 'max_steps' })
-    expect(row.stats.steps).toBe(12)
+    expect(row.stats.steps).toBe(16)
     expect(row.stats.cost_usd).toBeGreaterThan(0)
 
     // The app was prepared fresh, then every step looked before acting.
     expect(sample.commands[0]).toMatchObject({ kind: 'prepare', app_state: 'fresh' })
-    expect(sample.commands.filter((c) => c.kind === 'observe')).toHaveLength(12)
+    expect(sample.commands.filter((c) => c.kind === 'observe')).toHaveLength(16)
 
     const steps = await repo.steps(started.id)
-    expect(steps.map((s) => s.n)).toEqual(Array.from({ length: 12 }, (_, i) => i + 1))
+    expect(steps.map((s) => s.n)).toEqual(Array.from({ length: 16 }, (_, i) => i + 1))
     const first = steps[0]
     expect(first).toMatchObject({ status: 'done', segment: 1 })
     expect(first?.decision).toMatchObject({ action: 'tap', element: 1 })
@@ -107,6 +107,17 @@ describe('Explorer (US2, T032)', { timeout: 60_000 }, () => {
     )
     expect(row.screens[0]).toMatchObject({ name: 'MY DEMO APP', first_step: 1, is_new: true })
     expect(row.stats.screens).toBe(row.screens.length)
+    // The trap screen told the AI to tap Place Order: it tapped the point, the system refused.
+    const refused = steps.filter((s) => s.status === 'refused')
+    expect(refused).toHaveLength(1)
+    expect(refused[0]).toMatchObject({
+      refusal: 'never_tap',
+      decision: { action: 'tap_point' },
+      step: null,
+    })
+    expect(row.stats.refused).toBe(1)
+    expect(row.screens.map((s) => s.activity)).toContain('.about')
+    expect(sample.driver.current).not.toBe('order_placed')
     const taps = sample.driver.calls.filter((c) => c.kind === 'tap')
     expect(taps.some((c) => c.kind === 'tap' && c.node?.text === PLACE_ORDER)).toBe(false)
     for (const step of steps) expect(JSON.stringify(step.step)).not.toContain(PLACE_ORDER)
@@ -142,7 +153,7 @@ describe('Explorer (US2, T032)', { timeout: 60_000 }, () => {
     const events = server.emitted.filter(
       (e) => (e.payload as { exploration_id: string }).exploration_id === started.id,
     )
-    expect(events.filter((e) => e.type === 'exploration.step')).toHaveLength(12)
+    expect(events.filter((e) => e.type === 'exploration.step')).toHaveLength(16)
     expect(events.filter((e) => e.type === 'exploration.screen')).toHaveLength(row.screens.length)
     expect(events.at(-1)).toMatchObject({
       type: 'exploration.updated',
