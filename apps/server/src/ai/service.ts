@@ -49,7 +49,7 @@ export class AiService {
       secrets: SecretSource
       fakeBrains: boolean
       stdioAllowlist: readonly string[]
-      /** Real providers (claude, gemini, copilot) register here as their adapters land. */
+      /** The real providers (claude, gemini, copilot), built per call from the tenant's key. */
       adapters?: Partial<Record<BrainProviderId, AdapterFactory>>
       log?: FastifyBaseLogger
     },
@@ -69,6 +69,8 @@ export class AiService {
       adapters['fake-alt'] = createFakeAdapter('fake-alt')
     }
     for (const [id, factory] of Object.entries(this.deps.adapters ?? {})) {
+      // A provider the tenant turned off is never called, fallback included (FR-009).
+      if (config.providers[id]?.enabled === false) continue
       const adapter = factory?.(this.deps.settings.apiKey(config, id))
       if (adapter) adapters[id] = adapter
     }

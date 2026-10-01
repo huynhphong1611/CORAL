@@ -157,7 +157,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 **Independent Test**: với adapter `fake` + một adapter giả lập lỗi, đổi `roles.explorer` chỉ bằng `PUT /brains/config` → lời gọi kế tiếp đi qua provider mới (thấy trong `/usage/ai`); giới hạn ngày thấp → bị chặn (quickstart §2).
 
-- [ ] T021 [US1] Adapter `packages/brain/src/adapters/claude.ts` (`@anthropic-ai/sdk`, research R2):
+- [x] T021 [US1] Adapter `packages/brain/src/adapters/claude.ts` (`@anthropic-ai/sdk`, research R2):
   - Ánh xạ `ChatRequest`: ảnh base64; `tools` với `strict: true`, `tool_choice: auto`; `output_config.format` là JSON Schema; phần `system.stable` có `cache_control`.
   - Model và `effort` lấy từ yêu cầu (không có literal tên model trong code).
   - Ánh xạ `usage` (gồm token cache).

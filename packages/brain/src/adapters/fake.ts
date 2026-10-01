@@ -186,7 +186,7 @@ export function createFakeAdapter(
       const sent = JSON.stringify(request.messages).length + request.system.stable.length
       const toolMessages = request.messages.filter((m) => m.role === 'tool')
       const round = toolMessages.length + 1
-      if (request.tools.length > 0) {
+      if (request.toolChoice === 'auto' && request.tools.length > 0) {
         const calls = script.tools?.(request.task, round, request.tools)
         if (calls && calls.length > 0) {
           return Promise.resolve({

@@ -186,7 +186,16 @@ export interface ToolCall {
 
 export type ChatMessage =
   | { role: 'user'; text: string; images?: ImageInput[] }
-  | { role: 'assistant'; text?: string; toolCalls?: ToolCall[] }
+  | {
+      role: 'assistant'
+      text?: string
+      toolCalls?: ToolCall[]
+      /**
+       * The turn as the provider gave it (e.g. Claude's thinking blocks), sent back unchanged
+       * to the same provider in the same conversation; never stored, never sent elsewhere.
+       */
+      providerState?: unknown
+    }
   | { role: 'tool'; results: { id: string; name: string; content: string; isError?: boolean }[] }
 
 /**
@@ -203,8 +212,10 @@ export interface ChatRequest {
   /** `stable` comes first so providers can cache it; `volatile` changes every call. */
   system: { stable: string; volatile: string }
   messages: ChatMessage[]
-  /** Empty on the round that must give the final answer. */
+  /** The activity's tools, the same on every round (a provider must declare those used before). */
   tools: ToolSpec[]
+  /** `none` on the round that must give the final answer: no more tool calls. */
+  toolChoice: 'auto' | 'none'
   /** JSON Schema of the final answer. */
   outputSchema: Record<string, unknown>
   options: { effort?: string; timeoutMs: number }
@@ -226,6 +237,8 @@ export interface ChatResponse {
   toolCalls?: ToolCall[]
   usage: Usage
   stop: 'end' | 'max_tokens' | 'refusal' | 'tool_use'
+  /** Opaque to everything but the adapter: copied into the assistant turn of the conversation. */
+  providerState?: unknown
 }
 
 export interface ProviderAdapter {

@@ -1,5 +1,6 @@
 import { GetObjectTaggingCommand, S3Client } from '@aws-sdk/client-s3'
-import { EMPTY_KNOWLEDGE, type ScreenInput } from '@coral/brain'
+import { createClaudeAdapter, EMPTY_KNOWLEDGE, type ScreenInput } from '@coral/brain'
+import { brainsSchema } from '@coral/shared'
 import { fileURLToPath } from 'node:url'
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -15,7 +16,11 @@ import { AiService } from './service'
 
 const FAKE_BRAINS = fileURLToPath(new URL('../../../../examples/brains.fake.yaml', import.meta.url))
 const SECRET = 'bod@example.com'
-const env = { CORAL_SECRET_TEST_USER: SECRET, CORAL_SECRET_TEST_PASSWORD: '10203040' }
+const env = {
+  CORAL_SECRET_TEST_USER: SECRET,
+  CORAL_SECRET_TEST_PASSWORD: '10203040',
+  CORAL_SECRET_TENANT_ANTHROPIC: 'sk-tenant-key',
+}
 const author = { name: 'Huynh', email: 'huynh@coral.test' }
 
 let server: TestServer
@@ -36,7 +41,10 @@ const ai = (over: Partial<ServerConfig['ai']> = {}): ServerConfig['ai'] => ({
   ...over,
 })
 
-function service(over: Partial<ServerConfig['ai']> = {}) {
+function service(
+  over: Partial<ServerConfig['ai']> = {},
+  adapters?: ConstructorParameters<typeof AiService>[0]['adapters'],
+) {
   const config = ai(over)
   const secrets = envSecrets(env)
   const settings = new BrainsSettings({ ai: config, secrets })
@@ -50,6 +58,7 @@ function service(over: Partial<ServerConfig['ai']> = {}) {
       secrets,
       fakeBrains: config.fakeBrains,
       stdioAllowlist: [],
+      ...(adapters ? { adapters } : {}),
     }),
   }
 }
@@ -199,6 +208,89 @@ describe('AI call records (FR-006, FR-006a, FR-013)', () => {
       scope: 'activity',
     })
     expect(await repos.tenant(tenant).brainCalls.costOfDay()).toBeGreaterThan(0)
+  })
+})
+
+describe('the claude adapter behind the router (T021)', () => {
+  const yaml = (claude: string) => `schema: coral/brains@1
+roles: { explorer: { provider: claude, model: model-under-test } }
+fallback: [fake]
+providers:
+  claude: { api_key_secret: TENANT_ANTHROPIC${claude} }
+  fake: { model: fake }
+prices:
+  model-under-test: { input: 4, output: 20 }
+`
+
+  it("calls Claude with the tenant's key and model, and skips it once turned off", async () => {
+    const sent: { headers: Headers; body: Record<string, unknown> }[] = []
+    const answer = { name: 'Catalog', purpose: 'Lists the products' }
+    const fakeFetch = ((_: unknown, init?: RequestInit) => {
+      sent.push({
+        headers: new Headers(init?.headers),
+        body: JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as Record<
+          string,
+          unknown
+        >,
+      })
+      return Promise.resolve(
+        Response.json({
+          id: 'msg_1',
+          type: 'message',
+          role: 'assistant',
+          model: 'model-under-test',
+          content: [{ type: 'text', text: JSON.stringify(answer) }],
+          stop_reason: 'end_turn',
+          stop_sequence: null,
+          usage: { input_tokens: 1000, output_tokens: 50 },
+        }),
+      )
+    }) as typeof fetch
+    const { service: ai, settings } = service(
+      {},
+      {
+        claude: (key) =>
+          key ? createClaudeAdapter({ apiKey: key, fetch: fakeFetch, maxRetries: 0 }) : undefined,
+      },
+    )
+    const tenant = (await server.newUser('Minh')).tenantId
+    const tenantRepos = repos.tenant(tenant)
+    const project = await tenantRepos.projects.create(`p-${Date.now()}`, author)
+    const configure = async (text: string) => {
+      await tenantRepos.settings.setBrains({
+        yaml: text,
+        config: brainsSchema.parse(settings.validate(text).value ?? {}),
+        updated_at: new Date().toISOString(),
+        updated_by: huynh.userId,
+      })
+    }
+    const describeOnce = async () => {
+      const projectBrain = await ai.projectBrain({
+        tenantId: tenant,
+        projectId: project.id,
+        ref: { type: 'exploration', id: project.id },
+        maxCostUsd: 3,
+      })
+      return projectBrain.brain.describeScreen(screen, projectBrain.context('explorer'))
+    }
+    const calls = async () =>
+      server.db.select().from(brainCalls).where(eq(brainCalls.refId, project.id))
+
+    expect(settings.validate(yaml('')).errors).toEqual([])
+    await configure(yaml(''))
+    expect(await describeOnce()).toEqual(answer)
+    expect(sent).toHaveLength(1)
+    expect(sent[0]?.headers.get('x-api-key')).toBe('sk-tenant-key')
+    expect(sent[0]?.body).toMatchObject({ model: 'model-under-test' })
+    expect(await calls()).toMatchObject([
+      { provider: 'claude', model: 'model-under-test', ok: true, costUsd: 0.005 },
+    ])
+
+    // Turned off: the router never calls it, the fallback answers (FR-009).
+    await configure(yaml(', enabled: false'))
+    await describeOnce()
+    expect(sent).toHaveLength(1)
+    expect((await calls()).map((c) => c.provider)).toEqual(['claude', 'fake'])
   })
 })
 

@@ -99,7 +99,7 @@ describe('structuredChat (research R3)', () => {
       },
     }
     const adapter = scriptedAdapter([
-      (request) => (request.tools.length > 0 ? toolCall('otp__get_otp') : final(back)),
+      (request) => (request.toolChoice === 'auto' ? toolCall('otp__get_otp') : final(back)),
     ])
     const log = recorder()
     const { value } = await structuredChat({
@@ -111,7 +111,16 @@ describe('structuredChat (research R3)', () => {
     })
     expect(value).toEqual(back)
     expect(adapter.requests).toHaveLength(MAX_TOOL_ROUNDS + 1)
-    expect(adapter.requests.map((r) => r.tools.length)).toEqual([1, 1, 1, 1, 1, 0])
+    // The tools stay declared; the last round may not call them.
+    expect(adapter.requests.map((r) => r.tools.length)).toEqual([1, 1, 1, 1, 1, 1])
+    expect(adapter.requests.map((r) => r.toolChoice)).toEqual([
+      'auto',
+      'auto',
+      'auto',
+      'auto',
+      'auto',
+      'none',
+    ])
     expect(adapter.requests[5]?.messages.at(-1)).toMatchObject({
       role: 'user',
       text: expect.stringMatching(/final JSON/) as string,

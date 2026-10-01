@@ -106,8 +106,9 @@ interface ProviderAdapter {
 interface ChatRequest {
   model: string
   system: { stable: string; volatile: string }  // stable được cache khi provider hỗ trợ
-  messages: ChatMessage[]                        // user/assistant/tool_result, ảnh base64
-  tools: ToolSpec[]                              // rỗng ở lượt cuối
+  messages: ChatMessage[]                        // user/assistant/tool_result, ảnh base64; lượt assistant giữ providerState
+  tools: ToolSpec[]                              // công cụ của hoạt động, giống nhau mọi lượt
+  toolChoice: 'auto' | 'none'                    // 'none' ở lượt phải trả lời cuối
   outputSchema: JsonSchema                       // câu trả lời cuối
   options?: { effort?: string; timeoutMs: number }
 }
@@ -117,8 +118,11 @@ interface ChatResponse {
   toolCalls?: { id: string; name: string; args: unknown }[]
   usage: { input: number; output: number; cachedInput: number }
   stop: 'end' | 'max_tokens' | 'refusal' | 'tool_use'
+  providerState?: unknown                        // ví dụ khối thinking của Claude: gửi lại nguyên vẹn
 }
 ```
+`providerState` chỉ adapter tạo ra nó đọc: router chép vào lượt assistant và gửi lại cho **cùng** provider trong **cùng** hội thoại (dự phòng bắt đầu hội thoại mới); không lưu vào `BrainCallContent`. Công cụ luôn được khai báo đủ (Claude từ chối hội thoại có `tool_use` mà không khai báo công cụ); lượt cuối dùng `toolChoice: 'none'`.
+
 **Lỗi** chuẩn hóa về `ProviderError { kind: timeout | rate_limited | auth | refusal | provider_error | bad_request }`. Router dùng `kind` để quyết định dự phòng: mọi `kind` trừ `bad_request` → provider kế tiếp.
 
 ## 6. Nội dung lời gọi lưu 30 ngày (`BrainCallContent`, FR-006a)

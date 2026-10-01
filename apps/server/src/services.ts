@@ -3,6 +3,7 @@ import { access, mkdir } from 'node:fs/promises'
 import { sql } from 'drizzle-orm'
 import type { FastifyBaseLogger } from 'fastify'
 import { AgentGateway } from './agents/gateway'
+import { providerAdapters } from './ai/adapters'
 import { BrainsSettings } from './ai/brains-config'
 import { AiService } from './ai/service'
 import type { ServerConfig } from './config'
@@ -94,6 +95,7 @@ export async function startServices(
     secrets,
     fakeBrains: config.ai.fakeBrains,
     stdioAllowlist: config.ai.mcpStdioAllowlist,
+    adapters: providerAdapters(),
   })
   const writer = new WriterService({ db: database.db, store, artifacts, ai })
   const validation = new ValidationService({

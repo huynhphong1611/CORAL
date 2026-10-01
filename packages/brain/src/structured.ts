@@ -152,7 +152,8 @@ export async function structuredChat<T>(
         model: options.model,
         system: prompt.system,
         messages: [...messages],
-        tools: finalRound ? [] : tools.specs,
+        tools: tools.specs,
+        toolChoice: finalRound ? 'none' : 'auto',
         outputSchema,
         options: {
           ...(options.effort ? { effort: options.effort } : {}),
@@ -229,6 +230,7 @@ export async function structuredChat<T>(
         role: 'assistant',
         ...(response.text ? { text: response.text } : {}),
         toolCalls: calls,
+        ...(response.providerState === undefined ? {} : { providerState: response.providerState }),
       })
       messages.push({ role: 'tool', results })
     }
@@ -257,7 +259,11 @@ export async function structuredChat<T>(
         checked.errors,
       )
     }
-    messages.push({ role: 'assistant', text: response.text ?? '' })
+    messages.push({
+      role: 'assistant',
+      text: response.text ?? '',
+      ...(response.providerState === undefined ? {} : { providerState: response.providerState }),
+    })
     messages.push({ role: 'user', text: reaskText(checked.errors) })
   }
   throw new Error('unreachable')
