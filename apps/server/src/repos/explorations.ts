@@ -275,6 +275,19 @@ export function interruptedExplorations(db: Db, tenantId?: string) {
     .where(and(inStatuses(ACTIVE), tenantId ? eq(explorations.tenantId, tenantId) : undefined))
 }
 
+/** Explorations whose validation runs a restart left without anyone waiting for them. */
+export function validatingExplorations(db: Db, tenantId?: string) {
+  return db
+    .select({ id: explorations.id, tenantId: explorations.tenantId })
+    .from(explorations)
+    .where(
+      and(
+        eq(explorations.status, 'validating'),
+        tenantId ? eq(explorations.tenantId, tenantId) : undefined,
+      ),
+    )
+}
+
 /** Running explorations on the devices of an agent that went away. */
 export function explorationsOnAgent(db: Db, agentId: string) {
   return db

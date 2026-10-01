@@ -11,6 +11,8 @@ import {
   type ExplorationServiceOptions,
 } from '../explorer/service'
 import { createRepos } from '../repos'
+import { ValidationService } from '../writer/validation'
+import { WriterService, writeAndValidate } from '../writer/service'
 import { DEV_JWT_SECRET, loadConfig } from '../config'
 import { leases } from '../db/schema'
 import { RunDispatcher } from '../runs/dispatcher'
@@ -40,9 +42,13 @@ export interface RunServerOptions {
   /** Server log (default silent), wired to the gateway, dispatcher, ingest and sweeper as in main. */
   logging?: { level?: LogLevel; stream?: { write(line: string): void } }
   /** The Explorer with the `fake` brains (examples/brains.fake.yaml as the platform default). */
-  explorer?: Partial<Pick<ExplorationServiceOptions, 'maxPerTenant' | 'writer' | 'leaseTtlMs'>> & {
+  explorer?: Partial<Pick<ExplorationServiceOptions, 'maxPerTenant' | 'leaseTtlMs'>> & {
     /** false: no platform default, so a tenant without brains.yaml gets `brains_not_configured`. */
     platformBrains?: boolean
+    /** false: no Test writer after an exploration (US2 tests). */
+    write?: boolean
+    /** false: test cases are written but not validated. */
+    validate?: boolean
   }
 }
 
@@ -144,13 +150,13 @@ export async function startRunServer(options: RunServerOptions = {}) {
       notify,
     })
     if (options.explorer) {
-      const ai: typeof config.ai = {
+      const aiConfig: typeof config.ai = {
         ...config.ai,
         fakeBrains: true,
         brainsDefaultPath: FAKE_BRAINS,
       }
-      if (options.explorer.platformBrains === false) delete ai.brainsDefaultPath
-      const settings = new BrainsSettings({ ai, secrets })
+      if (options.explorer.platformBrains === false) delete aiConfig.brainsDefaultPath
+      const settings = new BrainsSettings({ ai: aiConfig, secrets })
       const watchers = new ExplorationWatchers({ db, ui: uiGateway })
       const events: ExplorationEvents = {
         emit: (tenantId, type, payload) => {
@@ -158,25 +164,36 @@ export async function startRunServer(options: RunServerOptions = {}) {
           watchers.emit(tenantId, type, payload)
         },
       }
+      const ai = new AiService({
+        repos: createRepos({ db, store }),
+        store,
+        artifacts,
+        settings,
+        secrets,
+        fakeBrains: true,
+        stdioAllowlist: [],
+      })
+      const writer =
+        options.explorer.write === false
+          ? undefined
+          : writeAndValidate(
+              new WriterService({ db, store, artifacts, ai }),
+              options.explorer.validate === false
+                ? undefined
+                : new ValidationService({ db, store, secrets, queue: dispatcher, pollMs: 100 }),
+              db,
+            )
       explorations = new ExplorationService({
         db,
         store,
         artifacts,
         agents: gateway,
         commands,
-        ai: new AiService({
-          repos: createRepos({ db, store }),
-          store,
-          artifacts,
-          settings,
-          secrets,
-          fakeBrains: true,
-          stdioAllowlist: [],
-        }),
+        ai,
         maxPerTenant: options.explorer.maxPerTenant ?? 5,
         notify,
         events,
-        ...(options.explorer.writer ? { writer: options.explorer.writer } : {}),
+        ...(writer ? { writer } : {}),
         ...(options.explorer.leaseTtlMs ? { leaseTtlMs: options.explorer.leaseTtlMs } : {}),
       })
     }

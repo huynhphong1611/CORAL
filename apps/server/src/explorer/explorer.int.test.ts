@@ -19,7 +19,7 @@ let huynh: TestUser
 const agents: DeviceAgent[] = []
 
 beforeAll(async () => {
-  server = await startRunServer({ explorer: { maxPerTenant: 1 } })
+  server = await startRunServer({ explorer: { maxPerTenant: 1, write: false } })
   huynh = await server.newUser('Huynh')
 })
 afterAll(async () => {

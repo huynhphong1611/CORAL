@@ -277,6 +277,71 @@ export function testCasesRepo(
       }
     },
 
+    /**
+     * A test case the Test writer made (US3, research R12): one commit with its YAML and the
+     * snapshots copied from the trace, `draft` until its validation runs pass.
+     */
+    async saveGenerated(
+      projectId: string,
+      input: {
+        testCase: TestCase
+        yaml: string
+        snapshots: Record<string, Uint8Array | string>
+        author: GitAuthor
+        userId: string
+        source: Extract<TestCaseRow['source'], 'ai_explore' | 'ai_prompt' | 'ai_import'>
+        sourceRef: string
+        flags: TestCaseRow['flags']
+        draftReason: TestCaseRow['draftReason']
+      },
+    ): Promise<TestCaseRow> {
+      await projects.get(projectId)
+      const { testCase } = input
+      const pathInRepo = testCasePath(testCase.id)
+      try {
+        return await db.transaction(async (tx) => {
+          const [row] = await tx
+            .insert(testCases)
+            .values({
+              tenantId,
+              projectId,
+              slug: testCase.id,
+              pathInRepo,
+              headCommit: PENDING_COMMIT,
+              intent: testCase.intent,
+              tags: testCase.tags ?? [],
+              platforms: [...testCase.platforms],
+              source: input.source,
+              sourceRef: input.sourceRef,
+              status: 'draft',
+              draftReason: input.draftReason,
+              flags: input.flags,
+              updatedBy: input.userId,
+            })
+            .returning()
+          if (!row) throw new Error('test case not stored')
+          const commit = await store.commitFiles(tenantId, projectId, {
+            files: { [pathInRepo]: input.yaml, ...input.snapshots },
+            removeDirs: [snapshotDir(testCase.id)],
+            author: input.author,
+            message: `testcase: ${testCase.id} (${input.source}, ${input.sourceRef})`,
+          })
+          const [saved] = await tx
+            .update(testCases)
+            .set({ headCommit: commit })
+            .where(eq(testCases.id, row.id))
+            .returning()
+          if (!saved) throw new Error('test case not stored')
+          return saved
+        })
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          throw conflict('slug_exists', `test case "${testCase.id}" already exists`)
+        }
+        throw error
+      }
+    },
+
     /** The test case of a slug in the project, if any. */
     async bySlug(projectId: string, slug: string): Promise<TestCaseRow | undefined> {
       const [row] = await db

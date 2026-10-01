@@ -16,7 +16,7 @@ const agents: DeviceAgent[] = []
 const tabs: UiClient[] = []
 
 beforeAll(async () => {
-  server = await startRunServer({ explorer: {} })
+  server = await startRunServer({ explorer: { write: false } })
   huynh = await server.newUser('Huynh')
   mai = await server.teammate(huynh, 'Mai', 'viewer')
   lan = await server.newUser('Lan')
@@ -240,7 +240,7 @@ describe('exploration routes (US2, T033)', { timeout: 60_000 }, () => {
 
 describe('without AI configured', { timeout: 60_000 }, () => {
   it('answers 409 brains_not_configured', async () => {
-    const bare = await startRunServer({ explorer: { platformBrains: false } })
+    const bare = await startRunServer({ explorer: { platformBrains: false, write: false } })
     try {
       const owner = await bare.newUser('Huynh')
       const project = await sampleProject(bare, owner)

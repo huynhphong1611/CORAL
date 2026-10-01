@@ -42,6 +42,7 @@ import {
   explorationHolder,
   explorationsRepo,
   interruptedExplorations,
+  validatingExplorations,
   type ExplorationRow,
 } from '../repos/explorations'
 import { identityRepo } from '../repos/identity'
@@ -66,8 +67,14 @@ export interface ExplorationEvents {
   emit<T extends EventType>(tenantId: string, type: T, payload: protocol.UiPayload<T>): void
 }
 
-/** The Test writer (US3) plugs in here; it runs while the exploration is `writing`. */
-export type ExplorationWriter = (exploration: ExplorationRow) => Promise<void>
+/**
+ * The Test writer (US3) plugs in here: it writes test cases while the exploration is `writing`,
+ * and returns their validation when there is one to wait for (the exploration is `validating`
+ * until it settles).
+ */
+export type ExplorationWriter = (
+  exploration: ExplorationRow,
+) => Promise<{ validation?: Promise<void> | undefined }>
 
 export interface ExplorationServiceOptions {
   db: Db
@@ -422,6 +429,16 @@ export class ExplorationService {
         if (await this.interrupt(tenantId, id)) count += 1
       } catch (error) {
         this.options.log?.error({ err: error, exploration: id }, 'cannot recover exploration')
+      }
+    }
+    // Validation runs keep going in the dispatcher, but nothing waits for them any more: the
+    // exploration ends, its test cases stay `draft` with the runs they got (they can be run).
+    for (const { id, tenantId } of await validatingExplorations(this.options.db, filter.tenantId)) {
+      const repo = this.repo(tenantId)
+      const row = await repo.get(id)
+      const final = row.stopReason === 'user_stopped' ? 'stopped' : 'done'
+      if (await repo.update(id, { status: final, finishedAt: new Date() }, ['validating'])) {
+        count += 1
       }
     }
     return count
@@ -1181,15 +1198,33 @@ export class ExplorationService {
     this.updated(s, writer ? 'writing' : final, reason)
     s.left()
     if (!writer) return
+    let validation: Promise<void> | undefined
     try {
-      await writer(await repo.get(row.id))
+      ;({ validation } = await writer(await repo.get(row.id)))
     } catch (error) {
       this.options.log?.error({ err: error, exploration: row.id }, 'writing test cases failed')
     }
-    const after = await repo.get(row.id)
-    await repo.update(row.id, { status: final, finishedAt: new Date() }, ['writing'])
-    s.stats = after.stats
-    this.updated(s, final, reason)
+    s.stats = (await repo.get(row.id)).stats
+    if (!validation) {
+      await repo.update(row.id, { status: final, finishedAt: new Date() }, ['writing'])
+      this.updated(s, final, reason)
+      return
+    }
+    // The validation runs go through the dispatcher; the exploration ends when they all did.
+    await repo.update(row.id, { status: 'validating' }, ['writing'])
+    this.updated(s, 'validating', reason)
+    void validation
+      .catch((error: unknown) =>
+        this.options.log?.error({ err: error, exploration: row.id }, 'validation failed'),
+      )
+      .then(async () => {
+        s.stats = (await repo.get(row.id)).stats
+        await repo.update(row.id, { status: final, finishedAt: new Date() }, ['validating'])
+        this.updated(s, final, reason)
+      })
+      .catch((error: unknown) =>
+        this.options.log?.error({ err: error, exploration: row.id }, 'cannot end exploration'),
+      )
   }
 
   /** Marks a cut-off exploration `interrupted` and writes its app map from what it stored. */

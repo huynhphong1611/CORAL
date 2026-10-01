@@ -21,7 +21,7 @@ let agent: DeviceAgent
 let dir = ''
 
 beforeAll(async () => {
-  server = await startRunServer({ explorer: {} })
+  server = await startRunServer({ explorer: { write: false } })
   huynh = await server.newUser('Huynh')
   dir = await mkdtemp(join(tmpdir(), 'coral-phase3-'))
   await writeFile(join(dir, 'app.apk'), Buffer.from(`apk ${newId()}`))

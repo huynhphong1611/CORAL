@@ -8,6 +8,8 @@ import { AiService } from './ai/service'
 import type { ServerConfig } from './config'
 import { createDatabase } from './db/client'
 import { ExplorationService } from './explorer/service'
+import { ValidationService } from './writer/validation'
+import { WriterService, writeAndValidate } from './writer/service'
 import { AgentCommands } from './live/agent-commands'
 import { LiveControl } from './live/control'
 import { deviceLookup, StreamHub } from './live/stream-hub'
@@ -93,6 +95,13 @@ export async function startServices(
     fakeBrains: config.ai.fakeBrains,
     stdioAllowlist: config.ai.mcpStdioAllowlist,
   })
+  const writer = new WriterService({ db: database.db, store, artifacts, ai })
+  const validation = new ValidationService({
+    db: database.db,
+    store,
+    secrets,
+    queue: dispatcher,
+  })
   const explorations = new ExplorationService({
     db: database.db,
     store,
@@ -103,6 +112,7 @@ export async function startServices(
     maxPerTenant: config.ai.maxExplorations,
     notify,
     events: new ExplorationWatchers({ db: database.db, ui: uiGateway }),
+    writer: writeAndValidate(writer, validation, database.db),
   })
 
   const readiness = async (): Promise<boolean> => {
@@ -141,6 +151,8 @@ export async function startServices(
       live.attachLogger(log)
       recordings.attachLogger(log)
       explorations.attachLogger(log)
+      writer.attachLogger(log)
+      validation.attachLogger(log)
       // Explorations the last run of the server left behind (research R9, clarify 5).
       void explorations
         .recoverInterrupted()
