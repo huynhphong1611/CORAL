@@ -273,7 +273,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - trace không có bước chạm Place Order;
   - màn "dụ AI" → bước bị từ chối `never_tap`;
   - chụp ảnh (progress, app map, trace, AI content).
-- [ ] T036 [US2] 🔌 Workflow Device: bước mới trong `scripts/ci-device.sh` — server + agent + brain `fake`, khám phá My Demo App 25 bước. Kiểm:
+- [x] T036 [US2] 🔌 Workflow Device: bước mới trong `scripts/ci-device.sh` — server + agent + brain `fake`, khám phá My Demo App 25 bước. Kiểm:
   - app map ≥ 4 màn hình khác fingerprint;
   - `observe` có `activity`;
   - không bước nào chạm nút `never_tap` (thêm `Log Out` vào `never_tap` của project thử).

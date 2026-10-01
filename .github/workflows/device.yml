@@ -1,7 +1,7 @@
 name: Device
 
-# 🔌 Checks on a real Android 14 emulator — Phase 1 (T039, T041, T056, T060, T063) and the Phase 2
-# Recorder (T046): GitHub-hosted Linux runners have KVM. Runs on demand, and on pushes that touch
+# 🔌 Checks on a real Android 14 emulator — Phase 1 (T039, T041, T056, T060, T063), the Phase 2
+# Recorder (T046) and the Phase 3 Explorer (T036): GitHub-hosted Linux runners have KVM. Runs on demand, and on pushes that touch
 # the device path.
 on:
   workflow_dispatch:
@@ -24,6 +24,12 @@ on:
       - playwright.config.ts
       - apps/server/src/recordings/**
       - apps/web/src/features/recorder/**
+      # Phase 3: the Explorer on My Demo App (T036).
+      - scripts/phase3-explore.mjs
+      - apps/server/src/explorer/**
+      - apps/server/src/ai/**
+      - packages/brain/src/adapters/fake.ts
+      - examples/brains.fake.yaml
 
 permissions:
   contents: read

@@ -4,7 +4,8 @@
 Sheets `local-<slug>` for each `coral run` (`coral-run/<slug>/`), `test-<slug>` for the run of
 the `coral run` device test (`coral-run-test/<slug>/`) and `server-<slug>` for the latest run of
 each test case through the server (`server-runs/<run>/<slug>/`), plus `server-<slug>-<run>` for
-every server run that did not pass. A run that did not pass also gets its last step described in
+every server run that did not pass; `explore-appmap` and `explore-trace` from the Explorer check
+(`explore/appmap/*.jpg`, `explore/trace/*.jpg`, T036). A run that did not pass also gets its last step described in
 the log: windows and texts from `tree.json`, and
 the activity-manager lines of its `device.log`. Step directories follow the local and downloaded
 layout `<slug>/<index>-<step_id>/screenshot.png`. The workflow stores each sheet as a
@@ -101,14 +102,17 @@ def describe_failure(slug_dir: Path) -> None:
 
 
 def sheet(slug_dir: Path) -> Image.Image:
-    steps = step_dirs(slug_dir)
+    return render([(f"{index} {step_id}", png) for index, step_id, png in step_dirs(slug_dir)])
+
+
+def render(pictures: list[tuple[str, Path]]) -> Image.Image:
     tiles = []
-    for index, step_id, png in steps:
-        with Image.open(png) as shot:
+    for label, picture in pictures:
+        with Image.open(picture) as shot:
             height = round(shot.height * TILE_WIDTH / shot.width)
             tile = Image.new("RGB", (TILE_WIDTH, height + LABEL_HEIGHT), "white")
             tile.paste(shot.convert("RGB").resize((TILE_WIDTH, height), Image.LANCZOS))
-        ImageDraw.Draw(tile).text((4, height + 3), f"{index} {step_id}", fill="black")
+        ImageDraw.Draw(tile).text((4, height + 3), label, fill="black")
         tiles.append(tile)
     width = sum(t.width for t in tiles) + 4 * (len(tiles) - 1)
     out = Image.new("RGB", (width, max(t.height for t in tiles)), "#888888")
@@ -123,14 +127,23 @@ def main() -> int:
     root, out_dir = Path(sys.argv[1]), Path(sys.argv[2])
     out_dir.mkdir(parents=True, exist_ok=True)
     found = groups(root)
-    if not found:
-        print("no step screenshots found")
-        return 0
     for name, slug_dir in found.items():
         path = out_dir / f"{name}.jpg"
         sheet(slug_dir).save(path, "JPEG", quality=60, optimize=True)
         print(f"{name}: {slug_dir.relative_to(root)} → {path} ({path.stat().st_size} bytes)")
         describe_failure(slug_dir)
+    # The Explorer's app map (one picture per screen) and its trace (one per step).
+    explored = 0
+    for name in ("appmap", "trace"):
+        pictures = sorted((root / "explore" / name).glob("*.jpg"))
+        if not pictures:
+            continue
+        path = out_dir / f"explore-{name}.jpg"
+        render([(p.stem, p) for p in pictures]).save(path, "JPEG", quality=60, optimize=True)
+        print(f"explore-{name}: {len(pictures)} pictures → {path} ({path.stat().st_size} bytes)")
+        explored += 1
+    if not found and not explored:
+        print("no step screenshots found")
     return 0
 
 
