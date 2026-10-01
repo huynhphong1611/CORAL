@@ -206,7 +206,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 **Independent Test**: thiết bị giả + brain `fake` → khám phá dừng trong ngân sách, app map có các màn của app mẫu, không bước nào chạm `never_tap`; web thấy tiến độ, app map, trace (quickstart §3).
 
-- [ ] T027 [US2] Tuần tự hóa màn hình `apps/server/src/ai/screen.ts` (research R6, contracts/brain.md §2):
+- [x] T027 [US2] Tuần tự hóa màn hình `apps/server/src/ai/screen.ts` (research R6, contracts/brain.md §2):
   - lấy element thao tác được (visible; clickable/long_clickable/scrollable hoặc ô nhập; `checkHit` của runner đúng element; thuộc cửa sổ app/popup);
   - loại element `never_tap` (popups.yaml + rules) và `forbidden`;
   - đánh số theo thứ tự đọc, tối đa 80;
