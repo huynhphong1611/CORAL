@@ -93,6 +93,19 @@ describe('strictSchema (structured output subset, research R2)', () => {
     })
   })
 
+  it('writes const as a one-value enum when asked (Gemini)', () => {
+    expect(
+      strictSchema(
+        { type: 'object', properties: { action: { type: 'string', const: 'back' } } },
+        { constAsEnum: true },
+      ),
+    ).toEqual({
+      type: 'object',
+      properties: { action: { type: 'string', enum: ['back'] } },
+      additionalProperties: false,
+    })
+  })
+
   it('gives up on references and on nodes without a type', () => {
     expect(strictSchema({ $ref: '#/$defs/node', $defs: { node: { type: 'object' } } })).toBe(
       undefined,

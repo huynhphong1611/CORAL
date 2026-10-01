@@ -1,4 +1,4 @@
-import { createClaudeAdapter } from '@coral/brain'
+import { createClaudeAdapter, createGeminiAdapter } from '@coral/brain'
 import type { BrainProviderId } from '@coral/shared'
 import type { AdapterFactory } from './service'
 
@@ -10,5 +10,6 @@ import type { AdapterFactory } from './service'
 export function providerAdapters(): Partial<Record<BrainProviderId, AdapterFactory>> {
   return {
     claude: (key) => (key ? createClaudeAdapter({ apiKey: key }) : undefined),
+    gemini: (key) => (key ? createGeminiAdapter({ apiKey: key }) : undefined),
   }
 }

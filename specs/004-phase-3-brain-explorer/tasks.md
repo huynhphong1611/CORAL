@@ -164,7 +164,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - Lỗi → `ProviderError`: `RateLimitError` → `rate_limited`; `AuthenticationError` → `auth`; `APIConnectionError`/timeout → `timeout`; `stop_reason: refusal` → `refusal`; 5xx → `provider_error`; 400 → `bad_request`.
 
   Test `claude.test.ts` với `fetch` giả của SDK (kiểm body gửi đi và ánh xạ phản hồi/lỗi); `scripts/no-model-ids.test.ts` quét `packages/brain/src` không có chuỗi dạng `claude-…`/`gemini-…`.
-- [ ] T022 [P] [US1] Adapter `packages/brain/src/adapters/gemini.ts` (`@google/genai`):
+- [x] T022 [P] [US1] Adapter `packages/brain/src/adapters/gemini.ts` (`@google/genai`):
   - `generateContent` với `inlineData`, `functionDeclarations`, `responseMimeType: application/json` + JSON Schema.
   - Chế độ hai pha khi model không nhận JSON mode cùng function calling (lượt công cụ không JSON, lượt cuối JSON không công cụ).
   - `usageMetadata` → `usage`; lỗi → `ProviderError`.
