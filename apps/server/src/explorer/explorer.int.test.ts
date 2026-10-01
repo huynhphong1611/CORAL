@@ -1,15 +1,16 @@
-import { randomBytes } from 'node:crypto'
 import { PLACE_ORDER, SAMPLE_APP } from '@coral/runner/testing'
 import { api, newId, type Step } from '@coral/shared'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { devices, leases } from '../db/schema'
 import { explorationHolder, explorationsRepo, type ExplorationRow } from '../repos/explorations'
 import { explorationStepKey } from '../storage/keys'
 import { deviceAgent, type DeviceAgent } from '../testing/device-agent'
-import { multipart } from '../testing/multipart'
 import { startRunServer, type RunServer } from '../testing/run-server'
+import { sampleDevice, sampleProject as newSampleProject } from '../testing/sample-project'
 import type { TestUser } from '../testing/test-server'
+
+const sample = { project: newSampleProject, device: sampleDevice }
 import { APPMAP_PATH, parseAppMap } from './appmap'
 
 // US2 server side (T032): the Explorer on the fake sample app, with the `fake` brain.
@@ -26,57 +27,14 @@ afterAll(async () => {
   await server.close()
 })
 
-/** A project of the sample app whose popups.yaml puts Place Order in never_tap. */
-async function sampleProject(user: TestUser) {
-  const call = server.call
-  const project = api.projectSchema.parse(
-    (await call(user, { method: 'POST', url: '/projects', payload: { name: `p-${newId()}` } }))
-      .body,
-  )
-  const app = api.appSchema.parse(
-    (
-      await call(user, {
-        method: 'POST',
-        url: `/projects/${project.id}/apps`,
-        payload: { platform: 'android', package_or_bundle_id: SAMPLE_APP, name: 'My Demo App' },
-      })
-    ).body,
-  )
-  const build = api.buildSchema.parse(
-    (
-      await call(user, {
-        method: 'POST',
-        url: `/apps/${app.id}/builds`,
-        ...multipart({ version: '1.0.0' }, { name: 'app.apk', data: randomBytes(2048) }),
-      })
-    ).body,
-  )
-  const popups = api.popupsFileSchema.parse(
-    (await call(user, { method: 'GET', url: `/projects/${project.id}/popups` })).body,
-  )
-  const put = await call(user, {
-    method: 'PUT',
-    url: `/projects/${project.id}/popups`,
-    payload: {
-      yaml: popups.yaml.replace("never_tap: ['Mua',", `never_tap: ['${PLACE_ORDER}', 'Mua',`),
-      base_commit: popups.head_commit,
-    },
-  })
-  expect(put.status).toBe(200)
-  return { project, app, build }
-}
+/** A project of the sample app (Place Order in never_tap). */
+const sampleProject = (user: TestUser) => sample.project(server, user)
 
-/** An agent whose device runs the sample app; returns the device id. */
+/** An agent whose device runs the sample app. */
 async function device(user: TestUser, udid: string) {
-  const agent = await server.newAgent(user, `agent-${newId()}`)
-  const sample = await deviceAgent(server.url, agent.token, { udid })
-  agents.push(sample)
-  const [row] = await server.db
-    .select()
-    .from(devices)
-    .where(and(eq(devices.agentId, agent.id), eq(devices.udid, udid)))
-  if (!row) throw new Error('device not registered')
-  return { sample, deviceId: row.id }
+  const found = await sample.device(server, user, udid)
+  agents.push(found.sample)
+  return found
 }
 
 async function until(

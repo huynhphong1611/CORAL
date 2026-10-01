@@ -1,6 +1,13 @@
 import { z } from 'zod'
 import { actionDecisionSchema } from '../ai/decisions'
-import { FINGERPRINT_PATTERN, SCREEN_ID_PATTERN, transitionActionSchema } from '../appmap/schema'
+import {
+  APPMAP_SCHEMA_ID,
+  FINGERPRINT_PATTERN,
+  SCREEN_ID_PATTERN,
+  appMapScreenSchema,
+  appMapTransitionSchema,
+  transitionActionSchema,
+} from '../appmap/schema'
 import { MAX_LIMIT_USD } from '../brains/schema'
 import { stepSchema } from '../testcase/schema'
 import { timestamp } from './common'
@@ -223,3 +230,15 @@ export const explorationDetailSchema = explorationSchema.extend({
   findings: z.array(findingSchema),
 })
 export type ExplorationDetail = z.infer<typeof explorationDetailSchema>
+
+/**
+ * `GET /projects/:id/appmap`: `coral/appmap@1` at the head commit (empty when there is none), each
+ * screen with the URL of its picture through `GET /projects/:id/files/*` at that commit.
+ */
+export const projectAppMapSchema = z.object({
+  schema: z.literal(APPMAP_SCHEMA_ID),
+  head_commit: z.string(),
+  screens: z.array(appMapScreenSchema.extend({ screenshot_url: z.string() })),
+  transitions: z.array(appMapTransitionSchema),
+})
+export type ProjectAppMap = z.infer<typeof projectAppMapSchema>

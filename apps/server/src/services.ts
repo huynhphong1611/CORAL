@@ -21,6 +21,7 @@ import type { ServerDeps } from './server'
 import { createArtifactStore } from './storage/s3'
 import { UiGateway } from './ui/gateway'
 import { RunEvents } from './ui/run-events'
+import { ExplorationWatchers } from './ui/exploration-events'
 
 /** How often expired recordings are cleaned up. */
 const RECORDING_CLEANUP_MS = 60 * 60 * 1000
@@ -101,6 +102,7 @@ export async function startServices(
     ai,
     maxPerTenant: config.ai.maxExplorations,
     notify,
+    events: new ExplorationWatchers({ db: database.db, ui: uiGateway }),
   })
 
   const readiness = async (): Promise<boolean> => {

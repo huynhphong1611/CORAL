@@ -310,6 +310,86 @@ export class ExplorationService {
     return explorationView(created)
   }
 
+  /** GET /explorations: newest first, without steps. */
+  async list(tenantId: string, query: api.ListExplorationsQuery): Promise<api.Exploration[]> {
+    const rows = await this.repo(tenantId).list({
+      ...(query.project_id ? { projectId: query.project_id } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    })
+    return rows.map(explorationView)
+  }
+
+  /**
+   * GET /explorations/:id: the exploration with the screens and transitions it saw (pictures from
+   * its trace, presigned), the test cases it wrote and the crashes it met.
+   */
+  async detail(tenantId: string, id: string): Promise<api.ExplorationDetail> {
+    const { db, store } = this.options
+    const repo = this.repo(tenantId)
+    const row = await repo.get(id)
+    const [steps, findings, testCases] = await Promise.all([
+      repo.steps(id, { limit: 1000 }),
+      repo.findings(id),
+      testCasesRepo(db, tenantId, store, projectsRepo(db, tenantId, store)).list(row.projectId, {
+        sourceRef: `exploration:${id}`,
+      }),
+    ])
+    const idOf = new Map(row.screens.map((screen) => [screen.fingerprint, screen.id]))
+    const transitions = transitionsOf(steps).flatMap((t) => {
+      const from = idOf.get(t.from)
+      const to = idOf.get(t.to)
+      return from && to && from !== to ? [{ from, to, action: t.action }] : []
+    })
+    return {
+      ...explorationView(row),
+      appmap: {
+        screens: await Promise.all(
+          row.screens.map(async (screen) => ({
+            id: screen.id,
+            name: screen.name,
+            fingerprint: screen.fingerprint,
+            is_new: screen.is_new,
+            screenshot_url: await this.presign(
+              explorationStepKey(tenantId, id, screen.first_step, 'screen.jpg'),
+            ),
+          })),
+        ),
+        transitions,
+      },
+      test_cases: testCases.map((tc) => ({
+        id: tc.id,
+        slug: tc.slug,
+        status: tc.status,
+        draft_reason: tc.draftReason,
+        flags: tc.flags,
+      })),
+      findings: await Promise.all(
+        findings.map(async (finding) => ({
+          id: finding.id,
+          step_n: finding.stepN,
+          kind: finding.kind,
+          log_excerpt: finding.logExcerpt,
+          screenshot_url: finding.artifactPrefix
+            ? await this.presign(`${finding.artifactPrefix}screen.jpg`)
+            : null,
+          created_at: finding.createdAt.toISOString(),
+        })),
+      ),
+    }
+  }
+
+  /** GET /explorations/:id/steps?after=&limit=: the trace, in order. */
+  async steps(
+    tenantId: string,
+    id: string,
+    query: { after: number; limit: number },
+  ): Promise<api.ExplorationStepView[]> {
+    const repo = this.repo(tenantId)
+    const row = await repo.get(id)
+    const steps = await repo.steps(id, query)
+    return Promise.all(steps.map((step) => stepView(step, row.screens, (key) => this.presign(key))))
+  }
+
   /** POST /explorations/:id/stop: answers once the exploration left `running` (≤ 15 s). */
   async stop(tenantId: string, id: string): Promise<api.Exploration> {
     const repo = this.repo(tenantId)

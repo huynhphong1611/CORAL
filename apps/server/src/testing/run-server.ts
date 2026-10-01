@@ -18,6 +18,7 @@ import { registerIngest, startLeaseSweeper } from '../runs/ingest'
 import { envSecrets } from '../runs/secrets'
 import { UiGateway } from '../ui/gateway'
 import { RunEvents } from '../ui/run-events'
+import { ExplorationWatchers } from '../ui/exploration-events'
 import { AgentCommands } from '../live/agent-commands'
 import { LiveControl } from '../live/control'
 import { RecordingService } from '../recordings/service'
@@ -39,7 +40,10 @@ export interface RunServerOptions {
   /** Server log (default silent), wired to the gateway, dispatcher, ingest and sweeper as in main. */
   logging?: { level?: LogLevel; stream?: { write(line: string): void } }
   /** The Explorer with the `fake` brains (examples/brains.fake.yaml as the platform default). */
-  explorer?: Partial<Pick<ExplorationServiceOptions, 'maxPerTenant' | 'writer' | 'leaseTtlMs'>>
+  explorer?: Partial<Pick<ExplorationServiceOptions, 'maxPerTenant' | 'writer' | 'leaseTtlMs'>> & {
+    /** false: no platform default, so a tenant without brains.yaml gets `brains_not_configured`. */
+    platformBrains?: boolean
+  }
 }
 
 const FAKE_BRAINS = fileURLToPath(new URL('../../../../examples/brains.fake.yaml', import.meta.url))
@@ -140,10 +144,19 @@ export async function startRunServer(options: RunServerOptions = {}) {
       notify,
     })
     if (options.explorer) {
-      const ai = { ...config.ai, fakeBrains: true, brainsDefaultPath: FAKE_BRAINS }
+      const ai: typeof config.ai = {
+        ...config.ai,
+        fakeBrains: true,
+        brainsDefaultPath: FAKE_BRAINS,
+      }
+      if (options.explorer.platformBrains === false) delete ai.brainsDefaultPath
       const settings = new BrainsSettings({ ai, secrets })
+      const watchers = new ExplorationWatchers({ db, ui: uiGateway })
       const events: ExplorationEvents = {
-        emit: (tenantId, type, payload) => emitted.push({ tenantId, type, payload }),
+        emit: (tenantId, type, payload) => {
+          emitted.push({ tenantId, type, payload })
+          watchers.emit(tenantId, type, payload)
+        },
       }
       explorations = new ExplorationService({
         db,
@@ -167,7 +180,14 @@ export async function startRunServer(options: RunServerOptions = {}) {
         ...(options.explorer.leaseTtlMs ? { leaseTtlMs: options.explorer.leaseTtlMs } : {}),
       })
     }
-    return { gateway, uiGateway, runs: { dispatcher, secrets }, live, recordings }
+    return {
+      gateway,
+      uiGateway,
+      runs: { dispatcher, secrets },
+      live,
+      recordings,
+      ...(explorations ? { explorations } : {}),
+    }
   }, options.logging)
   if (!gateway || !dispatcher) throw new Error('run server not wired')
   dispatcher.attachLogger(server.app.log)

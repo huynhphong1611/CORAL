@@ -18,6 +18,8 @@ import type { ExplorationService } from './explorer/service'
 import { registerBuildRoutes } from './routes/builds'
 import { registerControlRoutes } from './routes/devices-control'
 import { registerProjectRoutes } from './routes/projects'
+import { registerAppMapRoutes } from './routes/appmap'
+import { registerExplorationRoutes } from './routes/explorations'
 import { registerRecordingRoutes } from './routes/recordings'
 import { registerRunRoutes } from './routes/runs'
 import { registerTestCaseRoutes } from './routes/testcases'
@@ -112,6 +114,10 @@ export function buildServer(
     registerAgentRoutes(app, { repos, ...(connections ? { connections } : {}) })
     if (deps.live) registerControlRoutes(app, { repos, live: deps.live })
     if (deps.recordings) registerRecordingRoutes(app, { repos, recordings: deps.recordings })
+    if (deps.explorations) {
+      registerExplorationRoutes(app, { repos, explorations: deps.explorations })
+    }
+    registerAppMapRoutes(app, { repos, store: deps.store })
     if (deps.artifacts) {
       registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
       if (deps.runs) {

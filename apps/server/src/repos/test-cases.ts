@@ -31,7 +31,12 @@ export function testCasesRepo(
   return {
     async list(
       projectId: string,
-      filter: { source?: TestCaseRow['source']; status?: TestCaseRow['status'] } = {},
+      filter: {
+        source?: TestCaseRow['source']
+        status?: TestCaseRow['status']
+        /** `exploration:<id>` / `import_item:<id>`: what an AI activity wrote. */
+        sourceRef?: string
+      } = {},
     ) {
       await projects.get(projectId)
       return db
@@ -43,6 +48,7 @@ export function testCasesRepo(
             eq(testCases.projectId, projectId),
             filter.source ? eq(testCases.source, filter.source) : undefined,
             filter.status ? eq(testCases.status, filter.status) : undefined,
+            filter.sourceRef ? eq(testCases.sourceRef, filter.sourceRef) : undefined,
           ),
         )
         .orderBy(asc(testCases.slug))

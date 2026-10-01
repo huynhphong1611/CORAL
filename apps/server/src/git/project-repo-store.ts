@@ -172,6 +172,11 @@ export class ProjectRepoStore {
     return (await git.revparse(['HEAD'])).trim()
   }
 
+  /** The commit the project repo is at. */
+  async head(tenantId: string, projectId: string): Promise<string> {
+    return (await this.git(this.repoPath(tenantId, projectId)).revparse(['HEAD'])).trim()
+  }
+
   /** File content at `commit` (default HEAD), or null when it does not exist there. */
   async readFile(
     tenantId: string,

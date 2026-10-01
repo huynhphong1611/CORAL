@@ -249,7 +249,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - **Khởi động server**: exploration `running`/`writing` → `interrupted`, ghi app map từ bước đã lưu.
 
   Test `explorer.int.test.ts` (agent giả + brain `fake` + app mẫu giả): dừng đúng `max_steps`; không chạm `never_tap`; `interrupted` sau restart giả lập; mất agent → `device_offline`, lease được thả.
-- [ ] T033 [US2] Route `apps/server/src/routes/explorations.ts` + `appmap.ts` (contracts/rest-api-phase3.md):
+- [x] T033 [US2] Route `apps/server/src/routes/explorations.ts` + `appmap.ts` (contracts/rest-api-phase3.md):
   - `POST /explorations` ✍ (mặc định ngân sách 60/8/20/`max_cost_usd_per_exploration`, `max_tests` 5);
   - `GET /explorations`, `GET /explorations/:id`, `GET /explorations/:id/steps`, `POST /explorations/:id/stop` ✍ (≤ 15 s);
   - `GET /projects/:id/appmap`, `GET /projects/:id/files/*` (chỉ `appmap/snap/`, `imports/`);
