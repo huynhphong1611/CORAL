@@ -307,13 +307,13 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - Cờ: `never_tap` → `needs_review_never_tap`; `mcp_value` → `needs_human`.
 
   Test `assemble.test.ts` với trace fixture: YAML hợp lệ; kỳ vọng bịa bị loại; tap+type gộp; secret không lộ; trùng bị bỏ.
-- [ ] T039 [US3] Dịch vụ `apps/server/src/writer/service.ts`: sau exploration (`writing`) gọi `writeTest` (tính vào ngân sách exploration; hết thì dừng, flow đã viết vẫn lưu) → `assemble`. Mỗi test case lưu **một** commit:
+- [x] T039 [US3] Dịch vụ `apps/server/src/writer/service.ts`: sau exploration (`writing`) gọi `writeTest` (tính vào ngân sách exploration; hết thì dừng, flow đã viết vẫn lưu) → `assemble`. Mỗi test case lưu **một** commit:
   - nội dung: `testcases/<slug>.yaml` + `snap/<slug>/<step_id>/{screen.jpg,tree.json,element.png}` chép từ S3 trace;
   - `test_cases` ghi `source` = `ai_explore` (khám phá tự do) hoặc `ai_prompt`, `source_ref` = `exploration:<id>`, `status` = `draft`, `flags`/`draft_reason` theo cờ;
   - `stats.tests_written` cập nhật.
 
   Test `writer.int.test.ts`.
-- [ ] T040 [US3] Xác thực `apps/server/src/writer/validation.ts` (research R13):
+- [x] T040 [US3] Xác thực `apps/server/src/writer/validation.ts` (research R13):
   - Mỗi test case không có cờ chặn: run 1 `trigger = validation`, `validation_of = test_case_id`, cùng thiết bị + build; xong mới tạo run 2.
   - Cả hai `passed` → `active` + `validated_at`; fail → `draft`, `draft_reason = validation_failed`, `validation.runs[].failure_code/step_id`.
   - `head_commit` đổi giữa chừng → `changed_during_validation`.
