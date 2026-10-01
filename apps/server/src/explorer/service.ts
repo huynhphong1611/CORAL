@@ -369,6 +369,7 @@ export class ExplorationService {
         status: tc.status,
         draft_reason: tc.draftReason,
         flags: tc.flags,
+        validation: tc.validation,
       })),
       findings: await Promise.all(
         findings.map(async (finding) => ({

@@ -35,7 +35,7 @@ Bổ sung cho `specs/002-phase-1-android-runner/contracts/rest-api.md` và `spec
 |---|---|---|
 | POST ✍ | `/explorations` | `{ project_id, app_id, build_id, device_id, goal?, budget?: { max_steps?, max_depth?, max_minutes?, max_cost_usd? }, max_tests? }` → 201 `Exploration`.<br>`goal` có → `kind = prompt`. Giá trị thiếu lấy mặc định: 60 / 8 / 20 / `limits.max_cost_usd_per_exploration`; `max_tests` = 5 (1 khi `kind = prompt`).<br>Giới hạn: `goal` ≤ 1 000 ký tự; `max_steps` ≤ 500, `max_depth` ≤ 50, `max_minutes` ≤ 240, `max_cost_usd` ≤ 10 000; `max_tests` 1–20.<br>Lỗi: 409 `device_busy` \| `device_offline` \| `brains_not_configured` \| `daily_limit_reached` \| `too_many_explorations` (tenant đã có `CORAL_MAX_EXPLORATIONS` exploration đang chạy). |
 | GET | `/explorations?project_id&status` | → `Exploration[]` (không kèm bước). |
-| GET | `/explorations/:id` | → `Exploration` + `appmap` (màn hình và chuyển màn của exploration này, URL ảnh presigned) + `test_cases[]` (`{ id, slug, status, draft_reason, flags }`) + `findings[]`. |
+| GET | `/explorations/:id` | → `Exploration` + `appmap` (màn hình và chuyển màn của exploration này, URL ảnh presigned) + `test_cases[]` (`{ id, slug, status, draft_reason, flags, validation }`) + `findings[]`. |
 | GET | `/explorations/:id/steps?after=<n>&limit=` | → `ExplorationStep[]`: `{ n, segment, screen: { id, name }, decision, status, refusal, step, flags, brain_call_id, screenshot_url, cost_usd, created_at }`. |
 | POST ✍ | `/explorations/:id/stop` | → 202. Exploration dừng sau thao tác đang làm (SC-011: ≤ 15 s), rồi viết và xác thực test như bình thường. |
 

@@ -27,6 +27,7 @@ import {
   useNow,
 } from '../../components/ui'
 import { en } from '../../i18n/en'
+import { describeRun, TEST_CASE_TONES } from '../editor/StatusPanel'
 import { costOfBudget, describeStep, EXPLORATION_TONES, STEP_TONES, usd } from './describe'
 import { StepDetail } from './StepDetail'
 
@@ -387,16 +388,36 @@ function Findings({ findings }: { findings: api.Finding[] }) {
   )
 }
 
+/** How a written test case's validation went, or that it is under way. */
+function validationOf(
+  testCase: api.ExplorationDetail['test_cases'][number],
+  validating: boolean,
+): string {
+  const runs = testCase.validation?.runs ?? []
+  const failed = runs.find((r) => r.status !== 'passed')
+  if (failed && !['queued', 'running'].includes(failed.status)) return describeRun(failed)
+  const passed = runs.filter((r) => r.status === 'passed').length
+  if (passed === 2) return en.generated.validated(passed, 2)
+  const waits = testCase.status === 'draft' && !testCase.draft_reason && testCase.flags.length === 0
+  return validating && waits ? t.validating : '—'
+}
+
 function TestCases({ exploration }: { exploration: api.ExplorationDetail }) {
   if (exploration.test_cases.length === 0) {
-    return <p className="text-sm text-slate-500">{t.testCasesEmpty}</p>
+    return (
+      <p className="text-sm text-slate-500">
+        {exploration.status === 'writing' ? t.writing : t.testCasesEmpty}
+      </p>
+    )
   }
+  const validating = exploration.status === 'validating'
   return (
     <Table label={t.tabs.testcases}>
       <thead>
         <tr>
           <Th>{en.testCases.slug}</Th>
           <Th>{en.testCases.status}</Th>
+          <Th>{t.validation}</Th>
           <Th>{t.draftReason}</Th>
           <Th>{t.flags}</Th>
         </tr>
@@ -414,10 +435,9 @@ function TestCases({ exploration }: { exploration: api.ExplorationDetail }) {
               </Link>
             </Td>
             <Td>
-              <Badge tone={testCase.status === 'active' ? 'green' : 'slate'}>
-                {testCase.status}
-              </Badge>
+              <Badge tone={TEST_CASE_TONES[testCase.status]}>{testCase.status}</Badge>
             </Td>
+            <Td className="text-slate-600">{validationOf(testCase, validating)}</Td>
             <Td className="text-slate-600">{testCase.draft_reason ?? '—'}</Td>
             <Td className="text-slate-600">{testCase.flags.join(', ') || '—'}</Td>
           </tr>

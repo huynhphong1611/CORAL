@@ -11,7 +11,14 @@ export const explorationKeys = {
 }
 
 /** Statuses in which an exploration still changes (the page watches it). */
-const ACTIVE: ReadonlySet<api.ExplorationStatus> = new Set(['queued', 'running', 'writing'])
+const ACTIVE: ReadonlySet<api.ExplorationStatus> = new Set([
+  'queued',
+  'running',
+  'writing',
+  'validating',
+])
+/** How often the page reads the exploration again while its test cases are validated. */
+const VALIDATING_REFRESH_MS = 3000
 export const isExploring = (e: Pick<api.Exploration, 'status'>) => ACTIVE.has(e.status)
 
 /** Steps read per request (the server allows 200). */
@@ -32,6 +39,9 @@ export function useExploration(id: string) {
   return useQuery({
     queryKey: explorationKeys.one(id),
     queryFn: () => client.get(`/explorations/${id}`, api.explorationDetailSchema),
+    // Validation runs change the test cases' status without an event of the exploration.
+    refetchInterval: (query) =>
+      query.state.data?.status === 'validating' ? VALIDATING_REFRESH_MS : false,
   })
 }
 
@@ -99,8 +109,9 @@ export function useWatchExploration(id: string, active: boolean): Current {
             }
           : old,
       )
-      if (!ACTIVE.has(payload.status)) {
-        // Finished: the app map, test cases and end time come from the server once more.
+      if (payload.status === 'validating' || !ACTIVE.has(payload.status)) {
+        // Test cases written, or finished: the app map, test cases and end time come from the
+        // server once more.
         void queryClient.invalidateQueries({ queryKey: explorationKeys.one(id) })
       }
     })

@@ -325,7 +325,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `PATCH /testcases/:id` ✍ `{ status }` ∈ `draft`/`active`/`quarantined` — bỏ cờ `needs_review_never_tap` (đưa lên `active`) cần 🔑 + `audit_log`.
 
   Test `testcases-status.int.test.ts`.
-- [ ] T042 [US3] Web:
+- [x] T042 [US3] Web:
   - tab **Test cases** của exploration (slug, trạng thái, lý do, cờ, link editor);
   - editor Phase 2: nhãn nguồn + link về exploration/import, `draft_reason`, cờ, nút **Activate** / **Quarantine**.
 

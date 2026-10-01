@@ -170,8 +170,11 @@ export const en = {
     log: 'Log',
     atStep: (n: number) => `at step ${n}`,
     testCasesEmpty: 'No test case written by this exploration yet.',
+    writing: 'The AI is writing test cases from the trace…',
     draftReason: 'Reason',
     flags: 'Flags',
+    validation: 'Validation',
+    validating: 'validating…',
   },
   recordStart: {
     title: 'Record a test case',
@@ -262,6 +265,39 @@ export const en = {
     recorded: 'Recorded',
     fromRun: (run: string, time: string) => `Run ${run} · ${time}`,
     pictureOf: (id: string) => `Screen of step ${id}`,
+  },
+  generated: {
+    status: 'Status',
+    source: 'Source',
+    sources: {
+      manual: 'Written by hand',
+      recorder: 'Recorder',
+      ai_explore: 'AI exploration',
+      ai_prompt: 'AI from a prompt',
+      ai_import: 'AI from an import',
+    },
+    fromExploration: (id: string) => `Exploration ${id}`,
+    draftReason: 'Draft because:',
+    draftReasons: {
+      validation_failed: 'a validation run failed — open the run to see the step.',
+      changed_during_validation:
+        'it was edited while it was being validated — run it again before activating.',
+      needs_human:
+        'a step uses a value only a person or an MCP tool can give (an OTP…); a replay cannot.',
+      ambiguous: 'a step of the manual test case was ambiguous.',
+      app_mismatch: 'the app did not do what the test case expects — a bug or an old test case.',
+    },
+    flags: {
+      needs_review_never_tap:
+        'A step taps an element listed in never_tap: an owner or admin must review it before it becomes active.',
+    },
+    adminOnly: 'Only an owner or admin can activate it.',
+    validation: 'Validation',
+    run: (n: number) => `Run ${n}`,
+    atStep: (step: string) => `at ${step}`,
+    activate: 'Activate',
+    quarantine: 'Quarantine',
+    validated: (passed: number, total: number) => `${passed}/${total} passed`,
   },
   apps: {
     empty: 'No apps yet. Add the app under test, then upload an APK build of it.',

@@ -16,9 +16,9 @@ import {
   Tabs,
   Td,
   Th,
-  type Tone,
 } from '../../components/ui'
 import { ExploreButton, ExplorationsTab } from '../../features/explorations/ExplorationsTab'
+import { SOURCE_TONES, TEST_CASE_TONES } from '../../features/editor/StatusPanel'
 import { NewAppForm, UploadBuild } from '../../features/setup/AppForms'
 import { en } from '../../i18n/en'
 
@@ -69,15 +69,6 @@ export function ProjectPage() {
     </section>
   )
 }
-
-const SOURCE_TONES: Record<api.TestCaseSource, Tone> = {
-  recorder: 'violet',
-  manual: 'slate',
-  ai_explore: 'blue',
-  ai_prompt: 'blue',
-  ai_import: 'blue',
-}
-const STATUS_TONES = { active: 'green', draft: 'slate', quarantined: 'amber' } as const
 
 /** Test cases with Run on each row and on a selection (FR-004); writers only. */
 function TestCasesTab({ projectId }: { projectId: string }) {
@@ -198,7 +189,7 @@ function TestCaseRow({
       </Td>
       <Td className="max-w-sm text-slate-700">{testCase.intent}</Td>
       <Td>
-        <Badge tone={STATUS_TONES[testCase.status]}>{testCase.status}</Badge>
+        <Badge tone={TEST_CASE_TONES[testCase.status]}>{testCase.status}</Badge>
       </Td>
       <Td>
         <Badge tone={SOURCE_TONES[testCase.source]}>{testCase.source}</Badge>

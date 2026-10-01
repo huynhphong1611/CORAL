@@ -11,7 +11,12 @@ import {
 import { MAX_LIMIT_USD } from '../brains/schema'
 import { stepSchema } from '../testcase/schema'
 import { timestamp } from './common'
-import { DRAFT_REASONS, TEST_CASE_FLAGS, TEST_CASE_STATUSES } from './testcases'
+import {
+  DRAFT_REASONS,
+  TEST_CASE_FLAGS,
+  TEST_CASE_STATUSES,
+  testCaseValidationSchema,
+} from './testcases'
 
 // Values of data-model §1, verbatim: the DB check constraints use the same lists.
 
@@ -225,6 +230,7 @@ export const explorationDetailSchema = explorationSchema.extend({
       status: z.enum(TEST_CASE_STATUSES),
       draft_reason: z.enum(DRAFT_REASONS).nullable(),
       flags: z.array(z.enum(TEST_CASE_FLAGS)),
+      validation: testCaseValidationSchema.nullable(),
     }),
   ),
   findings: z.array(findingSchema),
