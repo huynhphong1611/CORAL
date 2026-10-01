@@ -138,7 +138,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   3. Trả: kích thước, `package`, `activity`, `app_running`, `crash` (nhận diện như `APP_CRASHED`/`APP_NOT_RESPONDING` của runner, log ≤ 4 KB đã che secret), `popups_handled`, cây.
 
   Thiết bị đang chạy run → `device_busy`. Test `observe.test.ts` (FakeDriver `renderScreens`: đủ file tải lên, cây đã che secret, popup được xử lý, app chết → `crash`); 🔌 ca mới trong `apps/agent/src/observe.device.test.ts`.
-- [ ] T019 `expect.screen` (FR-023, D24):
+- [x] T019 `expect.screen` (FR-023, D24):
   - runner `core/expect.ts`: so `screenFingerprint` của màn hiện tại (kèm `foregroundActivity`) với `screens[id]` được giao; bỏ lỗi "not supported".
   - `run-testcase` nhận `screens` trong `RunOptions`; agent `jobs.ts` chuyển `items[].screens`.
   - server `runs/dispatcher.ts`: đọc `appmap/screens.json` tại commit của item, gửi các `id` test case tham chiếu; `id` thiếu → item `error` `unknown_screen`.

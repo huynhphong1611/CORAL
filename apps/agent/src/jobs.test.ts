@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { protocol } from '@coral/shared'
+import { protocol, screenFingerprint } from '@coral/shared'
 import { snapshotFromPng } from '@coral/runner'
 import { FakeClock, FakeDriver, el, renderTree, windows } from '@coral/runner/testing'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -69,6 +69,7 @@ type Asset = protocol.Payload<'job.assign'>['items'][number]['assets'][number]
 const assign = (
   items: string[] = [LOGIN],
   assets: Asset[][] = [],
+  screens: Record<string, string> = {},
 ): protocol.Payload<'job.assign'> => ({
   run_id: RUN,
   device_udid: 'emulator-5554',
@@ -79,7 +80,7 @@ const assign = (
     commit: 'a1b2c3d',
     yaml,
     assets: assets[i] ?? [],
-    screens: {},
+    screens,
   })),
   popups_yaml: 'schema: coral/popups@1\n',
   secrets: { TEST_USER: 'bob@example.com' },
@@ -227,6 +228,35 @@ describe('JobManager', () => {
       { kind: 'install', path: join(cacheDir, 'builds', `${APK_SHA}.apk`), sha256: APK_SHA },
     ])
     expect(t.drivers[0]).toMatchObject({ opened: 1, closed: 1 })
+  })
+
+  it('checks expect.screen with the fingerprints of the job (D24)', async () => {
+    const withScreen = LOGIN.replace(
+      "expect: { visible_text: 'Products' }",
+      'expect: [{ visible_text: Products }, { screen: trang-chu }]',
+    )
+    // The FakeDriver names its screen as the activity: `.home`.
+    const home_ = screenFingerprint(home, { package: APP, activity: '.home' })
+    const good = setup()
+    good.manager.handle(
+      protocol.envelope('job.assign', assign([withScreen], [], { 'trang-chu': home_ })),
+    )
+    await good.manager.drain()
+    expect(good.sent.at(-1)?.payload).toMatchObject({ status: 'passed' })
+
+    const wrong = setup()
+    wrong.manager.handle(
+      protocol.envelope(
+        'job.assign',
+        assign([withScreen], [], { 'trang-chu': '0000000000000000' }),
+      ),
+    )
+    await wrong.manager.drain()
+    expect(wrong.sent.find((m) => m.type === 'item.result')?.payload).toMatchObject({
+      status: 'failed',
+      failure_code: 'EXPECT_FAILED',
+      failed_step_id: 's3',
+    })
   })
 
   it('reports a failing item with its step and the device log', async () => {

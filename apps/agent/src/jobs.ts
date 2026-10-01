@@ -171,6 +171,8 @@ export class JobManager {
             if (!file) return Promise.reject(new Error(`image ${path} did not come with the job`))
             return readFile(file)
           },
+          // App map fingerprints for `expect.screen` (D24).
+          screens: item.screens,
           // Install once, before the first test case (research R7).
           ...(index === 0 ? { build: { path: apk, sha256: job.build.sha256 } } : {}),
           ...(this.deps.clock ? { clock: this.deps.clock } : {}),

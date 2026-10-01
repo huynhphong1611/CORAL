@@ -86,6 +86,8 @@ export interface RunOptions {
   assets?: (path: string) => Promise<Uint8Array>
   /** Finds `image` locators on screenshots (default: OpenCV, loaded on first use). */
   imageMatcher?: ImageMatcher
+  /** Fingerprints of the app map screens the test case's `expect.screen` names (D24). */
+  screens?: Readonly<Record<string, string>>
 }
 
 /** Problems found before touching the device: the CLI exits 2, the agent reports an error. */
@@ -166,7 +168,12 @@ export async function runTestCase(options: RunOptions): Promise<ItemResult> {
 
   const size = await safe(() => driver.windowSize())
   if (!size.ok) return finish('error', { code: 'DRIVER_ERROR', message: size.error })
-  const resolveCtx: ResolveContext = { platform: driver.platform, screen: size.value, appId }
+  const resolveCtx: ResolveContext = {
+    platform: driver.platform,
+    screen: size.value,
+    appId,
+    ...(options.screens ? { screens: options.screens } : {}),
+  }
   const findImage = options.assets
     ? imageSearch(driver, size.value, options.assets, options.imageMatcher)
     : () => undefined

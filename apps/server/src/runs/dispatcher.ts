@@ -1,5 +1,12 @@
 import { createHash } from 'node:crypto'
-import { imagePaths, referencedSecrets, validateTestCaseSource, type protocol } from '@coral/shared'
+import {
+  appMapSchema,
+  imagePaths,
+  referencedScreens,
+  referencedSecrets,
+  validateTestCaseSource,
+  type protocol,
+} from '@coral/shared'
 import { DelayedError, Queue, Worker, type ConnectionOptions, type Job } from 'bullmq'
 import type { FastifyBaseLogger } from 'fastify'
 import type { AgentGateway } from '../agents/gateway'
@@ -8,7 +15,7 @@ import type { ProjectRepoStore } from '../git/project-repo-store'
 import { POPUPS_PATH } from '../repos/projects'
 import { runControl, runHolder, type RunControl, type RunNotifier } from '../repos/run-control'
 import type { RunRow } from '../repos/runs'
-import { assetKey } from '../storage/keys'
+import { assetKey, stepPrefix } from '../storage/keys'
 import type { ArtifactStore } from '../storage/s3'
 import type { RunQueue } from './create'
 import type { SecretSource } from './secrets'
@@ -67,6 +74,18 @@ export function redisConnection(url: string): ConnectionOptions {
  * guarantees one open lease per device), sends `job.assign`, waits for `job.ack`, and schedules
  * the run timeout. Busy or offline devices are retried with backoff until the queue timeout.
  */
+/** Where a project keeps its app map (contracts/appmap.md). */
+const APPMAP_PATH = 'appmap/screens.json'
+
+/** An item whose test case names a screen the app map does not have (T019). */
+interface UnknownScreen {
+  itemId: string
+  stepIndex: number
+  stepId: string
+  action: string
+  message: string
+}
+
 export class RunDispatcher implements RunQueue {
   private readonly control: RunControl
   private readonly dispatchQueue: Queue<DispatchData>
@@ -208,12 +227,20 @@ export class RunDispatcher implements RunQueue {
     if (!leaseId) return this.retryLater(job, token)
 
     let payload: protocol.Payload<'job.assign'>
+    let unknownScreens: UnknownScreen[]
     try {
-      payload = await this.assignmentPayload(assignment)
+      ;({ payload, unknownScreens } = await this.assignmentPayload(assignment))
     } catch (error) {
       this.options.log?.error({ err: error, run: runId }, 'cannot build job.assign')
       await this.control.releaseLease(runHolder(runId), 'cancelled')
       await this.control.finishRun(runId, 'error', 'DRIVER_ERROR')
+      return
+    }
+    // Items naming a screen the app map does not have are not sent (contracts/agent-ws-phase3.md).
+    await this.failUnknownScreens(run, unknownScreens)
+    if (payload.items.length === 0) {
+      await this.control.releaseLease(runHolder(runId), 'cancelled')
+      await this.control.finishRun(runId, 'error', null)
       return
     }
 
@@ -274,19 +301,43 @@ export class RunDispatcher implements RunQueue {
 
   private async assignmentPayload(
     a: NonNullable<Awaited<ReturnType<RunControl['assignment']>>>,
-  ): Promise<protocol.Payload<'job.assign'>> {
+  ): Promise<{ payload: protocol.Payload<'job.assign'>; unknownScreens: UnknownScreen[] }> {
     const { run, device, build, app } = a
     const read = async (path: string, commit: string) => {
       const yaml = await this.options.store.readFile(run.tenantId, run.projectId, path, commit)
       if (yaml === null) throw new Error(`${path} missing at ${commit}`)
       return yaml
     }
+    const appMaps = new Map<string, Promise<Record<string, string>>>()
+    const screensAt = (commit: string) => {
+      let screens = appMaps.get(commit)
+      if (!screens) {
+        screens = this.appMapScreens(run, commit)
+        appMaps.set(commit, screens)
+      }
+      return screens
+    }
     const rows = await this.control.itemsWithPaths(run.id)
     const names = new Set<string>()
-    const items = await Promise.all(
+    const unknownScreens: UnknownScreen[] = []
+    const built = await Promise.all(
       rows.map(async ({ item, pathInRepo }) => {
         const yaml = await read(pathInRepo, item.commit)
         const parsed = validateTestCaseSource(yaml, item.id).value
+        const wanted = parsed ? referencedScreens(parsed) : []
+        const known = wanted.length > 0 ? await screensAt(item.commit) : {}
+        const missing = wanted.find((w) => known[w.id] === undefined)
+        if (parsed && missing) {
+          const index = parsed.steps.findIndex((step) => step.id === missing.stepId)
+          unknownScreens.push({
+            itemId: item.id,
+            stepIndex: index,
+            stepId: missing.stepId,
+            action: parsed.steps[index]?.action ?? 'assert',
+            message: `unknown_screen: screen "${missing.id}" is not in appmap/screens.json at ${item.commit.slice(0, 7)}`,
+          })
+          return undefined
+        }
         if (parsed) for (const name of referencedSecrets(parsed)) names.add(name)
         return {
           run_item_id: item.id,
@@ -294,12 +345,12 @@ export class RunDispatcher implements RunQueue {
           commit: item.commit,
           yaml,
           assets: parsed ? await this.assets(run, imagePaths(parsed), item.commit) : [],
-          // Fingerprints for `expect.screen` come with the app map (T019).
-          screens: {},
+          screens: Object.fromEntries(wanted.map((w) => [w.id, known[w.id] ?? ''])),
         }
       }),
     )
-    return {
+    const items = built.filter((item) => item !== undefined)
+    const payload: protocol.Payload<'job.assign'> = {
       run_id: run.id,
       device_udid: device.udid,
       build: {
@@ -315,6 +366,50 @@ export class RunDispatcher implements RunQueue {
         run_timeout_ms: this.options.runTimeoutMs,
         stable_timeout_ms: this.options.stableTimeoutMs ?? 3000,
       },
+    }
+    return { payload, unknownScreens }
+  }
+
+  /** Fingerprints of the app map at `commit` (D24), id → fingerprint; empty without one. */
+  private async appMapScreens(run: RunRow, commit: string): Promise<Record<string, string>> {
+    const text = await this.options.store.readFile(run.tenantId, run.projectId, APPMAP_PATH, commit)
+    if (text === null) return {}
+    const parsed = appMapSchema.safeParse(JSON.parse(text) as unknown)
+    if (!parsed.success) throw new Error(`${APPMAP_PATH} at ${commit} is not valid`)
+    return Object.fromEntries(parsed.data.screens.map((s) => [s.id, s.fingerprint]))
+  }
+
+  /** The item ends in error before the job, with the reason on the step that names the screen. */
+  private async failUnknownScreens(run: RunRow, unknown: readonly UnknownScreen[]) {
+    for (const u of unknown) {
+      const now = new Date()
+      await this.control.addStep(run.id, {
+        tenantId: run.tenantId,
+        runItemId: u.itemId,
+        stepIndex: Math.max(0, u.stepIndex),
+        stepId: u.stepId,
+        action: u.action,
+        status: 'failed',
+        durationMs: 0,
+        message: u.message,
+        artifactPrefix: stepPrefix(
+          run.tenantId,
+          run.id,
+          u.itemId,
+          Math.max(0, u.stepIndex),
+          u.stepId,
+        ),
+        finishedAt: now,
+      })
+      await this.control.finishItem({
+        itemId: u.itemId,
+        runId: run.id,
+        status: 'error',
+        failureCode: null,
+        failedStepId: u.stepId,
+        startedAt: now,
+        finishedAt: now,
+      })
     }
   }
 

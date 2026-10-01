@@ -17,6 +17,10 @@ export interface ResolveContext {
   screen: Size
   /** Package / bundle id under test: expands `android_id: id/foo` to `<app>:id/foo`. */
   appId?: string
+  /** App map screens the test case expects, id → fingerprint (`expect.screen`, D24). */
+  screens?: Readonly<Record<string, string>>
+  /** Foreground activity when the tree was read, part of the fingerprint. */
+  activity?: string
 }
 
 export interface Resolution {

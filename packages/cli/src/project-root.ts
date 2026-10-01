@@ -1,4 +1,5 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { appMapSchema } from '@coral/shared'
 import { readFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path'
 
@@ -30,4 +31,18 @@ export const assetsIn = (root: string) => (path: string) => {
   const full = inRoot(root, path)
   if (!full) return Promise.reject(new Error(`${path} is outside the project root`))
   return readFile(full)
+}
+
+export const APPMAP_PATH = 'appmap/screens.json'
+
+/**
+ * Fingerprints of the app map under `root` (`appmap/screens.json`, D24), id → fingerprint; empty
+ * when the project has no app map yet. A broken file throws.
+ */
+export function appMapScreensIn(root: string): Record<string, string> {
+  const full = inRoot(root, APPMAP_PATH)
+  if (!full || !existsSync(full)) return {}
+  const parsed = appMapSchema.safeParse(JSON.parse(readFileSync(full, 'utf8')) as unknown)
+  if (!parsed.success) throw new Error(`${APPMAP_PATH} is not a valid coral/appmap@1 file`)
+  return Object.fromEntries(parsed.data.screens.map((s) => [s.id, s.fingerprint]))
 }

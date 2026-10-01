@@ -1,6 +1,6 @@
 schema: coral/testcase@1
-id: unsupported-in-phase
-intent: 'expect.screen cần bản đồ app (Phase 3)'
+id: unknown-screen
+intent: 'expect.screen chỉ tên màn hình có trong appmap/screens.json (Phase 3)'
 platforms: [android]
 steps:
   - id: s1

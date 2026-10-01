@@ -21,7 +21,7 @@ import { Command, Option } from 'commander'
 
 import { AdbMissingError, type CliDeps, type RunnableDriver } from '../deps'
 import type { CliIo } from '../io'
-import { assetsIn, fileExistsIn, projectRootOf } from '../project-root'
+import { appMapScreensIn, assetsIn, fileExistsIn, projectRootOf } from '../project-root'
 import { formatIssue } from './validate'
 
 interface RunOptions {
@@ -64,12 +64,19 @@ function formatStep(event: Extract<RunEvent, { type: 'step' }>): string {
   }${failure}\n`
 }
 
-/** The test cases with the project root their `image` paths start from (FR-022). */
+interface LoadedTestCase {
+  testCase: TestCase
+  root: string
+  /** Fingerprints of the app map screens of that project (`expect.screen`, D24). */
+  screens: Record<string, string>
+}
+
+/** The test cases with the project root their `image` paths and app map come from (FR-022). */
 async function loadTestCases(
   files: string[],
   projectRoot: string | undefined,
-): Promise<{ testCase: TestCase; root: string }[]> {
-  const loaded: { testCase: TestCase; root: string }[] = []
+): Promise<LoadedTestCase[]> {
+  const loaded: LoadedTestCase[] = []
   const problems: string[] = []
   for (const file of files) {
     let source: string
@@ -79,9 +86,18 @@ async function loadTestCases(
       throw new UsageError(`cannot read ${file}: ${(error as Error).message}`)
     }
     const root = projectRootOf(file, projectRoot)
-    const result = validateTestCaseSource(source, file, { fileExists: fileExistsIn(root) })
+    let screens: Record<string, string>
+    try {
+      screens = appMapScreensIn(root)
+    } catch (error) {
+      throw new UsageError((error as Error).message)
+    }
+    const result = validateTestCaseSource(source, file, {
+      fileExists: fileExistsIn(root),
+      screenExists: (id) => screens[id] !== undefined,
+    })
     if (!result.valid || !result.value) problems.push(...result.errors.map(formatIssue))
-    else loaded.push({ testCase: result.value, root })
+    else loaded.push({ testCase: result.value, root, screens })
   }
   if (problems.length > 0) throw new UsageError(`invalid test case:\n${problems.join('\n')}`)
   return loaded
@@ -172,7 +188,7 @@ export function runCommand(io: CliIo, deps: () => CliDeps): Command {
         driver = await d.createDriver({ udid, appId: options.app })
         await driver.open()
 
-        for (const [i, { testCase, root }] of loaded.entries()) {
+        for (const [i, { testCase, root, screens }] of loaded.entries()) {
           if (options.format === 'text') io.out(`▶ ${testCase.id}  (${udid})\n`)
           const result = await runTestCase({
             driver,
@@ -183,6 +199,7 @@ export function runCommand(io: CliIo, deps: () => CliDeps): Command {
             sink,
             stableTimeoutMs,
             assets: assetsIn(root),
+            screens,
             // Install once, before the first test case.
             ...(build && i === 0 ? { build } : {}),
             onEvent: (event) => {

@@ -41,3 +41,19 @@ export function screenFingerprint(
   const key = [context.package ?? '', context.activity ?? '', ...[...pairs].sort()].join('\n')
   return sha256Hex(key).slice(0, 16)
 }
+
+/**
+ * The context both the Explorer and the runner fingerprint with: the app under test, and the
+ * foreground activity only while it is the app's own (a permission dialog's activity is not).
+ */
+export function fingerprintContext(
+  appPackage: string,
+  foreground?: { package: string; activity?: string },
+): FingerprintContext {
+  return {
+    package: appPackage,
+    ...(foreground?.activity && foreground.package === appPackage
+      ? { activity: foreground.activity }
+      : {}),
+  }
+}
