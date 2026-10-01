@@ -66,9 +66,9 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - Quy tắc: `writer` thiếu → dùng `explorer`; giới hạn > 0 và ≤ 10 000; `api_key_secret` khớp `[A-Za-z_][A-Za-z0-9_]*`.
 
   Test `brains.test.ts`: mỗi mã lỗi đúng dòng; `examples/brains.example.yaml` hợp lệ khi Copilot bật, báo `provider_disabled` khi tắt.
-- [ ] T007 [P] `packages/shared/src/appmap/schema.ts` (`coral/appmap@1`, contracts/appmap.md: ≤ 500 màn hình, ≤ 5 000 chuyển màn, `id` slug ASCII ≤ 50, `fingerprint` 16 hex) + `appmap/fingerprint.ts`: `screenFingerprint(tree, { package, activity? })` (research R8).
+- [x] T007 [P] `packages/shared/src/appmap/schema.ts` (`coral/appmap@1`, contracts/appmap.md: ≤ 500 màn hình, ≤ 5 000 chuyển màn, `id` slug ASCII ≤ 50, `fingerprint` 16 hex) + `appmap/fingerprint.ts`: `screenFingerprint(tree, { package, activity? })` (research R8).
   - Thuật toán: chỉ cửa sổ app; container danh sách giữ con đầu; tập `(class ngắn, platform_id)` của element có id hoặc bấm được; bỏ chữ và bounds; SHA-256 → 16 hex; chạy được trong trình duyệt (Web Crypto hoặc SHA-256 thuần JS).
-  - Fixture: thêm `fixtures/android/catalog-a.xml`, `catalog-b.xml` (cùng màn, khác chữ và số item).
+  - Fixture: biến thể dựng từ `fixtures/android/*.xml` trong test (đổi mọi chữ, cắt danh sách) thay cho file `catalog-a/b.xml` riêng.
   - Test `fingerprint.test.ts`: cùng màn khác chữ → cùng; khác màn → khác; status bar/bàn phím không ảnh hưởng.
 - [ ] T008 [P] `packages/shared/src/knowledge/skill.ts` (frontmatter `SKILL.md`: `name` = tên thư mục, khớp `^[a-z0-9][a-z0-9-]{0,63}$`; `description` ≤ 300 ký tự; `coral/skill-rules@1`: `never_tap`, `forbidden` (locator §7.2 trừ `image`/`point_pct`), `test_data`, `allow_submit[{ screen_text }]`; hàm `mergeRules`) + `packages/shared/src/mcp/schema.ts` (`coral/mcp@1`: `servers.<name>` có `url` http(s) **hoặc** `command`; `headers` chỉ dùng `${secret:NAME}`, chữ thường trông như token → cảnh báo `inline_credential`; `roles`; `tools.<name>: { side_effects?: boolean }`). Test `skill.test.ts`, `mcp.test.ts`.
 - [ ] T009 [P] `packages/shared/src/manualcase/schema.ts`: `coral/manualcase@1` (contracts/manualcase.md: `title` ≤ 200 ký tự, ≥ 1 step có `action`, `source { file, row | line }`) + kiểu `ImportMapping` `{ title, preconditions?, steps[], expected[], id?, header_row }`. Test `manualcase.test.ts`.
