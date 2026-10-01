@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { Adb, type ExecFn } from './adb'
-import { AndroidLifecycle, MemoryInstallRegistry, STOP_POLL_MS, STOP_POLLS } from './lifecycle'
+import {
+  AndroidLifecycle,
+  MemoryInstallRegistry,
+  STOP_POLL_MS,
+  STOP_POLLS,
+  parseResumedActivity,
+} from './lifecycle'
 
 const APP = 'com.saucelabs.mydemoapp.android'
 
@@ -160,6 +166,41 @@ describe('AndroidLifecycle', () => {
     expect(await crash.lifecycle.systemDialogOwner()).toBe(APP)
     const none = setup({ replies: dump(`${APP}/.MainActivity`) })
     expect(await none.lifecycle.systemDialogOwner()).toBeUndefined()
+  })
+
+  it('reads the foreground activity from dumpsys activity (Android 14 and older)', async () => {
+    // Excerpt of `dumpsys activity activities` on an Android 14 emulator.
+    const android14 = [
+      'ACTIVITY MANAGER ACTIVITIES (dumpsys activity activities)',
+      'Display #0 (activities from top to bottom):',
+      '  * Task{8c1e2d0 #17 type=standard A=10190:com.saucelabs.mydemoapp.android}',
+      `      * Hist  #0: ActivityRecord{e51d8fa u0 ${APP}/.view.activities.MainActivity t17}`,
+      `    topResumedActivity=ActivityRecord{e51d8fa u0 ${APP}/.view.activities.MainActivity t17}`,
+      `  ResumedActivity: ActivityRecord{e51d8fa u0 ${APP}/.view.activities.MainActivity t17}`,
+    ].join('\n')
+    const { lifecycle, calls } = setup({
+      replies: { 'shell dumpsys activity activities': android14 },
+    })
+    expect(await lifecycle.foregroundActivity()).toEqual({
+      package: APP,
+      activity: '.view.activities.MainActivity',
+    })
+    expect(calls).toEqual(['shell dumpsys activity activities'])
+    // Android 9 spelling, and a class name written in full inside its package.
+    expect(
+      parseResumedActivity(
+        `  mResumedActivity: ActivityRecord{1 u0 ${APP}/${APP}.view.activities.SplashActivity t3}`,
+      ),
+    ).toEqual({ package: APP, activity: '.view.activities.SplashActivity' })
+    expect(
+      parseResumedActivity(
+        '  ResumedActivity: ActivityRecord{2 u0 com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t9}',
+      ),
+    ).toEqual({
+      package: 'com.google.android.permissioncontroller',
+      activity: 'com.android.permissioncontroller.permission.ui.GrantPermissionsActivity',
+    })
+    expect(parseResumedActivity('nothing resumed')).toBeUndefined()
   })
 
   it('binds the app later for a device session and keeps one install registry', async () => {

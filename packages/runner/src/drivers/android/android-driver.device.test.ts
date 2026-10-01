@@ -176,6 +176,12 @@ describe('AndroidDriver on a real device', () => {
     expect(size.width).toBeGreaterThan(0)
   })
 
+  it('tells the foreground activity of the app (screen fingerprints, D24)', async () => {
+    const foreground = await driver.foregroundActivity()
+    expect(foreground?.package).toBe(env.appId)
+    expect(foreground?.activity).toMatch(/^\.[\w.]*Activity$/)
+  })
+
   it('takes a PNG screenshot', async () => {
     const png = await driver.screenshot()
     expect([...png.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47])

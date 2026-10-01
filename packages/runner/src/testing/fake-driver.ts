@@ -1,6 +1,7 @@
 import { walkTree, type ElementNode, type Permission, type Platform } from '@coral/shared'
 import type {
   DeviceDriver,
+  ForegroundActivity,
   FrameOptions,
   FrameSource,
   LiveFrame,
@@ -350,4 +351,16 @@ export class FakeDriver implements DeviceDriver, FrameSource, RemoteControl {
   deviceLogs(): Promise<string> {
     return Promise.resolve(this.options.logs ?? '')
   }
+
+  /** The app window's package and the fake screen's name as its activity (`.catalog`). */
+  foregroundActivity(): Promise<ForegroundActivity | undefined> {
+    const app = this.currentTree().find((window) => !SYSTEM_PACKAGES.test(window.package_or_bundle))
+    return Promise.resolve(
+      app ? { package: app.package_or_bundle, activity: `.${this.current}` } : undefined,
+    )
+  }
 }
+
+/** Windows that are never the app's own (status bar, keyboards, permission dialogs). */
+const SYSTEM_PACKAGES =
+  /^(com\.android\.systemui|android)$|inputmethod|\.ime$|keyboard|permissioncontroller/i

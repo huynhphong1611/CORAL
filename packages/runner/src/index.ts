@@ -6,6 +6,7 @@ export const RUNNER_PACKAGE = '@coral/runner'
 
 export type {
   DeviceDriver,
+  ForegroundActivity,
   FrameOptions,
   FrameSource,
   LiveFrame,
@@ -16,6 +17,13 @@ export type {
   UiDriver,
 } from './core/driver'
 export { imageInfo, type ImageInfo } from './core/image/size'
+export {
+  AI_IMAGE_MAX_EDGE,
+  AI_JPEG_QUALITY,
+  downscaleRgb,
+  observedImagesFromPng,
+  type ObservedImages,
+} from './core/image/downscale'
 export { type ImageMatcher, type Match, type MatchOptions } from './core/image/matcher'
 export { openCvMatcher } from './core/image/opencv'
 export { realClock, AbortError, type Clock } from './core/clock'

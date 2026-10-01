@@ -127,7 +127,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `createProjectBrain(tenantId, projectId, ref)` ghép các phần trên (đã làm: `AiService.projectBrain()` trong `ai/service.ts`; `tenants.settings.brains` = `{ yaml, config }` qua `repos/tenant-settings.ts`).
 
   Test `ai-plumbing.int.test.ts`: nguồn cấu hình; fake bị từ chối khi không có env; nội dung lưu S3 có tag và không chứa giá trị secret; project B không thấy skill của project A.
-- [ ] T017 [P] Runner:
+- [x] T017 [P] Runner:
   - `packages/runner/src/core/image/downscale.ts`: thu nhỏ RGB theo cạnh dài (box filter) + mã hóa JPEG q70, JS thuần như `crop.ts`.
   - `TargetLifecycle.foregroundActivity?()`: Android qua `dumpsys activity activities` (dòng `mResumedActivity`/`topResumedActivity`); FakeDriver trả tên màn hình giả.
 
