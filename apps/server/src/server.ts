@@ -14,6 +14,7 @@ import { createRepos } from './repos'
 import { registerAgentRoutes, type AgentConnections } from './routes/agents'
 import type { LiveControl } from './live/control'
 import type { RecordingService } from './recordings/service'
+import type { ExplorationService } from './explorer/service'
 import { registerBuildRoutes } from './routes/builds'
 import { registerControlRoutes } from './routes/devices-control'
 import { registerProjectRoutes } from './routes/projects'
@@ -42,6 +43,8 @@ export interface ServerDeps {
   live?: LiveControl
   /** The Recorder (`/recordings`, recording commands over `/ws/ui`). */
   recordings?: RecordingService
+  /** The Explorer (`/explorations`, Phase 3). */
+  explorations?: ExplorationService
   /** `GET /health/ready`: true when Postgres, Redis, S3 and the data dir are usable. */
   readiness?: () => Promise<boolean>
   /** Largest build upload (config CORAL_MAX_BUILD_MB). */

@@ -8,6 +8,7 @@ export const PHASE3_ERROR_CODES = [
   'daily_limit_reached',
   'no_cases',
   'stdio_not_allowed',
+  'too_many_explorations',
 ] as const
 
 // Values of data-model §1, verbatim: the DB check constraints use the same lists.

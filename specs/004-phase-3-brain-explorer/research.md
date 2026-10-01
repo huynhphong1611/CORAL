@@ -155,7 +155,7 @@ Mỗi mục: **Decision** / **Rationale** / **Alternatives**. Phiên bản thư 
        - **cây** đã che secret (inline, ≤ 2 MB).
   - **Thao tác của AI**:
     - `tap`/`long_press #n` → `record` tại tâm element: agent trích chuỗi locator từ cây (Recorder, không AI), cắt ảnh, lưu snapshot, chạm.
-    - `type #n` → hai lệnh: `record(tap #n)` rồi `record(type)` vào ô đang focus. Test writer gộp thành một step `type` có `target` (R12).
+    - `type #n` → hai lệnh: `tap` thường vào tâm ô (để focus, không ghi) rồi `record(type)` vào ô đang focus → **một** bước trace là step `type` có `target` (chuỗi locator của ô focus; agent không thấy ô focus thì lấy chuỗi của element trong danh sách). Test writer vẫn gộp `tap` + `type` liền sau nếu gặp (R12).
     - `swipe` (hướng + element cuộn), `back`, `hide_keyboard` → `record` tương ứng.
     - Mở lại app → `restart_app`, hoặc `prepare` khi cần trạng thái sạch.
   - Lệnh chạy trên thiết bị đang giữ lease `exploration` (D16), qua cùng `AgentCommands` của Phase 2.
@@ -243,7 +243,7 @@ Mỗi mục: **Decision** / **Rationale** / **Alternatives**. Phiên bản thư 
     `id` = slug của tên (ASCII, trùng thì thêm `-2`…). Khi kết thúc, gộp theo fingerprint (màn đã có giữ `id`/`name`), ghi **một commit** qua `ProjectRepoStore` (khóa ghi theo project của Phase 1 xếp hàng các commit đồng thời).
   - **Trace**:
     - Bảng `exploration_steps`: thứ tự, fingerprint, `screen_id`, quyết định của AI, trạng thái, `step` (step đã ghi, có chuỗi locator), `brain_call_id`, chi phí.
-    - Ảnh và cây ở S3 `<tenant>/explorations/<id>/<n>/{screen.jpg,ai.jpg,tree.json,element.png}`, gắn tag giữ 30 ngày như artifact run (§18).
+    - Ảnh và cây ở S3 `<tenant>/explorations/<id>/<n>/`: `{screen.jpg,ai.jpg,tree.json}` của `observe`, `{step.jpg,step.json,element.png}` của `record` (snapshot của step trong test case) — data-model §5; gắn tag giữ 30 ngày như artifact run (§18).
 - **Rationale**: app map là tri thức lâu dài (git, P4); trace là dữ liệu làm việc (30 ngày).
 - **Alternatives**: trace trong git — phình repo (R9 SPEC), không cần lâu dài.
 

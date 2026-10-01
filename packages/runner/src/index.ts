@@ -33,7 +33,7 @@ export { checkHit, topNodeAt, touchTargetAt } from './core/hit-test'
 export { waitForStable, structureHash } from './core/stability'
 export { checkExpect, expectFailure } from './core/expect'
 export { createInterpolator, missingSecrets, referencedSecrets } from './core/interpolate'
-export { perform } from './core/actions'
+export { directionPath, perform } from './core/actions'
 export {
   nullSink,
   type ArtifactSink,

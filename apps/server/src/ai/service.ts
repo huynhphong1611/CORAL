@@ -76,6 +76,23 @@ export class AiService {
   }
 
   /**
+   * Whether an activity may start (contracts/rest-api-phase3.md `POST /explorations`): the
+   * tenant's brains config, else 409 `brains_not_configured`; 409 `daily_limit_reached` when
+   * today's AI cost already reached `limits.max_cost_usd_per_day`.
+   */
+  async ready(tenantId: string): Promise<BrainsConfig> {
+    const repos = this.deps.repos.tenant(tenantId)
+    const { config } = await this.deps.settings.resolve(repos)
+    if (!config) {
+      throw new HttpError(409, 'brains_not_configured', 'AI is not configured for this tenant')
+    }
+    if ((await repos.brainCalls.costOfDay()) >= config.limits.max_cost_usd_per_day) {
+      throw new HttpError(409, 'daily_limit_reached', 'the AI cost of today reached its limit')
+    }
+    return config
+  }
+
+  /**
    * The brain of one project for one activity; 409 `brains_not_configured` when the tenant has
    * no config and the platform no default (contracts/brains-yaml.md).
    */

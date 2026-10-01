@@ -263,6 +263,7 @@ describe('Phase 3 REST schemas (contracts/rest-api-phase3.md)', () => {
       'daily_limit_reached',
       'no_cases',
       'stdio_not_allowed',
+      'too_many_explorations',
     ])
   })
 

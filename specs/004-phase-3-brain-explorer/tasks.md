@@ -240,7 +240,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - **một** commit `appmap/screens.json` + `appmap/snap/<id>/{screen.jpg,tree.json}` (chép từ S3 trace) qua `ProjectRepoStore`.
 
   Test `appmap.test.ts` (gộp) + `appmap.int.test.ts` (commit, hai exploration song song không ghi đè).
-- [ ] T032 [US2] Dịch vụ `apps/server/src/explorer/service.ts` (research R9):
+- [x] T032 [US2] Dịch vụ `apps/server/src/explorer/service.ts` (research R9):
   - **Bắt đầu**: lấy lease `exploration` (409 `device_busy`/`device_offline`); tối đa `CORAL_MAX_EXPLORATIONS` mỗi tenant; `prepare` (cài build, `app_state: fresh`).
   - **Vòng lặp**: `observe` → fingerprint → màn mới thì `describeScreen` → tuần tự hóa → `nextAction` → kiểm an toàn → thực hiện qua `record`/`restart_app` (research R7: `type` = `record(tap)` + `record(type)`) → ghi `exploration_steps` + S3 `explorations/<id>/<n>/` (tag 30 ngày) → sự kiện `exploration.step`/`updated`/`screen`.
   - **Crash**: → `findings` + `restart_app`.

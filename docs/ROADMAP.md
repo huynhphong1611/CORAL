@@ -87,10 +87,10 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 **Mục tiêu:** AI khám phá app và sinh test case.
 
 - [ ] `packages/brain`: interface (§14.1), adapter `claude`, `gemini`, `copilot` (§14.2; Copilot làm sau cùng, sau cờ — D20), Zod validate output, retry khi JSON sai.
-- [ ] Router theo `brains.yaml` (§14.3), fallback, giới hạn chi phí, ghi `brain_calls`.
+- [x] Router theo `brains.yaml` (§14.3), fallback, giới hạn chi phí, ghi `brain_calls`.
 - [ ] MCP client (§14.5, D29): nạp `mcp.yaml` của project, allowlist tool, vòng gọi tool tối đa 5 lượt, ghi `tool_calls`; thêm MCP SDK vào kiểm tra D08.
-- [ ] Bộ tuần tự hóa màn hình: danh sách element đánh số + screenshot resize.
-- [ ] Prompt builder: nạp `AGENTS.md` + skill phù hợp của **đúng project** (§13).
+- [x] Bộ tuần tự hóa màn hình: danh sách element đánh số + screenshot resize.
+- [x] Prompt builder: nạp `AGENTS.md` + skill phù hợp của **đúng project** (§13).
 - [ ] Explorer (§10): fingerprint màn hình (`packages/shared`, D24), app map, frontier, ngân sách, kiểm tra `never_tap`.
 - [ ] Test writer (§11.2) + xác thực 2 lần liên tiếp → `active` / `draft`.
 - [ ] Tạo test case từ prompt (§11.3): Explorer có mục tiêu → Test writer.
