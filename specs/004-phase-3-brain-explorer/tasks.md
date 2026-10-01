@@ -36,8 +36,8 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 - [x] T001 Phụ thuộc AI trong `packages/brain/package.json`: `@anthropic-ai/sdk` ^0.129, `@google/genai` ^2.24, `@modelcontextprotocol/sdk` ^1.31, `zod` (workspace catalog), `@coral/shared`. `@github/copilot-sdk` thêm ở T026.
   - `scripts/boundaries.mjs`: thêm `@modelcontextprotocol/*` vào danh sách chỉ `@coral/brain` được phụ thuộc (research R1).
   - Test: ca mới trong `scripts/boundaries.test.ts` (runner/agent/cli phụ thuộc MCP SDK → vi phạm); `scripts/no-ai.test.ts` kiểm closure của `@coral/runner`, `@coral/agent`, `@coral/cli` không chứa `@modelcontextprotocol/*`.
-- [ ] T002 [P] Phụ thuộc server trong `apps/server/package.json`: `csv-parse` ^7, `read-excel-file` ^9, `@cucumber/gherkin` ^42, `@cucumber/messages` ^34, `@coral/runner` (workspace — chỉ hàm thuần, research R1). Test: `apps/server/src/runner-import.test.ts` import `checkHit`, `checkExpect`, `extractLocators` từ `@coral/runner` chạy được trong Node không mở driver; `pnpm build` của server vẫn bundle được.
-- [ ] T003 [P] Phụ thuộc web `@codemirror/lang-markdown` trong `apps/web/package.json`. Test: `apps/web/src/components/MarkdownEditor.test.tsx` render editor Markdown.
+- [x] T002 [P] Phụ thuộc server trong `apps/server/package.json`: `csv-parse` ^7, `read-excel-file` ^9, `@cucumber/gherkin` ^42, `@cucumber/messages` ^34, `@coral/runner` (workspace — chỉ hàm thuần, research R1). Test: `apps/server/src/runner-import.test.ts` import `checkHit`, `checkExpect`, `extractLocators` từ `@coral/runner` chạy được trong Node không mở driver; `pnpm build` của server vẫn bundle được.
+- [x] T003 [P] Phụ thuộc web `@codemirror/lang-markdown` trong `apps/web/package.json`. Test: `apps/web/src/components/MarkdownEditor.test.tsx` render editor Markdown.
 - [ ] T004 [P] Cấu hình server `apps/server/src/config.ts` (Zod), mọi biến tùy chọn:
   - `CORAL_BRAIN_FAKE` (bool, mặc định false), `CORAL_BRAINS_DEFAULT` (đường dẫn), `CORAL_AI_PRICES` (đường dẫn, mặc định `apps/server/ai-prices.yaml`);
   - `CORAL_ANTHROPIC_API_KEY`, `CORAL_GEMINI_API_KEY`, `CORAL_COPILOT_ENABLED` (bool);
