@@ -330,7 +330,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - editor Phase 2: nhãn nguồn + link về exploration/import, `draft_reason`, cờ, nút **Activate** / **Quarantine**.
 
   Test component `generated-tests.test.tsx`.
-- [ ] T043 [US3] E2E `e2e/us3-writer.e2e.ts` (thiết bị giả + brain `fake`):
+- [x] T043 [US3] E2E `e2e/us3-writer.e2e.ts` (thiết bị giả + brain `fake`):
   - khám phá → Test writer → xác thực → ≥ 3 test case `active`;
   - mở một test case trong editor (nguồn `ai_explore`), chạy lại 3 lần → 3/3 `passed`;
   - chụp ảnh.
