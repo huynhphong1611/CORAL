@@ -170,7 +170,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `usageMetadata` → `usage`; lỗi → `ProviderError`.
 
   Test `gemini.test.ts` với `fetch` giả.
-- [ ] T023 [US1] Route `apps/server/src/routes/brains.ts`:
+- [x] T023 [US1] Route `apps/server/src/routes/brains.ts`:
   - `GET/PUT /brains/config` (PUT 🔑, YAML hoặc JSON, lỗi có dòng/cột, `audit_log brains.config.update`);
   - `GET /usage/ai?from&to&group=day|role|provider` (ngày UTC, `today.limit_usd`);
   - `GET /brain-calls/:id` (nội dung từ S3, `null` khi hết hạn, `tool_calls`) — đã làm sớm cùng T034 (`routes/brain-calls.ts`, test trong `explorations.int.test.ts`) vì trace cần.

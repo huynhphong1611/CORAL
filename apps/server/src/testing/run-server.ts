@@ -98,6 +98,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
   let live: LiveControl | undefined
   let recordings: RecordingService | undefined
   let explorations: ExplorationService | undefined
+  let brains: BrainsSettings | undefined
   const emitted: EmittedEvent[] = []
   const server = await startTestServer(({ db, store, artifacts }) => {
     gateway = new AgentGateway({ db, heartbeatMs: options.heartbeatMs ?? 15_000 })
@@ -157,6 +158,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
       }
       if (options.explorer.platformBrains === false) delete aiConfig.brainsDefaultPath
       const settings = new BrainsSettings({ ai: aiConfig, secrets })
+      brains = settings
       const watchers = new ExplorationWatchers({ db, ui: uiGateway })
       const events: ExplorationEvents = {
         emit: (tenantId, type, payload) => {
@@ -204,6 +206,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
       live,
       recordings,
       ...(explorations ? { explorations } : {}),
+      ...(brains ? { brains } : {}),
     }
   }, options.logging)
   if (!gateway || !dispatcher) throw new Error('run server not wired')

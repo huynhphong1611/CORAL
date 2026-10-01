@@ -88,11 +88,12 @@ export async function startServices(
     idleMs: config.timeouts.liveIdleMs,
     notify,
   })
+  const brains = new BrainsSettings({ ai: config.ai, secrets })
   const ai = new AiService({
     repos: createRepos({ db: database.db, store }),
     store,
     artifacts,
-    settings: new BrainsSettings({ ai: config.ai, secrets }),
+    settings: brains,
     secrets,
     fakeBrains: config.ai.fakeBrains,
     stdioAllowlist: config.ai.mcpStdioAllowlist,
@@ -138,6 +139,7 @@ export async function startServices(
     live,
     recordings,
     explorations,
+    brains,
     readiness,
     maxBuildBytes: config.maxBuildBytes,
   }

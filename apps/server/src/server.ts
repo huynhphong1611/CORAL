@@ -5,6 +5,7 @@ import { CORAL_VERSION, protocol, type HealthResponse, type api } from '@coral/s
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { AgentGateway } from './agents/gateway'
 import { registerAuthGuard } from './auth/guard'
+import type { BrainsSettings } from './ai/brains-config'
 import { registerAuthRoutes } from './auth/routes'
 import type { ServerConfig } from './config'
 import type { Db } from './db/client'
@@ -16,6 +17,7 @@ import type { LiveControl } from './live/control'
 import type { RecordingService } from './recordings/service'
 import type { ExplorationService } from './explorer/service'
 import { registerBrainCallRoutes } from './routes/brain-calls'
+import { registerBrainRoutes } from './routes/brains'
 import { registerBuildRoutes } from './routes/builds'
 import { registerControlRoutes } from './routes/devices-control'
 import { registerProjectRoutes } from './routes/projects'
@@ -48,6 +50,8 @@ export interface ServerDeps {
   recordings?: RecordingService
   /** The Explorer (`/explorations`, Phase 3). */
   explorations?: ExplorationService
+  /** The AI brains of tenants (`/brains/config`, `/usage/ai`, Phase 3). */
+  brains?: BrainsSettings
   /** `GET /health/ready`: true when Postgres, Redis, S3 and the data dir are usable. */
   readiness?: () => Promise<boolean>
   /** Largest build upload (config CORAL_MAX_BUILD_MB). */
@@ -119,6 +123,7 @@ export function buildServer(
       registerExplorationRoutes(app, { repos, explorations: deps.explorations })
     }
     registerAppMapRoutes(app, { repos, store: deps.store })
+    if (deps.brains) registerBrainRoutes(app, { repos, settings: deps.brains })
     if (deps.artifacts) {
       registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
       registerBrainCallRoutes(app, { repos, artifacts: deps.artifacts })
