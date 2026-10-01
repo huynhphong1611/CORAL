@@ -182,7 +182,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - link trong `Layout.tsx`; chuỗi trong `i18n/en.ts`.
 
   Test `brains.test.tsx` (lỗi hiện đúng dòng, Save khóa, member thấy chỉ đọc).
-- [ ] T025 [US1] E2E `e2e/us1-brains.e2e.ts`:
+- [x] T025 [US1] E2E `e2e/us1-brains.e2e.ts`:
   1. owner mở Brain config, dán cấu hình sai → lỗi dòng;
   2. sửa thành `fake` → Save;
   3. đổi `roles.explorer` giữa hai adapter giả (`fake` và `fake-alt` — hai tên của cùng adapter giả, chỉ khi `CORAL_BRAIN_FAKE`) → exploration ngắn (sau US2) dùng đúng provider theo Usage;
