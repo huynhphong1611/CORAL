@@ -214,7 +214,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - chữ trùng giá trị secret → `${secret:NAME}`.
 
   Test `screen.test.ts` trên `fixtures/android/*` (element bị che không có trong danh sách; nút `never_tap` bị loại; secret bị che; thứ tự ổn định).
-- [ ] T028 [P] [US2] Kiểm an toàn `apps/server/src/explorer/safety.ts` (research R10, FR-022, FR-022a):
+- [x] T028 [P] [US2] Kiểm an toàn `apps/server/src/explorer/safety.ts` (research R10, FR-022, FR-022a):
   - `checkDecision(decision, screen, ctx)` trả `ok` hoặc `refusal` ∈ `not_found`/`not_actionable`/`never_tap`/`skill_forbidden`/`point_pct_not_allowed`/`invented_submit`/`invalid_text`;
   - chữ tự đặt ≤ 64 ký tự và không trùng secret;
   - chặn gửi form sau khi gõ dữ liệu tự đặt, trừ ô tìm kiếm/lọc (class `SearchView`/`SearchAutoComplete` hoặc id/hint/desc chứa `search|tìm|lọc|filter`) và `allow_submit`; Back luôn được.
