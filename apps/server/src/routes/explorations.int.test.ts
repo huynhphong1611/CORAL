@@ -132,7 +132,15 @@ describe('exploration routes (US2, T033)', { timeout: 60_000 }, () => {
       .parse((await get(huynh, `/explorations/${explorationId}/steps?after=5`)).body)
     expect(rest.map((s) => s.n)).toEqual([6, 7, 8])
 
+    // What the AI saw and answered for a step (FR-006a): its picture as a presigned URL.
+    const callId = page[0]?.brain_call_id ?? ''
+    const call = api.brainCallSchema.parse((await get(mai, `/brain-calls/${callId}`)).body)
+    expect(call).toMatchObject({ role: 'explorer', provider: 'fake', ok: true })
+    expect(call.content?.messages[0]?.image).toMatch(/^http.*ai\.jpg/)
+    expect(call.content?.decision).toEqual(page[0]?.decision)
+
     for (const url of [
+      `/brain-calls/${callId}`,
       `/explorations/${explorationId}`,
       `/explorations/${explorationId}/steps`,
       `/projects/${fixture.project.id}/appmap`,

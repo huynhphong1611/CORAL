@@ -15,6 +15,7 @@ import { registerAgentRoutes, type AgentConnections } from './routes/agents'
 import type { LiveControl } from './live/control'
 import type { RecordingService } from './recordings/service'
 import type { ExplorationService } from './explorer/service'
+import { registerBrainCallRoutes } from './routes/brain-calls'
 import { registerBuildRoutes } from './routes/builds'
 import { registerControlRoutes } from './routes/devices-control'
 import { registerProjectRoutes } from './routes/projects'
@@ -120,6 +121,7 @@ export function buildServer(
     registerAppMapRoutes(app, { repos, store: deps.store })
     if (deps.artifacts) {
       registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
+      registerBrainCallRoutes(app, { repos, artifacts: deps.artifacts })
       if (deps.runs) {
         registerRunRoutes(app, {
           repos,
