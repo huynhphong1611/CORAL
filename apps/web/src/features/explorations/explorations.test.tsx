@@ -295,6 +295,78 @@ describe('exploration page (T034)', () => {
   })
 })
 
+describe('goal result (T049)', () => {
+  const goal = 'Open the cart until "My Cart"'
+  const doneStep = (n: number, reached: boolean, reason: string) =>
+    step(n, {
+      decision: { action: 'done', goal_reached: reached, reason },
+      step: null,
+      screenshot_url: null,
+    })
+
+  it('says the goal was reached and links the test case it led to', async () => {
+    const testCaseId = newId()
+    const detail = exploration({
+      kind: 'prompt',
+      goal,
+      max_tests: 1,
+      status: 'done',
+      stop_reason: 'goal_reached',
+      finished_at: at,
+      test_cases: [
+        {
+          id: testCaseId,
+          slug: 'open-the-cart-until-my-cart',
+          status: 'active',
+          draft_reason: null,
+          flags: [],
+          validation: null,
+        },
+      ],
+    })
+    await open(detail, 'progress', [step(1), doneStep(2, true, '"My Cart" is on the screen')])
+    const result = await screen.findByTestId('goal-result')
+    await waitFor(() => expect(result.textContent).toContain('"My Cart" is on the screen'))
+    expect(within(result).getByText('Goal reached')).toBeDefined()
+    const link = within(result).getByRole('link', { name: 'open-the-cart-until-my-cart' })
+    expect(link.getAttribute('href')).toBe(`/projects/${shop.id}/testcases/${testCaseId}`)
+    expect(within(result).getByText('active')).toBeDefined()
+  })
+
+  it('says why a goal was not reached: the AI, or the budget; no test case', async () => {
+    const refused = exploration({
+      kind: 'prompt',
+      goal,
+      status: 'done',
+      stop_reason: 'goal_not_reached',
+      finished_at: at,
+    })
+    await open(refused, 'progress', [
+      step(1, { status: 'refused', refusal: 'never_tap' }),
+      doneStep(2, false, 'The goal needs a forbidden action: never_tap'),
+    ])
+    const result = await screen.findByTestId('goal-result')
+    await waitFor(() => expect(result.textContent).toContain('needs a forbidden action'))
+    expect(within(result).getByText('Goal not reached')).toBeDefined()
+    expect(result.textContent).toContain('No test case is written')
+    cleanup()
+    resetFakes()
+
+    const outOfSteps = exploration({
+      kind: 'prompt',
+      goal,
+      status: 'done',
+      stop_reason: 'goal_not_reached',
+      stats: { ...api.EMPTY_EXPLORATION_STATS, steps: 60 },
+      finished_at: at,
+    })
+    await open(outOfSteps, 'progress', [step(1)])
+    expect((await screen.findByTestId('goal-result')).textContent).toContain(
+      'The budget ran out before the goal: step budget used.',
+    )
+  })
+})
+
 describe('start exploration (T034)', () => {
   const app = data.app(shop.id)
   const build = data.build(app.id)

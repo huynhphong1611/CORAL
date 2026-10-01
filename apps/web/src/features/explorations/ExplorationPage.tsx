@@ -100,8 +100,9 @@ function ExplorationView({ exploration }: { exploration: api.ExplorationDetail }
             : '—'}
         </Meta>
         {exploration.goal && (
-          <div className="col-span-full">
+          <div className="col-span-full space-y-2">
             <Meta label={t.goal}>{exploration.goal}</Meta>
+            <GoalResult exploration={exploration} steps={steps.data} />
           </div>
         )}
       </Card>
@@ -122,6 +123,65 @@ function ExplorationView({ exploration }: { exploration: api.ExplorationDetail }
       {tab === 'findings' && <Findings findings={exploration.findings} />}
       {tab === 'testcases' && <TestCases exploration={exploration} />}
     </>
+  )
+}
+
+/** The budget a goal ran out of (US5): the AI never said it could not be reached. */
+function budgetUsed(exploration: api.ExplorationDetail): string {
+  const { stats, budget } = exploration
+  if (stats.steps >= budget.max_steps) return t.stopReasons.max_steps
+  if (stats.cost_usd >= budget.max_cost_usd) return t.stopReasons.budget
+  return t.stopReasons.max_minutes
+}
+
+/**
+ * What came of a goal (US5): reached, with the reason the AI gave and the test case it led to;
+ * or not, with the AI's reason (a forbidden button) or the budget it ran out of — no test case.
+ */
+function GoalResult({
+  exploration,
+  steps,
+}: {
+  exploration: api.ExplorationDetail
+  steps: readonly api.ExplorationStepView[] | undefined
+}) {
+  const result = exploration.stop_reason
+  if (result !== 'goal_reached' && result !== 'goal_not_reached') return null
+  const reached = result === 'goal_reached'
+  const done = steps?.findLast((step) => step.decision?.action === 'done')
+  const why =
+    done?.decision?.reason ?? (reached ? undefined : t.goalBudget(budgetUsed(exploration)))
+  return (
+    <div data-testid="goal-result" className="space-y-2 rounded-md bg-slate-50 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={reached ? 'green' : 'amber'}>
+          {reached ? t.goalReached : t.goalNotReached}
+        </Badge>
+        {why && <span className="text-slate-700">{why}</span>}
+      </div>
+      {!reached ? (
+        <p className="text-slate-500">{t.goalNoTest}</p>
+      ) : exploration.test_cases.length > 0 ? (
+        <ul aria-label={t.goalTests} className="flex flex-wrap gap-3">
+          {exploration.test_cases.map((testCase) => (
+            <li key={testCase.id} className="flex items-center gap-2">
+              <Link
+                to="/projects/$projectId/testcases/$testCaseId"
+                params={{ projectId: exploration.project_id, testCaseId: testCase.id }}
+                className={`${buttonClass.link} font-mono`}
+              >
+                {testCase.slug}
+              </Link>
+              <Badge tone={TEST_CASE_TONES[testCase.status]}>{testCase.status}</Badge>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-slate-500">
+          {exploration.status === 'writing' ? t.writing : t.testCasesEmpty}
+        </p>
+      )}
+    </div>
   )
 }
 

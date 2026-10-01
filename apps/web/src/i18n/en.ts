@@ -112,6 +112,11 @@ export const en = {
     project: 'Project',
     device: 'Device',
     goal: 'Goal',
+    goalReached: 'Goal reached',
+    goalNotReached: 'Goal not reached',
+    goalBudget: (budget: string) => `The budget ran out before the goal: ${budget}.`,
+    goalNoTest: 'No test case is written for a goal not reached; the trace shows what was tried.',
+    goalTests: 'Test case from the goal',
     started: 'Started',
     duration: 'Duration',
     tabs: {

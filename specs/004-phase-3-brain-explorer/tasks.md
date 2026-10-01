@@ -385,7 +385,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - Writer: chỉ đoạn chứa đường đi tới bước `done`; bỏ nhánh đi lạc bằng đường ngắn nhất theo fingerprint; `source = ai_prompt`.
 
   Test `goal.int.test.ts` (brain `fake` chế độ mục tiêu; mục tiêu cần Place Order → `goal_not_reached`).
-- [ ] T049 [US5] Web + E2E:
+- [x] T049 [US5] Web + E2E:
   - form Explore đã có ô Goal (T034);
   - trang exploration hiện kết quả mục tiêu (đạt / không đạt + lý do) và test case sinh ra;
   - E2E `e2e/us5-prompt.e2e.ts` (hai mục tiêu: đạt và cần nút cấm), chụp ảnh.
