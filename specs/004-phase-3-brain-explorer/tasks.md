@@ -33,7 +33,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 **Purpose**: thư viện, luật phụ thuộc, cấu hình
 
-- [ ] T001 Phụ thuộc AI trong `packages/brain/package.json`: `@anthropic-ai/sdk` ^0.129, `@google/genai` ^2.24, `@modelcontextprotocol/sdk` ^1.31, `zod` (workspace catalog), `@coral/shared`. `@github/copilot-sdk` thêm ở T026.
+- [x] T001 Phụ thuộc AI trong `packages/brain/package.json`: `@anthropic-ai/sdk` ^0.129, `@google/genai` ^2.24, `@modelcontextprotocol/sdk` ^1.31, `zod` (workspace catalog), `@coral/shared`. `@github/copilot-sdk` thêm ở T026.
   - `scripts/boundaries.mjs`: thêm `@modelcontextprotocol/*` vào danh sách chỉ `@coral/brain` được phụ thuộc (research R1).
   - Test: ca mới trong `scripts/boundaries.test.ts` (runner/agent/cli phụ thuộc MCP SDK → vi phạm); `scripts/no-ai.test.ts` kiểm closure của `@coral/runner`, `@coral/agent`, `@coral/cli` không chứa `@modelcontextprotocol/*`.
 - [ ] T002 [P] Phụ thuộc server trong `apps/server/package.json`: `csv-parse` ^7, `read-excel-file` ^9, `@cucumber/gherkin` ^42, `@cucumber/messages` ^34, `@coral/runner` (workspace — chỉ hàm thuần, research R1). Test: `apps/server/src/runner-import.test.ts` import `checkHit`, `checkExpect`, `extractLocators` từ `@coral/runner` chạy được trong Node không mở driver; `pnpm build` của server vẫn bundle được.

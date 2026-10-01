@@ -1,7 +1,8 @@
 // @ts-check
 /**
  * Dependency boundary rules (SPEC P1, D08):
- *   1. Only `@coral/brain` may depend on an LLM SDK.
+ *   1. Only `@coral/brain` may depend on an LLM SDK or the MCP SDK (§14.5: the brain router is
+ *      the MCP client).
  *   2. Only `@coral/server` may depend on `@coral/brain`.
  *   3. Apps (`apps/*`) never depend on other apps.
  *   4. The browser app (`@coral/web`) never depends on Node-only workspace packages such as the
@@ -37,6 +38,9 @@ export const LLM_SDK_PATTERNS = [
   'groq-sdk',
 ]
 
+/** The Model Context Protocol SDK: AI tools reach MCP servers through the brain only (§14.5). */
+export const MCP_SDK_PATTERNS = ['@modelcontextprotocol/*']
+
 /**
  * @param {string} name
  * @param {string} pattern
@@ -49,6 +53,22 @@ export function matchesPattern(name, pattern) {
 /** @param {string} name */
 export function isLlmSdk(name) {
   return LLM_SDK_PATTERNS.some((pattern) => matchesPattern(name, pattern))
+}
+
+/** @param {string} name */
+export function isMcpSdk(name) {
+  return MCP_SDK_PATTERNS.some((pattern) => matchesPattern(name, pattern))
+}
+
+/**
+ * What kind of AI SDK a package is, for messages; undefined when it is not one.
+ * @param {string} name
+ * @returns {'LLM SDK' | 'MCP SDK' | undefined}
+ */
+export function aiSdkKind(name) {
+  if (isLlmSdk(name)) return 'LLM SDK'
+  if (isMcpSdk(name)) return 'MCP SDK'
+  return undefined
 }
 
 /**
@@ -82,9 +102,10 @@ export function checkManifests(packages) {
   for (const pkg of packages) {
     for (const field of DEPENDENCY_FIELDS) {
       for (const dep of Object.keys(pkg.manifest[field] ?? {})) {
-        if (isLlmSdk(dep) && pkg.name !== BRAIN_PACKAGE) {
+        const kind = aiSdkKind(dep)
+        if (kind && pkg.name !== BRAIN_PACKAGE) {
           violations.push(
-            `${pkg.name} (${field}) depends on LLM SDK "${dep}" — only ${BRAIN_PACKAGE} may.`,
+            `${pkg.name} (${field}) depends on ${kind} "${dep}" — only ${BRAIN_PACKAGE} may.`,
           )
         }
         if (dep === BRAIN_PACKAGE && !BRAIN_CONSUMERS.includes(pkg.name)) {
@@ -215,14 +236,14 @@ function walkLockfile(lockfile, packages, start, options) {
 
 /**
  * Walks the full dependency closure (workspace + third-party) of every workspace package
- * that is not allowed to reach an LLM SDK or @coral/brain, using pnpm-lock.yaml (v9).
+ * that is not allowed to reach an LLM SDK, the MCP SDK or @coral/brain, using pnpm-lock.yaml (v9).
  * @param {Lockfile} lockfile
  * @param {WorkspacePackage[]} packages
  * @returns {string[]}
  */
 export function checkLockfile(lockfile, packages) {
   /** @param {Reached} r */
-  const isSdk = (r) => isLlmSdk(r.name) || isLlmSdk(r.alias)
+  const isSdk = (r) => aiSdkKind(r.name) !== undefined || aiSdkKind(r.alias) !== undefined
   /** @type {string[]} */
   const violations = []
   for (const pkg of packages) {
@@ -232,7 +253,8 @@ export function checkLockfile(lockfile, packages) {
       if (r.name === BRAIN_PACKAGE) {
         violations.push(`${pkg.name} reaches ${BRAIN_PACKAGE}: ${r.chain.join(' → ')}`)
       } else if (isSdk(r)) {
-        violations.push(`${pkg.name} reaches LLM SDK "${r.name}": ${r.chain.join(' → ')}`)
+        const kind = aiSdkKind(r.name) ?? aiSdkKind(r.alias)
+        violations.push(`${pkg.name} reaches ${kind} "${r.name}": ${r.chain.join(' → ')}`)
       }
     }
   }
@@ -281,6 +303,9 @@ export function restrictedImports(restrict) {
   if (restrict.llmSdks) {
     for (const pattern of LLM_SDK_PATTERNS) {
       add(pattern, `SPEC P1: only ${BRAIN_PACKAGE} may use LLM SDKs.`)
+    }
+    for (const pattern of MCP_SDK_PATTERNS) {
+      add(pattern, `SPEC P1, §14.5: only ${BRAIN_PACKAGE} may use the MCP SDK.`)
     }
   }
   if (restrict.brain) {

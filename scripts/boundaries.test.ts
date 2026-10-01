@@ -1,9 +1,11 @@
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
+  aiSdkKind,
   checkLockfile,
   checkManifests,
   isLlmSdk,
+  isMcpSdk,
   restrictedImports,
   type WorkspacePackage,
 } from './boundaries.mjs'
@@ -34,6 +36,17 @@ describe('isLlmSdk', () => {
   })
 })
 
+describe('isMcpSdk', () => {
+  it('matches the MCP SDK scope only', () => {
+    expect(isMcpSdk('@modelcontextprotocol/sdk')).toBe(true)
+    expect(isMcpSdk('@modelcontextprotocol/inspector')).toBe(true)
+    expect(isMcpSdk('modelcontextprotocol')).toBe(false)
+    expect(aiSdkKind('@modelcontextprotocol/sdk')).toBe('MCP SDK')
+    expect(aiSdkKind('@anthropic-ai/sdk')).toBe('LLM SDK')
+    expect(aiSdkKind('zod')).toBeUndefined()
+  })
+})
+
 describe('checkManifests', () => {
   it('accepts the intended layout', () => {
     const violations = checkManifests([
@@ -49,6 +62,18 @@ describe('checkManifests', () => {
     const violations = checkManifests([pkg('@coral/agent', 'apps/agent', {}, { openai: '^5.0.0' })])
     expect(violations).toHaveLength(1)
     expect(violations[0]).toContain('LLM SDK "openai"')
+  })
+
+  it('lets only @coral/brain depend on the MCP SDK (§14.5)', () => {
+    const violations = checkManifests([
+      pkg('@coral/brain', 'packages/brain', { '@modelcontextprotocol/sdk': '^1.31.0' }),
+      pkg('@coral/server', 'apps/server', { '@modelcontextprotocol/sdk': '^1.31.0' }),
+      pkg('@coral/runner', 'packages/runner', {}, { '@modelcontextprotocol/sdk': '^1.31.0' }),
+    ])
+    expect(violations).toEqual([
+      expect.stringContaining('@coral/server (dependencies) depends on MCP SDK'),
+      expect.stringContaining('@coral/runner (devDependencies) depends on MCP SDK'),
+    ])
   })
 
   it('rejects @coral/brain outside @coral/server', () => {
@@ -156,7 +181,37 @@ describe('checkLockfile', () => {
   })
 })
 
+describe('checkLockfile (MCP)', () => {
+  it('finds the MCP SDK reached by a runtime package through a workspace package', () => {
+    const violations = checkLockfile(
+      {
+        importers: {
+          'apps/agent': {
+            dependencies: { '@coral/shared': { version: 'link:../../packages/shared' } },
+          },
+          'packages/shared': {
+            dependencies: { '@modelcontextprotocol/sdk': { version: '1.31.0' } },
+          },
+        },
+        snapshots: { '@modelcontextprotocol/sdk@1.31.0': {} },
+      },
+      [pkg('@coral/agent', 'apps/agent'), pkg('@coral/shared', 'packages/shared')],
+    )
+    expect(violations).toContain(
+      '@coral/agent reaches MCP SDK "@modelcontextprotocol/sdk": @coral/agent → @coral/shared → @modelcontextprotocol/sdk',
+    )
+  })
+})
+
 describe('restrictedImports', () => {
+  it('lists the MCP SDK with the LLM SDKs', () => {
+    const { patterns } = restrictedImports({ llmSdks: true, brain: false, apps: [] })
+    expect(patterns).toContainEqual({
+      group: ['@modelcontextprotocol/*'],
+      message: expect.stringContaining('MCP SDK') as string,
+    })
+  })
+
   it('restricts exact names and their subpaths', () => {
     const { paths, patterns } = restrictedImports({ llmSdks: false, brain: true, apps: [] })
     expect(paths.map((p) => p.name)).toEqual(['@coral/brain'])
