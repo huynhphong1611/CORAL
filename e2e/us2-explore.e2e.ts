@@ -25,7 +25,7 @@ test('explores the app live, maps its screens and refuses the trap', async ({
   account,
   fakeDevice,
 }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(240_000)
   const token = await accessToken(account)
   const seeded = await seedProject(token)
   // Place Order is never to be tapped by anything a machine decides (P6, §9.4).
@@ -60,7 +60,8 @@ test('explores the app live, maps its screens and refuses the trap', async ({
   await expect(page.getByTestId('exploration-cost')).toHaveText(/^\$\d+\.\d\d \/ \$3\.00$/)
   await page.screenshot({ path: 'e2e-results/us2-explore-progress.png', fullPage: true })
 
-  await expect(page.getByTestId('exploration-status')).toHaveText('done', { timeout: 90_000 })
+  // After the steps the Test writer writes and validates test cases (US3); then it is done.
+  await expect(page.getByTestId('exploration-status')).toHaveText('done', { timeout: 150_000 })
   await expect(steps).toHaveText('25 / 25')
   await expect(page.getByTestId('exploration-stop-reason')).toHaveText('Stopped: step budget used')
 
@@ -100,7 +101,7 @@ test('explores the app live, maps its screens and refuses the trap', async ({
 })
 
 test('stops an exploration within 15 s', async ({ page, account, fakeDevice }) => {
-  test.setTimeout(120_000)
+  test.setTimeout(180_000)
   const token = await accessToken(account)
   const seeded = await seedProject(token)
   const started = await api<Exploration>('/explorations', {
@@ -120,12 +121,16 @@ test('stops an exploration within 15 s', async ({ page, account, fakeDevice }) =
   })
   const asked = Date.now()
   await page.getByRole('button', { name: 'Stop' }).click()
-  await expect(page.getByTestId('exploration-status')).toHaveText('stopped', { timeout: 15_000 })
+  // It stops exploring within 15 s (SC-011), then writes and validates test cases as usual.
+  await expect(page.getByTestId('exploration-status')).not.toHaveText('running', {
+    timeout: 15_000,
+  })
   expect(Date.now() - asked).toBeLessThan(15_000)
   await expect(page.getByTestId('exploration-stop-reason')).toHaveText(
     'Stopped: stopped by a person',
   )
   await expect(page.getByRole('button', { name: 'Stop' })).toHaveCount(0)
+  await expect(page.getByTestId('exploration-status')).toHaveText('stopped', { timeout: 90_000 })
   // The device is free again.
   await expect
     .poll(async () => {
