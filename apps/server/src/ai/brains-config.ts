@@ -142,6 +142,7 @@ export class BrainsSettings {
     const { keys } = this.options.ai
     if (provider === 'claude') return keys.anthropic
     if (provider === 'gemini') return keys.gemini
+    if (provider === 'copilot') return keys.copilot
     return undefined
   }
 }

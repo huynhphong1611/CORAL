@@ -17,13 +17,15 @@ export const BROWSER_APP = '@coral/web'
 /** Workspace packages that need Node (processes, sockets, the file system). */
 export const NODE_ONLY_PACKAGES = ['@coral/runner', '@coral/cli']
 
-/** Exact names, or `@scope/*` for a whole scope. */
+/** Exact names, `@scope/*` for a whole scope, or `prefix-*` for names starting with `prefix-`. */
 export const LLM_SDK_PATTERNS = [
   '@anthropic-ai/*',
   '@google/genai',
   '@google/generative-ai',
   '@google-cloud/vertexai',
   '@github/copilot-sdk',
+  // The SDK's runtime packages, one per platform (D47).
+  '@github/copilot-sdk-*',
   '@aws-sdk/client-bedrock-runtime',
   'openai',
   '@openai/*',
@@ -46,7 +48,8 @@ export const MCP_SDK_PATTERNS = ['@modelcontextprotocol/*']
  * @param {string} pattern
  */
 export function matchesPattern(name, pattern) {
-  if (pattern.endsWith('/*')) return name.startsWith(pattern.slice(0, -1))
+  // `@scope/*` is a whole scope; `@scope/name-*` the names starting with `@scope/name-`.
+  if (pattern.endsWith('*')) return name.startsWith(pattern.slice(0, -1))
   return name === pattern
 }
 
@@ -294,6 +297,8 @@ export function restrictedImports(restrict) {
   const add = (pattern, message) => {
     if (pattern.endsWith('/*')) {
       patterns.push({ group: [pattern], message })
+    } else if (pattern.endsWith('*')) {
+      patterns.push({ group: [pattern, `${pattern}/*`], message })
     } else {
       paths.push({ name: pattern, message })
       patterns.push({ group: [`${pattern}/*`], message })

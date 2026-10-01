@@ -189,7 +189,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   4. chụp ảnh.
 
   Bước 3 chạy khi US2 xong (T035).
-- [ ] T026 [US1] Adapter `packages/brain/src/adapters/copilot.ts` (`@github/copilot-sdk` ^1.0.16, làm cùng T021/T022 — D47, research R2):
+- [x] T026 [US1] Adapter `packages/brain/src/adapters/copilot.ts` (`@github/copilot-sdk` ^1.0.16, làm cùng T021/T022 — D47, research R2):
   - runtime đi kèm SDK; session với `availableTools` chỉ gồm công cụ coral (`defineTool` → `ToolSet.call`, ≤ 5 lượt), `workingDirectory` tạm rỗng; ảnh = attachment `blob` base64 (`vision: true`); `responseSchema` cho câu trả lời;
   - token: `providers.copilot.token_secret` hoặc `CORAL_COPILOT_TOKEN` (thêm vào `config.ts`); chỉ bật khi `CORAL_COPILOT_ENABLED=1` + `providers.copilot.enabled: true` (FR-009);
   - đơn giá `per_request` (shared `modelPriceSchema`, router `costOf`), `DEFAULT_PROVIDER_CAPABILITIES.copilot.vision = true`; mẫu `pattern` boundaries gồm cả `@github/copilot-sdk-*`.

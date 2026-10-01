@@ -26,6 +26,8 @@ describe('isLlmSdk', () => {
     expect(isLlmSdk('@anthropic-ai/sdk')).toBe(true)
     expect(isLlmSdk('@google/genai')).toBe(true)
     expect(isLlmSdk('@github/copilot-sdk')).toBe(true)
+    expect(isLlmSdk('@github/copilot-sdk-linux-x64')).toBe(true)
+    expect(isLlmSdk('@github/copilot')).toBe(false)
   })
 
   it('does not match unrelated packages', () => {

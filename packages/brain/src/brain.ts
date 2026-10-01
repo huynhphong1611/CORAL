@@ -220,6 +220,11 @@ export interface ChatRequest {
   outputSchema: Record<string, unknown>
   options: { effort?: string; timeoutMs: number }
   task: ChatTask
+  /**
+   * For an adapter that runs tools itself (`runsTools`): runs one call of the activity's tools,
+   * within the same limit of rounds; past it the answer tells the AI to answer now.
+   */
+  callTool?: (name: string, args: unknown) => Promise<ToolOutcome>
 }
 
 /** Tokens of one provider call; adapters report input read from cache apart from the rest. */
@@ -229,6 +234,8 @@ export interface Usage {
   output: number
   /** Input tokens read from the prompt cache, billed at the cached price. */
   cachedInput: number
+  /** Calls billed by request (Copilot premium requests), at the model's `per_request` price. */
+  requests?: number
 }
 
 export interface ChatResponse {
@@ -244,6 +251,11 @@ export interface ChatResponse {
 export interface ProviderAdapter {
   id: BrainProviderId
   vision: boolean
+  /**
+   * The provider runs the tool loop itself (an agent such as Copilot): it calls
+   * `request.callTool` and always answers `final`.
+   */
+  runsTools?: boolean
   chat(request: ChatRequest): Promise<ChatResponse>
 }
 

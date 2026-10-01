@@ -66,6 +66,9 @@ const addUsage = (a: Usage, b: Usage): Usage => ({
   input: a.input + b.input,
   output: a.output + b.output,
   cachedInput: a.cachedInput + b.cachedInput,
+  ...(a.requests !== undefined || b.requests !== undefined
+    ? { requests: (a.requests ?? 0) + (b.requests ?? 0) }
+    : {}),
 })
 const NO_USAGE: Usage = { input: 0, output: 0, cachedInput: 0 }
 
@@ -141,6 +144,20 @@ export async function structuredChat<T>(
       rounds,
     })
 
+    /** An agent's tool call: one round each, within the same limit (research R2, D47). */
+    const runTool = async (name: string, args: unknown): Promise<ToolOutcome> => {
+      if (toolRounds >= MAX_TOOL_ROUNDS) {
+        return {
+          result: JSON.stringify({ error: 'tool_limit', message: FINAL_ROUND_NOTE }),
+          ok: false,
+        }
+      }
+      toolRounds += 1
+      const outcome = await tools.call(name, args)
+      rounds.push({ tool_calls: [{ name, args, result: outcome.result, outcome }] })
+      return outcome
+    }
+
     let response: ChatResponse
     for (;;) {
       const finalRound = toolRounds >= MAX_TOOL_ROUNDS
@@ -160,6 +177,7 @@ export async function structuredChat<T>(
           timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
         },
         task: prompt.task,
+        ...(adapter.runsTools ? { callTool: runTool } : {}),
       }
       try {
         response = await adapter.chat(request)

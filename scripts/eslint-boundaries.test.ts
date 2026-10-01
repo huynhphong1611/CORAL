@@ -21,7 +21,8 @@ async function restrictedImportErrors(code: string, filePath: string): Promise<s
   }
 }
 
-describe('ESLint dependency boundaries', () => {
+// Each case runs type-aware ESLint on a real file: seconds each, more under a parallel run.
+describe('ESLint dependency boundaries', { timeout: 60_000 }, () => {
   const coreFile = `${root}/packages/runner/src/core/__eslint_probe__.ts`
 
   it('forbids driver code in the runner core (D28)', async () => {
@@ -43,6 +44,14 @@ describe('ESLint dependency boundaries', () => {
   it('still forbids LLM SDKs in the runner core (P1)', async () => {
     const errors = await restrictedImportErrors(
       "import OpenAI from 'openai'\nexport const x = OpenAI\n",
+      coreFile,
+    )
+    expect(errors.join('\n')).toContain('P1')
+  })
+
+  it("forbids the Copilot SDK's runtime packages outside the brain (P1, D47)", async () => {
+    const errors = await restrictedImportErrors(
+      "import runtime from '@github/copilot-sdk-linux-x64'\nexport const x = runtime\n",
       coreFile,
     )
     expect(errors.join('\n')).toContain('P1')

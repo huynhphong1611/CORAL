@@ -7,7 +7,12 @@ import {
   type CallContext,
   type ProviderAdapter,
 } from '@coral/brain'
-import type { BrainProviderId, BrainsConfig, api } from '@coral/shared'
+import {
+  DEFAULT_PROVIDER_CAPABILITIES,
+  type BrainProviderId,
+  type BrainsConfig,
+  type api,
+} from '@coral/shared'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ProjectRepoStore } from '../git/project-repo-store'
 import { HttpError } from '../http/errors'
@@ -69,8 +74,11 @@ export class AiService {
       adapters['fake-alt'] = createFakeAdapter('fake-alt')
     }
     for (const [id, factory] of Object.entries(this.deps.adapters ?? {})) {
-      // A provider the tenant turned off is never called, fallback included (FR-009).
-      if (config.providers[id]?.enabled === false) continue
+      // A provider the tenant turned off is never called, fallback included; one that needs
+      // opting in (Copilot) only once the tenant turned it on (FR-009).
+      const enabled = config.providers[id]?.enabled
+      if (enabled === false) continue
+      if (DEFAULT_PROVIDER_CAPABILITIES[id as BrainProviderId]?.optIn && enabled !== true) continue
       const adapter = factory?.(this.deps.settings.apiKey(config, id))
       if (adapter) adapters[id] = adapter
     }

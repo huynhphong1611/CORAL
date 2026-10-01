@@ -43,6 +43,8 @@ const envSchema = z.object({
   CORAL_GEMINI_API_KEY: z.string().min(1).optional(),
   /** GitHub Copilot needs this and the tenant's own flag (FR-009). */
   CORAL_COPILOT_ENABLED: z.stringbool().default(false),
+  /** The platform's GitHub token for Copilot, when a tenant gives no `token_secret` (D47). */
+  CORAL_COPILOT_TOKEN: z.string().min(1).optional(),
   /** Names of local (stdio) MCP servers the platform allows, comma-separated (§14.5). */
   CORAL_MCP_STDIO_ALLOWLIST: z.string().default(''),
   CORAL_MAX_EXPLORATIONS: z.coerce.number().int().min(1).max(100).default(5),
@@ -52,6 +54,7 @@ const envSchema = z.object({
 export interface ProviderKeys {
   anthropic?: string
   gemini?: string
+  copilot?: string
 }
 
 const REDACTED = '[redacted]'
@@ -155,6 +158,7 @@ export function loadConfig(env: Record<string, string | undefined>): ServerConfi
       keys: providerKeys({
         ...(e.CORAL_ANTHROPIC_API_KEY ? { anthropic: e.CORAL_ANTHROPIC_API_KEY } : {}),
         ...(e.CORAL_GEMINI_API_KEY ? { gemini: e.CORAL_GEMINI_API_KEY } : {}),
+        ...(e.CORAL_COPILOT_TOKEN ? { copilot: e.CORAL_COPILOT_TOKEN } : {}),
       }),
       copilotEnabled: e.CORAL_COPILOT_ENABLED,
       mcpStdioAllowlist: e.CORAL_MCP_STDIO_ALLOWLIST.split(',')

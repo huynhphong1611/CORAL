@@ -3,6 +3,7 @@ import { access, mkdir } from 'node:fs/promises'
 import { sql } from 'drizzle-orm'
 import type { FastifyBaseLogger } from 'fastify'
 import { AgentGateway } from './agents/gateway'
+import { stopCopilotRuntime } from '@coral/brain'
 import { providerAdapters } from './ai/adapters'
 import { BrainsSettings } from './ai/brains-config'
 import { AiService } from './ai/service'
@@ -95,7 +96,7 @@ export async function startServices(
     secrets,
     fakeBrains: config.ai.fakeBrains,
     stdioAllowlist: config.ai.mcpStdioAllowlist,
-    adapters: providerAdapters(),
+    adapters: providerAdapters({ copilotEnabled: config.ai.copilotEnabled }),
   })
   const writer = new WriterService({ db: database.db, store, artifacts, ai })
   const validation = new ValidationService({
@@ -186,6 +187,7 @@ export async function startServices(
       notify.stop()
       streams.stop()
       await dispatcher.close()
+      await stopCopilotRuntime()
       await database.close()
     },
   }

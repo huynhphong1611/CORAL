@@ -10,6 +10,11 @@ export * from './brain'
 export * from './prompts'
 export * from './structured'
 export { createClaudeAdapter, type ClaudeAdapterOptions } from './adapters/claude'
+export {
+  createCopilotAdapter,
+  stopCopilotRuntime,
+  type CopilotAdapterOptions,
+} from './adapters/copilot'
 export { createFakeAdapter, type FakeScript } from './adapters/fake'
 export { createGeminiAdapter, type GeminiAdapterOptions } from './adapters/gemini'
 export * from './router'

@@ -54,11 +54,15 @@ export interface RouterDeps {
   timeoutMs?: number
 }
 
-/** Cost of a call: token counts × the model's price per million tokens (FR-006). */
+/**
+ * Cost of a call: token counts × the model's price per million tokens, plus the calls billed by
+ * request × `per_request` (FR-006, D47).
+ */
 export function costOf(usage: Usage, price: ModelPrice): number {
   const cached = price.cached_input ?? price.input
   return (
-    (usage.input * price.input + usage.cachedInput * cached + usage.output * price.output) / 1e6
+    (usage.input * price.input + usage.cachedInput * cached + usage.output * price.output) / 1e6 +
+    (usage.requests ?? 0) * (price.per_request ?? 0)
   )
 }
 

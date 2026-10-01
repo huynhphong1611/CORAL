@@ -57,6 +57,8 @@ export const modelPriceSchema = z.strictObject({
   input: z.number().min(0),
   output: z.number().min(0),
   cached_input: z.number().min(0).optional(),
+  // USD per call, for providers billed by request (Copilot premium requests, D47).
+  per_request: z.number().min(0).optional(),
 })
 export type ModelPrice = z.infer<typeof modelPriceSchema>
 
@@ -99,7 +101,8 @@ export interface BrainsCheckOptions {
 export const DEFAULT_PROVIDER_CAPABILITIES: Record<BrainProviderId, ProviderCapability> = {
   claude: { enabled: true, vision: true },
   gemini: { enabled: true, vision: true },
-  copilot: { enabled: false, vision: false, optIn: true },
+  // Images go as base64 blob attachments of the SDK (D47).
+  copilot: { enabled: false, vision: true, optIn: true },
   fake: { enabled: false, vision: true },
   'fake-alt': { enabled: false, vision: true },
 }

@@ -102,6 +102,20 @@ providers: { gemini: { model: gemini-flash, api_key_secret: GEMINI_KEY } }
     expect(codes(source, { platformHasPrice: () => false })).toEqual([])
   })
 
+  it('takes a price per request for providers billed by request (Copilot, D47)', () => {
+    const priced = (price: string) =>
+      codes(
+        `${valid}prices:\n  gemini-flash: ${price}\n  claude-opus-5-5: { input: 4, output: 20 }\n`,
+        {
+          platformHasPrice: () => false,
+        },
+      )
+    expect(priced('{ input: 0, output: 0, per_request: 0.04 }')).toEqual([])
+    expect(priced('{ input: 0, output: 0, per_request: -1 }').map(([code]) => code)).toEqual([
+      'schema',
+    ])
+  })
+
   it('accepts the fake providers only when the server enables them', () => {
     const fake = `schema: coral/brains@1\nroles: { explorer: { provider: fake, model: fake } }\nfallback: [fake-alt]\nproviders: { fake-alt: { model: fake } }\n`
     expect(codes(fake)).toEqual([
