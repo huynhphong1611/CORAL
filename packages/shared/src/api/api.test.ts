@@ -448,6 +448,7 @@ describe('Phase 3 REST schemas (contracts/rest-api-phase3.md)', () => {
           status: 'draft',
           draft_reason: 'needs_human',
           flags: ['needs_review_never_tap'],
+          validation: null,
         },
       ],
       findings: [
