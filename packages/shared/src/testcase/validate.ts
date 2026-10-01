@@ -27,6 +27,12 @@ export const VALIDATION_ERROR_CODES = [
   'image_path_invalid',
   'image_in_expect',
   'image_not_found',
+  // brains.yaml (Phase 3, contracts/brains-yaml.md)
+  'unknown_provider',
+  'provider_disabled',
+  'vision_required',
+  'price_missing',
+  'invalid_limit',
 ] as const
 export const VALIDATION_WARNING_CODES = ['no_expect_after_tap'] as const
 export type ValidationCode =
