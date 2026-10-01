@@ -35,7 +35,7 @@ const TONE: Record<api.DeviceActivity['kind'], Tone> = {
   exploration: 'blue',
 }
 
-/** The activity as a badge; a run links to its page. */
+/** The activity as a badge; a run or an exploration links to its page. */
 export function ActivityBadge({ activity }: { activity: api.DeviceActivity }) {
   if (activity.kind === 'run' && activity.run_id) {
     return (
@@ -54,6 +54,20 @@ export function ActivityBadge({ activity }: { activity: api.DeviceActivity }) {
           <span className="text-xs text-slate-500">{en.devices.by(activity.by.name)}</span>
         )}
       </span>
+    )
+  }
+  if (activity.kind === 'exploration' && activity.exploration_id) {
+    return (
+      <Badge tone="blue">
+        <Link
+          to="/explorations/$explorationId"
+          params={{ explorationId: activity.exploration_id }}
+          search={{ tab: 'progress' }}
+          className="underline-offset-2 hover:underline"
+        >
+          {activityLabel(activity)}
+        </Link>
+      </Badge>
     )
   }
   return <Badge tone={TONE[activity.kind]}>{activityLabel(activity)}</Badge>

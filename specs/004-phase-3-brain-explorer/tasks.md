@@ -173,7 +173,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 - [ ] T023 [US1] Route `apps/server/src/routes/brains.ts`:
   - `GET/PUT /brains/config` (PUT 🔑, YAML hoặc JSON, lỗi có dòng/cột, `audit_log brains.config.update`);
   - `GET /usage/ai?from&to&group=day|role|provider` (ngày UTC, `today.limit_usd`);
-  - `GET /brain-calls/:id` (nội dung từ S3, `null` khi hết hạn, `tool_calls`).
+  - `GET /brain-calls/:id` (nội dung từ S3, `null` khi hết hạn, `tool_calls`) — đã làm sớm cùng T034 (`routes/brain-calls.ts`, test trong `explorations.int.test.ts`) vì trace cần.
 
   Test `brains-routes.int.test.ts`: viewer/member PUT → 403; lỗi `price_missing` đúng dòng; `fake` bị từ chối khi không có `CORAL_BRAIN_FAKE`; usage nhóm đúng; tenant khác 404.
 - [ ] T024 [US1] Web `apps/web/src/routes/settings/brains.tsx` (contracts/web-ui-phase3.md):
@@ -256,7 +256,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `devices` activity `exploration`; đăng ký `exploration.watch` trong `ui/gateway.ts`.
 
   Test `explorations-routes.int.test.ts` (viewer 403, tenant khác 404, path ngoài thư mục cho phép bị từ chối, `brains_not_configured`).
-- [ ] T034 [US2] Web `apps/web/src/features/explorations/`:
+- [x] T034 [US2] Web `apps/web/src/features/explorations/`:
   - tab **Explorations** trong trang project;
   - `/projects/$projectId/explore` (form: app, build, thiết bị rảnh, Goal, ngân sách mặc định, Max test cases);
   - `/explorations/$explorationId` với các tab:

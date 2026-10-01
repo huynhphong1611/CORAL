@@ -18,10 +18,11 @@ import {
   Th,
   type Tone,
 } from '../../components/ui'
+import { ExploreButton, ExplorationsTab } from '../../features/explorations/ExplorationsTab'
 import { NewAppForm, UploadBuild } from '../../features/setup/AppForms'
 import { en } from '../../i18n/en'
 
-export const PROJECT_TABS = ['testcases', 'runs', 'recordings', 'apps'] as const
+export const PROJECT_TABS = ['testcases', 'runs', 'recordings', 'explorations', 'apps'] as const
 export type ProjectTab = (typeof PROJECT_TABS)[number]
 
 /** `/projects/$projectId`: test cases, runs, recordings and apps of one project (FR-003). */
@@ -47,7 +48,10 @@ export function ProjectPage() {
         {() => (
           <>
             <PageHeader title={project?.name ?? ''}>
-              <RecordButton projectId={projectId} />
+              <div className="flex items-center gap-2">
+                <ExploreButton projectId={projectId} />
+                <RecordButton projectId={projectId} />
+              </div>
             </PageHeader>
             <Tabs
               tabs={PROJECT_TABS.map((id) => ({ id, label: en.projects.tabs[id] }))}
@@ -57,6 +61,7 @@ export function ProjectPage() {
             {tab === 'testcases' && <TestCasesTab projectId={projectId} />}
             {tab === 'runs' && <RunsTable filters={{ project_id: projectId }} />}
             {tab === 'recordings' && <RecordingsTab projectId={projectId} />}
+            {tab === 'explorations' && <ExplorationsTab projectId={projectId} />}
             {tab === 'apps' && <AppsTab projectId={projectId} />}
           </>
         )}

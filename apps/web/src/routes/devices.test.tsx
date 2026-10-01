@@ -21,6 +21,7 @@ const activityOf = (model: string) => {
 describe('devices page (T023)', () => {
   it('shows what every device is doing (contracts/web-ui.md)', async () => {
     const runId = newId()
+    const explorationId = newId()
     await renderApp('/devices', {
       routes: {
         'GET /devices': [
@@ -28,7 +29,12 @@ describe('devices page (T023)', () => {
           data.device('Pixel 7', { kind: 'run', run_id: runId, by: huynh, since }),
           data.device('Galaxy S23', { kind: 'live', by: lan, since }),
           data.device('Galaxy A54', { kind: 'recording', by: huynh, since }),
-          data.device('Pixel 6', { kind: 'exploration', exploration_id: newId(), by: lan, since }),
+          data.device('Pixel 6', {
+            kind: 'exploration',
+            exploration_id: explorationId,
+            by: lan,
+            since,
+          }),
           data.device('Moto G', { kind: 'offline' }),
         ],
       },
@@ -42,6 +48,9 @@ describe('devices page (T023)', () => {
     expect(activityOf('Galaxy S23')).toBe('controlled by Lan')
     expect(activityOf('Galaxy A54')).toBe('recording by Huynh')
     expect(activityOf('Pixel 6')).toBe('exploring by Lan')
+    expect(screen.getByRole('link', { name: 'exploring by Lan' }).getAttribute('href')).toBe(
+      `/explorations/${explorationId}?tab=progress`,
+    )
     expect(activityOf('Moto G')).toBe('offline')
     expect(screen.getAllByText('Android 14')).toHaveLength(6)
   })
