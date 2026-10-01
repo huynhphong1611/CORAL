@@ -535,7 +535,7 @@ interface Brain {
 |---|---|---|
 | `claude` | `@anthropic-ai/sdk` | Tọa độ (nếu có) là pixel theo ảnh đã gửi → adapter quy đổi sang `point_pct`. |
 | `gemini` | `@google/genai` | Bounding box chuẩn hóa thang 0–1000 → adapter quy đổi sang `point_pct`. |
-| `copilot` | `@github/copilot-sdk` | Agent runtime của Copilot. Cần subscription Copilot hoặc BYOK; mỗi prompt tính vào hạn mức. Không dùng proxy không chính thức. Làm **sau cùng** trong Phase 3, bật bằng cờ cấu hình, dùng token Copilot của chính tenant (D20, R7). |
+| `copilot` | `@github/copilot-sdk` | Agent runtime của Copilot (runtime CLI đi kèm SDK theo nền tảng, không cài riêng). Nhận ảnh (attachment base64) nên dùng được cho mọi vai trò. Adapter tắt toàn bộ công cụ có sẵn của Copilot (shell, sửa file), chạy trong thư mục tạm rỗng; AI chỉ thấy công cụ của coral (MCP allowlist, `read_skill`). Cần subscription Copilot; mỗi lời gọi tính một premium request. Không dùng proxy không chính thức. Bật bằng `CORAL_COPILOT_ENABLED=1` **và** `providers.copilot.enabled: true`; token của tenant (`token_secret`) hoặc của nền tảng (`CORAL_COPILOT_TOKEN`). Làm cùng Claude và Gemini trong US1 (D20, D47, R7). |
 
 ### 14.3 Định tuyến theo vai trò (`brains.yaml`, theo tenant)
 ```yaml
@@ -551,7 +551,7 @@ limits:
 ```
 Đây là cấu hình khởi đầu, sẽ được điều chỉnh theo kết quả benchmark (§14.4). Tên model không hard-code trong code.
 
-Thêm từ Phase 3 (D43): `providers.<id>` (model mặc định khi dự phòng, `api_key_secret` = tên secret của key riêng tenant); `limits.max_cost_usd_per_import`; `prices:` (USD / 1 triệu token theo model, ghi đè bảng đơn giá của nền tảng `apps/server/ai-prices.yaml`). Model không có đơn giá thì không được gọi. Provider `fake` / `fake-alt` (adapter có kịch bản, không mạng) chỉ nhận khi server chạy với `CORAL_BRAIN_FAKE=1` (test, CI).
+Thêm từ Phase 3 (D43): `providers.<id>` (model mặc định khi dự phòng, `api_key_secret` = tên secret của key riêng tenant); `limits.max_cost_usd_per_import`; `prices:` (USD / 1 triệu token theo model, ghi đè bảng đơn giá của nền tảng `apps/server/ai-prices.yaml`; model tính tiền theo lời gọi như Copilot dùng thêm `per_request`, USD mỗi lời gọi — D47). Model không có đơn giá thì không được gọi. Provider `fake` / `fake-alt` (adapter có kịch bản, không mạng) chỉ nhận khi server chạy với `CORAL_BRAIN_FAKE=1` (test, CI).
 
 **Lưu trữ (D20):** cấu hình lưu ở `tenants.settings` (jsonb), validate bằng cùng Zod schema với `brains.yaml`; `GET/PUT /brains/config` nhận/trả YAML hoặc JSON. API key của provider là secret cấp tenant (BYOK); server có thể có key mặc định của nền tảng qua biến môi trường. Ví dụ: `examples/brains.example.yaml`.
 
@@ -716,7 +716,7 @@ POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
 | R4 | OTP, captcha, thanh toán | Hook / skill do user cung cấp (ví dụ API lấy OTP từ backend test). |
 | R5 | Test oracle: AI không tự biết "đúng nghiệp vụ" | `intent` + `expect` do người xác nhận; Explorer chủ yếu bắt crash và luồng cơ bản. |
 | R6 | Chi phí AI | Runner không AI; giới hạn ngân sách; model rẻ cho Explorer. |
-| R7 | Copilot SDK là agent runtime (chạy Copilot CLI), còn ở giai đoạn preview; khả năng nhận ảnh và điều khoản dùng trong server multi-tenant chưa rõ | Làm adapter Copilot sau cùng, sau cờ cấu hình, dùng token của chính tenant; DoD Phase 3 không phụ thuộc Copilot. |
+| R7 | Copilot SDK là agent runtime (chạy Copilot CLI); câu trả lời có cấu trúc còn preview; điều khoản dùng trong server multi-tenant cần tenant tự chịu (token của chính họ) | SDK 1.0.16 đã nhận ảnh và mang sẵn runtime (kiểm 2026-10-01, D47). Adapter sau hai cờ (server + tenant), tắt công cụ có sẵn của Copilot; JSON sai vẫn qua hỏi lại / dự phòng như provider khác; DoD Phase 3 không phụ thuộc Copilot. |
 | R8 | MinIO ngừng phát hành bản community; repo `minio/minio` đã bị gỡ khỏi Docker Hub (xác nhận 2026-09-28) | Dùng fork cộng đồng `pgsty/minio` (D26), ghim tag; chỉ dùng S3 API chuẩn nên thay được bằng RustFS/SeaweedFS/Garage mà không đổi code. |
 | R9 | Snapshot (PNG) trong git repo project làm repo phình to | Chấp nhận ở MVP; cân nhắc Git LFS hoặc lưu ảnh theo content hash trên object storage. |
 | R10 | Server chỉ chạy một instance (WS agent + git repo cục bộ) | Đủ cho Phase 1–5; mở rộng theo §17. |
@@ -779,3 +779,4 @@ POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
 | D44 | 2026-10-01 | Lệnh agent `observe` (cây + `screen.jpg` + `ai.jpg` ≤ 1024 px, activity, crash); Explorer thao tác bằng `record` của Recorder (chuỗi locator lấy từ cây, AI chỉ chọn số element); `expect.screen` dùng `screenFingerprint` (D24) với `job.assign.items[].screens` từ app map | Locator trong test case AI sinh do mã Recorder tạo (P2); "nhìn" tách khỏi "làm" để server có cây + ảnh sau mỗi thao tác. |
 | D45 | 2026-10-01 | Phụ thuộc: chỉ `@coral/brain` được dùng MCP SDK (`@modelcontextprotocol/*`, kiểm cả lockfile — bổ sung D08); `apps/server` dùng hàm thuần của `@coral/runner` (hit-test, trích locator, kiểm kỳ vọng trên cây tĩnh) | §14.5 (router là MCP client); bản nháp test case trên server phải giống hệt lúc chạy lại. |
 | D46 | 2026-10-01 | Route Phase 3: tạo test case từ prompt = `POST /explorations` có `goal`; import qua `POST /projects/:id/imports` (xem trước) → `POST /imports/:id/start`; tri thức project `/projects/:id/agents-md`, `/skills/:name`, `/mcp`; `GET /brain-calls/:id`; `PATCH /testcases/:id` đổi trạng thái | Thay `testcases/generate` và `testcases/import` của bản phác thảo §16: prompt dùng chung máy Explorer, import cần bước xem trước và chọn cột (specs/004 contracts). |
+| D47 | 2026-10-01 | GitHub Copilot là provider đầy đủ của Phase 3: `vision: true` (SDK 1.0.16 nhận ảnh base64) nên dùng được cả `explorer`; runtime CLI đi kèm SDK, adapter tắt mọi công cụ có sẵn của Copilot và chạy trong thư mục tạm rỗng, chỉ đưa công cụ của coral (vẫn ≤ 5 lượt); token tenant `providers.copilot.token_secret` hoặc nền tảng `CORAL_COPILOT_TOKEN`; đơn giá thêm `per_request` (USD mỗi lời gọi, Copilot tính theo premium request); adapter làm trong US1 cùng Claude và Gemini, không để cuối | Huynh yêu cầu hỗ trợ cả Copilot (2026-10-01); kiểm SDK thấy giả định `vision: false` của research R2 đã lỗi thời; giới hạn chi phí phải áp dụng cả cho provider không tính theo token. |

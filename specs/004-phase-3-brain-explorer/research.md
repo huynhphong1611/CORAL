@@ -41,11 +41,14 @@ Mỗi mục: **Decision** / **Rationale** / **Alternatives**. Phiên bản thư 
     - Chi phí đọc từ `usageMetadata`.
     - Model nào không nhận JSON mode cùng lúc với function calling thì adapter chạy **hai pha**: các lượt công cụ không bật JSON, rồi một lời gọi cuối bật JSON và không có công cụ.
     - Tọa độ chuẩn hóa 0–1000 (nếu có) quy về `point_pct`.
-  - **`copilot`** — `@github/copilot-sdk` 1.0 (MIT):
-    - SDK điều khiển **Copilot CLI** qua JSON-RPC, nên server cần cài CLI `copilot` và token Copilot của tenant.
-    - Bật bằng biến môi trường `CORAL_COPILOT_ENABLED=1` **và** cờ trong cấu hình tenant (FR-009).
-    - Vì chưa chắc Copilot nhận ảnh, adapter khai báo `vision: false`, chỉ dùng được cho vai trò không cần ảnh (`writer`). Router từ chối cấu hình gán Copilot cho vai trò cần ảnh.
-    - Làm sau cùng. Nếu thử nghiệm thấy không dùng được trong server thì để tắt và ghi lại (R7 SPEC).
+  - **`copilot`** — `@github/copilot-sdk` 1.0.16 (MIT), cập nhật 2026-10-01 theo D47:
+    - SDK điều khiển runtime Copilot CLI qua JSON-RPC. Runtime nằm sẵn trong gói `@github/copilot-sdk-<nền tảng>` (optional dependency), không cài CLI riêng; `COPILOT_CLI_PATH` đổi được.
+    - **Ảnh**: SDK nhận attachment `{ type: "blob", data: <base64>, mimeType }` → adapter khai báo `vision: true`, dùng được cả `explorer`.
+    - **Công cụ**: Copilot là agent có sẵn công cụ shell/sửa file. Adapter tạo session với `availableTools` chỉ gồm công cụ coral đưa vào (MCP allowlist, `read_skill`, khai bằng `defineTool`), `workingDirectory` là thư mục tạm rỗng, xóa sau lời gọi. Handler của công cụ trả lời bằng `ToolSet.call` của coral, đếm vào giới hạn 5 lượt; quá 5 lượt thì trả `{ error: "tool_limit" }` và nhắc trả lời cuối.
+    - **Câu trả lời**: `sendAndWait` với `responseSchema` (preview); JSON sai đi qua đúng vòng hỏi lại / dự phòng của `structured.ts`.
+    - **Token**: `providers.copilot.token_secret` của tenant (`CORAL_SECRET_<NAME>`) hoặc `CORAL_COPILOT_TOKEN` của nền tảng, truyền bằng `gitHubToken`.
+    - **Chi phí**: Copilot tính theo premium request → đơn giá có thêm `per_request` (USD mỗi lời gọi); chi phí = token × giá token + số lời gọi × `per_request`.
+    - Bật bằng `CORAL_COPILOT_ENABLED=1` **và** `providers.copilot.enabled: true` (FR-009). Làm trong US1 cùng Claude và Gemini; thử thật trên máy Huynh như DoD (CI chỉ dùng client giả).
   - **`fake`** — adapter có kịch bản cho unit, tích hợp, E2E và workflow Device, không gọi mạng:
     - `explorer`: chọn element chưa thử đầu tiên; Back khi hết.
     - `writer`: mỗi đoạn giữa hai lần mở app thành một flow; lấy đề xuất kỳ vọng của Recorder.

@@ -33,7 +33,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 **Purpose**: thư viện, luật phụ thuộc, cấu hình
 
-- [x] T001 Phụ thuộc AI trong `packages/brain/package.json`: `@anthropic-ai/sdk` ^0.129, `@google/genai` ^2.24, `@modelcontextprotocol/sdk` ^1.31, `zod` (workspace catalog), `@coral/shared`. `@github/copilot-sdk` thêm ở T026.
+- [x] T001 Phụ thuộc AI trong `packages/brain/package.json`: `@anthropic-ai/sdk` ^0.129, `@google/genai` ^2.24, `@modelcontextprotocol/sdk` ^1.31, `zod` (workspace catalog), `@coral/shared`. `@github/copilot-sdk` ^1.0.16 thêm ở T026.
   - `scripts/boundaries.mjs`: thêm `@modelcontextprotocol/*` vào danh sách chỉ `@coral/brain` được phụ thuộc (research R1).
   - Test: ca mới trong `scripts/boundaries.test.ts` (runner/agent/cli phụ thuộc MCP SDK → vi phạm); `scripts/no-ai.test.ts` kiểm closure của `@coral/runner`, `@coral/agent`, `@coral/cli` không chứa `@modelcontextprotocol/*`.
 - [x] T002 [P] Phụ thuộc server trong `apps/server/package.json`: `csv-parse` ^7, `read-excel-file` ^9, `@cucumber/gherkin` ^42, `@cucumber/messages` ^34, `@coral/runner` (workspace — chỉ hàm thuần, research R1). Test: `apps/server/src/runner-import.test.ts` import `checkHit`, `checkExpect`, `extractLocators` từ `@coral/runner` chạy được trong Node không mở driver; `pnpm build` của server vẫn bundle được.
@@ -189,11 +189,12 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   4. chụp ảnh.
 
   Bước 3 chạy khi US2 xong (T035).
-- [ ] T026 [US1] Adapter `packages/brain/src/adapters/copilot.ts` (`@github/copilot-sdk` ^1.0, **làm sau cùng**, research R2):
-  - điều khiển Copilot CLI; token của tenant từ `providers.copilot.token_secret`;
-  - `vision: false`; chỉ bật khi `CORAL_COPILOT_ENABLED=1` + cờ tenant (FR-009).
+- [ ] T026 [US1] Adapter `packages/brain/src/adapters/copilot.ts` (`@github/copilot-sdk` ^1.0.16, làm cùng T021/T022 — D47, research R2):
+  - runtime đi kèm SDK; session với `availableTools` chỉ gồm công cụ coral (`defineTool` → `ToolSet.call`, ≤ 5 lượt), `workingDirectory` tạm rỗng; ảnh = attachment `blob` base64 (`vision: true`); `responseSchema` cho câu trả lời;
+  - token: `providers.copilot.token_secret` hoặc `CORAL_COPILOT_TOKEN` (thêm vào `config.ts`); chỉ bật khi `CORAL_COPILOT_ENABLED=1` + `providers.copilot.enabled: true` (FR-009);
+  - đơn giá `per_request` (shared `modelPriceSchema`, router `costOf`), `DEFAULT_PROVIDER_CAPABILITIES.copilot.vision = true`; mẫu `pattern` boundaries gồm cả `@github/copilot-sdk-*`.
 
-  Test `copilot.test.ts` với client JSON-RPC giả; cấu hình gán Copilot cho `explorer` → `vision_required`. Nếu Copilot CLI không chạy được trong server: giữ adapter tắt, ghi kết quả vào research R2 và báo Huynh.
+  Test `copilot.test.ts` với client SDK giả: công cụ có sẵn bị tắt, ảnh gửi dạng blob, lỗi → `ProviderError`; router tính chi phí theo `per_request`. Copilot thật: Huynh thử trên máy (cần subscription).
 
 **Checkpoint**: US1 xong (bước 3 của T025 hoàn tất cùng US2).
 
@@ -539,7 +540,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 - T018 cần T010, T017; T019 cần T007, T010, T017.
 
 **User story**:
-- **US1 (T021–T026)**: cần Foundational. T025 bước 3 cần US2. T026 làm sau cùng của phase.
+- **US1 (T021–T026)**: cần Foundational. T025 bước 3 cần US2. T026 (Copilot) làm cùng T021/T022 (D47).
 - **US2 (T027–T036)**: cần Foundational. T027–T029 song song; T032 cần T027–T031 và T018; T033 cần T032; T034 cần T033; T035 cần T034; T036 cần T032.
 - **US3 (T037–T043)**: cần US2 (trace). T038 cần T037; T039 cần T038; T040 cần T039.
 - **US4 (T044–T047)**: cần Foundational + T030. T045 cần US2.

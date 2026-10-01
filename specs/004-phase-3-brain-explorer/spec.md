@@ -247,7 +247,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 - **FR-006a**: Nội dung của mỗi lời gọi AI MUST được lưu **30 ngày** cùng hoạt động liên quan: chữ đã gửi (đã che secret, FR-013), ảnh thu nhỏ đã gửi, câu trả lời, lý do AI đưa ra, các lần hỏi lại vì sai định dạng và các lần gọi công cụ. Người xem được hoạt động đó mở được nội dung này từ bước tương ứng của trace trên web. Sau 30 ngày chỉ còn số liệu của FR-006.
 - **FR-007**: Khi chạm một giới hạn chi phí, hệ thống MUST chặn mọi lời gọi mới trong phạm vi giới hạn đó (tenant trong ngày, exploration, job import). Hoạt động bị ảnh hưởng dừng với lý do "hết ngân sách" và giữ kết quả đã có.
 - **FR-008**: API key của provider MUST là secret: key mặc định của nền tảng, hoặc key riêng của tenant (BYOK — D20). Key không bao giờ xuất hiện trong log, câu trả lời API hay giao diện.
-- **FR-009**: Adapter GitHub Copilot MUST mặc định tắt. Chỉ bật bằng cờ cấu hình và dùng token Copilot của chính tenant. Các DoD không phụ thuộc Copilot (D20, R7).
+- **FR-009**: Adapter GitHub Copilot MUST mặc định tắt. Chỉ bật bằng cờ của server **và** cờ của tenant; dùng token Copilot của tenant hoặc của nền tảng. Copilot nhận ảnh nên dùng được cho mọi vai trò; công cụ có sẵn của Copilot (shell, sửa file) luôn bị tắt. Các DoD không phụ thuộc Copilot (D20, D47, R7).
 - **FR-010**: Người dùng MUST xem được chi phí AI theo ngày, vai trò và provider của tenant mình. Chỉ `owner`/`admin` được sửa cấu hình bộ não.
 
 **Ngữ cảnh gửi cho AI**
@@ -427,7 +427,7 @@ Khi khám phá hoặc viết test, AI có thể gọi các công cụ được p
 
 **Provider AI và kiểm DoD**
 - Kiểm tự động (unit, tích hợp, E2E, workflow CI) chỉ dùng provider giả lập có kịch bản: không tốn tiền, không cần key AI trên GitHub.
-- DoD với AI thật (Claude và Gemini) do **Huynh chạy trên máy của mình** với key riêng và emulator cục bộ. Dự án cung cấp script kiểm DoD và hướng dẫn trong quickstart; Huynh gửi lại kết quả và ảnh để báo cáo đóng phase. Copilot làm sau cùng, sau cờ (R7).
+- DoD với AI thật (Claude và Gemini) do **Huynh chạy trên máy của mình** với key riêng và emulator cục bộ. Dự án cung cấp script kiểm DoD và hướng dẫn trong quickstart; Huynh gửi lại kết quả và ảnh để báo cáo đóng phase. Copilot làm cùng Claude và Gemini trong US1, sau cờ (D47); Huynh thử Copilot thật trên máy mình nếu có subscription.
 - Trước khi có bảng `secrets` mã hóa (Phase 5): key của nền tảng đọc từ biến môi trường của server; key riêng của tenant và credential MCP đọc từ `CORAL_SECRET_<NAME>` (chỉ dev, D19).
 - Tenant chưa cấu hình bộ não thì dùng cấu hình mặc định của nền tảng nếu server có key. Nếu không có key, các tính năng AI báo "chưa cấu hình" thay vì lỗi mơ hồ.
 - Đơn giá theo model là dữ liệu cấu hình (bảng mặc định của nền tảng, tenant ghi đè được), không nằm trong code.

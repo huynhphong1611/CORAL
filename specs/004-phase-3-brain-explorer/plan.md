@@ -37,7 +37,7 @@ Chi tiết: [research.md](./research.md) · [data-model.md](./data-model.md) · 
 **Language/Version**: TypeScript 6.0 (strict), Node.js 24 LTS, ESM; trình duyệt như Phase 2
 
 **Primary Dependencies** (mới, tra npm 2026-09-30):
-- `packages/brain`: `@anthropic-ai/sdk` 0.129 (MIT), `@google/genai` 2.24 (Apache-2.0), `@github/copilot-sdk` 1.0 (MIT, tùy chọn — cần Copilot CLI trên máy server), `@modelcontextprotocol/sdk` 1.31 (MIT)
+- `packages/brain`: `@anthropic-ai/sdk` 0.129 (MIT), `@google/genai` 2.24 (Apache-2.0), `@github/copilot-sdk` 1.0.16 (MIT; runtime CLI đi kèm theo nền tảng, D47), `@modelcontextprotocol/sdk` 1.31 (MIT)
 - `apps/server`: `csv-parse` 7 (MIT), `read-excel-file` 9 (MIT), `@cucumber/gherkin` 42 + `@cucumber/messages` 34 (MIT); `@coral/runner` (workspace, chỉ hàm thuần)
 - `apps/web`: `@codemirror/lang-markdown` (MIT)
 - `fixtures/mcp`: MCP server giả dùng `@modelcontextprotocol/sdk` (dev dependency của gói test)
