@@ -356,7 +356,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - nội dung lời gọi AI (S3) không có giá trị `CORAL_SECRET_TEST_USER`;
   - step `type` ghi `${secret:TEST_USER}`;
   - skill của project khác không có trong ngữ cảnh (SC-008).
-- [ ] T046 [US4] Web tab **Knowledge** `apps/web/src/features/knowledge/`:
+- [x] T046 [US4] Web tab **Knowledge** `apps/web/src/features/knowledge/`:
   - `AGENTS.md` (MarkdownEditor);
   - danh sách skill + editor `SKILL.md`/`rules.yaml` (lint bằng schema shared) + xóa;
   - `mcp.yaml` (sửa 🔑, member chỉ đọc);

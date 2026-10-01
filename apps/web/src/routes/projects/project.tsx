@@ -18,14 +18,22 @@ import {
   Th,
 } from '../../components/ui'
 import { ExploreButton, ExplorationsTab } from '../../features/explorations/ExplorationsTab'
+import { KnowledgeTab } from '../../features/knowledge/KnowledgeTab'
 import { SOURCE_TONES, TEST_CASE_TONES } from '../../features/editor/StatusPanel'
 import { NewAppForm, UploadBuild } from '../../features/setup/AppForms'
 import { en } from '../../i18n/en'
 
-export const PROJECT_TABS = ['testcases', 'runs', 'recordings', 'explorations', 'apps'] as const
+export const PROJECT_TABS = [
+  'testcases',
+  'runs',
+  'recordings',
+  'explorations',
+  'knowledge',
+  'apps',
+] as const
 export type ProjectTab = (typeof PROJECT_TABS)[number]
 
-/** `/projects/$projectId`: test cases, runs, recordings and apps of one project (FR-003). */
+/** `/projects/$projectId`: test cases, runs, recordings, explorations, knowledge and apps (FR-003). */
 export function ProjectPage() {
   const { projectId } = useParams({ from: '/_app/projects/$projectId' })
   const { tab } = useSearch({ from: '/_app/projects/$projectId' })
@@ -62,6 +70,7 @@ export function ProjectPage() {
             {tab === 'runs' && <RunsTable filters={{ project_id: projectId }} />}
             {tab === 'recordings' && <RecordingsTab projectId={projectId} />}
             {tab === 'explorations' && <ExplorationsTab projectId={projectId} />}
+            {tab === 'knowledge' && <KnowledgeTab projectId={projectId} />}
             {tab === 'apps' && <AppsTab projectId={projectId} />}
           </>
         )}
