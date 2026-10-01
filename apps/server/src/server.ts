@@ -18,6 +18,7 @@ import type { RecordingService } from './recordings/service'
 import type { ExplorationService } from './explorer/service'
 import { registerBrainCallRoutes } from './routes/brain-calls'
 import { registerBrainRoutes } from './routes/brains'
+import { registerKnowledgeRoutes } from './routes/knowledge'
 import { registerBuildRoutes } from './routes/builds'
 import { registerControlRoutes } from './routes/devices-control'
 import { registerProjectRoutes } from './routes/projects'
@@ -52,6 +53,8 @@ export interface ServerDeps {
   explorations?: ExplorationService
   /** The AI brains of tenants (`/brains/config`, `/usage/ai`, Phase 3). */
   brains?: BrainsSettings
+  /** Names of local (stdio) MCP servers a project's `mcp.yaml` may declare (§14.5). */
+  mcpStdioAllowlist?: readonly string[]
   /** `GET /health/ready`: true when Postgres, Redis, S3 and the data dir are usable. */
   readiness?: () => Promise<boolean>
   /** Largest build upload (config CORAL_MAX_BUILD_MB). */
@@ -124,6 +127,7 @@ export function buildServer(
     }
     registerAppMapRoutes(app, { repos, store: deps.store })
     if (deps.brains) registerBrainRoutes(app, { repos, settings: deps.brains })
+    registerKnowledgeRoutes(app, { repos, stdioAllowlist: deps.mcpStdioAllowlist ?? [] })
     if (deps.artifacts) {
       registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
       registerBrainCallRoutes(app, { repos, artifacts: deps.artifacts })

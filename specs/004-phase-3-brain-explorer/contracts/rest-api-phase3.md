@@ -6,6 +6,7 @@ Bổ sung cho `specs/002-phase-1-android-runner/contracts/rest-api.md` và `spec
 - ✍ = `owner`/`admin`/`member`; 🔑 = chỉ `owner`/`admin`; các route khác mọi vai trò trong tenant xem được.
 - `viewer` gọi route ✍, hoặc vai trò khác gọi route 🔑 → `403 { error: { code: "forbidden" } }` (FR-043).
 - Tài nguyên của tenant khác → `404` (FR-042).
+- Tri thức project (`AGENTS.md`, skill, `mcp.yaml`): `head_commit` là commit cuối đã sửa file/thư mục đó; `base_commit` khác nó → `409 conflict` (commit vào file khác không làm cũ `base_commit`).
 
 ## Bộ não AI
 
@@ -24,10 +25,10 @@ Bổ sung cho `specs/002-phase-1-android-runner/contracts/rest-api.md` và `spec
 | PUT ✍ | `/projects/:id/agents-md` | `{ content, base_commit }` → `{ head_commit }`. Tối đa 64 KB.<br>409 `conflict` khi `base_commit` khác head, như editor Phase 2. |
 | GET | `/projects/:id/skills` | → `[{ name, description, has_rules }]`. |
 | GET | `/projects/:id/skills/:name` | → `{ name, skill_md, rules_yaml \| null, head_commit }`. |
-| PUT ✍ | `/projects/:id/skills/:name` | `{ skill_md, rules_yaml?, base_commit }` → `{ head_commit }`.<br>400 `validation_failed` khi frontmatter thiếu `name`/`description`, hoặc `name` ≠ tên trong đường dẫn, hoặc `rules.yaml` sai schema.<br>`name` khớp `^[a-z0-9][a-z0-9-]{0,63}$`. |
+| PUT ✍ | `/projects/:id/skills/:name` | `{ skill_md, rules_yaml?, base_commit }` → `{ head_commit }` (không gửi `rules_yaml` → xóa `rules.yaml`).<br>400 `validation_failed` khi frontmatter thiếu `name`/`description`, hoặc `name` ≠ tên trong đường dẫn, hoặc `rules.yaml` sai schema.<br>`name` khớp `^[a-z0-9][a-z0-9-]{0,63}$`. |
 | DELETE ✍ | `/projects/:id/skills/:name?base_commit=` | → 204 (một commit xóa thư mục skill). |
 | GET | `/projects/:id/mcp` | → `{ yaml, head_commit }`. |
-| PUT 🔑 | `/projects/:id/mcp` | `{ yaml, base_commit }` → `{ head_commit }`.<br>400 khi schema sai hoặc khai báo server stdio không thuộc allowlist nền tảng (`stdio_not_allowed`).<br>Ghi `audit_log` (`mcp.update`). |
+| PUT 🔑 | `/projects/:id/mcp` | `{ yaml, base_commit }` → `{ head_commit, warnings }` (`inline_credential`: chữ trông như token — vẫn lưu).<br>400 khi schema sai hoặc khai báo server stdio không thuộc allowlist nền tảng (`stdio_not_allowed`).<br>Ghi `audit_log` (`mcp.update`). |
 
 ## Exploration (và tạo test case từ prompt)
 

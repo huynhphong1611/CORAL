@@ -346,7 +346,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 **Independent Test**: thêm skill đăng nhập có `test_data` dạng secret → khám phá đăng nhập được; nội dung gửi AI không có giá trị secret, không có skill của project khác (quickstart §4).
 
-- [ ] T044 [US4] Route `apps/server/src/routes/knowledge.ts` (contracts/rest-api-phase3.md):
+- [x] T044 [US4] Route `apps/server/src/routes/knowledge.ts` (contracts/rest-api-phase3.md):
   - `GET/PUT /projects/:id/agents-md` (≤ 64 KB);
   - `GET /projects/:id/skills`, `GET/PUT/DELETE /projects/:id/skills/:name` (`name` = tên thư mục, frontmatter hợp lệ, `rules.yaml` theo schema);
   - `GET/PUT /projects/:id/mcp` (🔑, `stdio_not_allowed`, `audit_log mcp.update`).

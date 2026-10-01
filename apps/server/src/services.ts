@@ -140,6 +140,7 @@ export async function startServices(
     recordings,
     explorations,
     brains,
+    mcpStdioAllowlist: config.ai.mcpStdioAllowlist,
     readiness,
     maxBuildBytes: config.maxBuildBytes,
   }
