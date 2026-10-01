@@ -31,7 +31,11 @@ import { CHECK_MS, useDebounced, type Problem } from '../editor/check'
 const t = en.knowledge
 
 type Section =
-  { kind: 'agents' } | { kind: 'skill'; name: string } | { kind: 'new-skill' } | { kind: 'mcp' }
+  | { kind: 'agents' }
+  /** `saved`: just created, its editor says so. */
+  | { kind: 'skill'; name: string; saved?: boolean }
+  | { kind: 'new-skill' }
+  | { kind: 'mcp' }
 
 const toIssue =
   (severity: EditorIssue['severity']) =>
@@ -128,6 +132,7 @@ export function KnowledgeTab({ projectId }: { projectId: string }) {
             key={section.name}
             projectId={projectId}
             name={section.name}
+            notice={section.saved ? t.saved : undefined}
             onSaved={(name) => setSection({ kind: 'skill', name })}
             onDeleted={() => setSection({ kind: 'agents' })}
           />
@@ -136,7 +141,7 @@ export function KnowledgeTab({ projectId }: { projectId: string }) {
           <SkillSection
             key="new"
             projectId={projectId}
-            onSaved={(name) => setSection({ kind: 'skill', name })}
+            onSaved={(name) => setSection({ kind: 'skill', name, saved: true })}
             onDeleted={() => setSection({ kind: 'agents' })}
           />
         )}
@@ -224,9 +229,9 @@ function Conflict({ onLoad }: { onLoad: () => void }) {
 }
 
 /** Saving a knowledge file: the new base, a conflict, the problems the server found. */
-function useSave() {
+function useSave(initialNotice?: string) {
   const [conflict, setConflict] = useState(false)
-  const [notice, setNotice] = useState<string | undefined>()
+  const [notice, setNotice] = useState(initialNotice)
   const [serverProblems, setServerProblems] = useState<{ key: string; problems: Problem[] }>()
   const [pending, setPending] = useState(false)
   async function run(
@@ -456,11 +461,13 @@ What to do, step by step.
 function SkillSection({
   projectId,
   name,
+  notice,
   onSaved,
   onDeleted,
 }: {
   projectId: string
   name?: string
+  notice?: string | undefined
   onSaved: (name: string) => void
   onDeleted: () => void
 }) {
@@ -478,7 +485,13 @@ function SkillSection({
   return (
     <QueryState query={skill} isEmpty={() => false}>
       {(loaded) => (
-        <SkillEditor projectId={projectId} skill={loaded} onSaved={onSaved} onDeleted={onDeleted} />
+        <SkillEditor
+          projectId={projectId}
+          skill={loaded}
+          notice={notice}
+          onSaved={onSaved}
+          onDeleted={onDeleted}
+        />
       )}
     </QueryState>
   )
@@ -487,11 +500,13 @@ function SkillSection({
 function SkillEditor({
   projectId,
   skill,
+  notice,
   onSaved,
   onDeleted,
 }: {
   projectId: string
   skill: api.SkillDetail
+  notice?: string | undefined
   onSaved: (name: string) => void
   onDeleted: () => void
 }) {
@@ -509,7 +524,7 @@ function SkillEditor({
   })
   const [skillMd, setSkillMd] = useState(skill.skill_md)
   const [rules, setRules] = useState(skill.rules_yaml ?? '')
-  const save = useSave()
+  const save = useSave(notice)
   const nameOk = api.skillNameSchema.safeParse(name).success
   const checkSkill = useMemo(
     () => (text: string) =>

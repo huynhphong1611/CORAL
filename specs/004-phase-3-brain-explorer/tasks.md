@@ -363,7 +363,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - xung đột như editor Phase 2.
 
   Test component `knowledge.test.tsx`.
-- [ ] T047 [US4] E2E `e2e/us4-knowledge.e2e.ts`:
+- [x] T047 [US4] E2E `e2e/us4-knowledge.e2e.ts`:
   - tạo skill `login-demo-account` với `test_data.username: '${secret:TEST_USER}'`;
   - khám phá (brain `fake` dùng `test_data` khi gặp ô Username) → test case sinh ra có `${secret:TEST_USER}`;
   - trace "What the AI saw" chỉ có tên secret;

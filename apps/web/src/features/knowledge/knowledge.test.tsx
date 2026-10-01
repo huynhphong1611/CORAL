@@ -211,6 +211,7 @@ describe('Knowledge tab (T046)', () => {
     // Saved: the skill is listed and opened.
     expect(await within(nav).findByRole('button', { name: 'login-demo-account' })).toBeDefined()
     expect(await screen.findByRole('heading', { name: 'login-demo-account' })).toBeDefined()
+    expect(screen.getByRole('status').textContent).toContain('Saved')
     expect(putsTo(requests, '/skills/login-demo-account').map((r) => r.body)).toEqual([
       { skill_md: SKILL, rules_yaml: RULES, base_commit: NEW_FILE_BASE },
     ])
