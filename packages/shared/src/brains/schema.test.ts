@@ -87,6 +87,7 @@ providers: { gemini: { model: gemini-flash, api_key_secret: GEMINI_KEY } }
       ...DEFAULT_PROVIDER_CAPABILITIES,
       copilot: { enabled: true, vision: false },
     }
+    // A capability without optIn needs no tenant flag: the server alone decides.
     expect(codes(valid.replace('provider: gemini', 'provider: copilot'), { providers })).toEqual([
       ['vision_required', 3],
     ])
@@ -113,6 +114,32 @@ providers: { gemini: { model: gemini-flash, api_key_secret: GEMINI_KEY } }
       'fake-alt': { enabled: true, vision: true },
     }
     expect(codes(fake, { providers })).toEqual([])
+    // The file CORAL_BRAINS_DEFAULT points at in dev, E2E and the CI.
+    expect(codes(examples['brains.fake.yaml'] ?? '', { providers })).toEqual([])
+  })
+
+  it('turns Copilot on only with the server flag and the tenant flag (FR-009)', () => {
+    const providers = {
+      ...DEFAULT_PROVIDER_CAPABILITIES,
+      copilot: { enabled: true, vision: false, optIn: true },
+    }
+    const writer = valid.replace('provider: claude,', 'provider: copilot,')
+    expect(codes(writer, { providers })).toEqual([['provider_disabled', 4]])
+    const optedIn = writer.replace(
+      'providers: { claude: { model: claude-opus-5-5 } }',
+      'providers: { claude: { model: claude-opus-5-5 }, copilot: { enabled: true } }',
+    )
+    expect(codes(optedIn, { providers })).toEqual([])
+    expect(codes(optedIn)).toEqual([['provider_disabled', 4]])
+    // Any provider can be turned off by the tenant.
+    const off = valid.replace(
+      'providers: { claude: { model: claude-opus-5-5 } }',
+      'providers: { claude: { model: claude-opus-5-5, enabled: false } }',
+    )
+    expect(codes(off)).toEqual([
+      ['provider_disabled', 4],
+      ['provider_disabled', 5],
+    ])
   })
 
   it('checks examples/brains.example.yaml: valid once Copilot is enabled', () => {

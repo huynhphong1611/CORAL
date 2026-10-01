@@ -119,12 +119,12 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - chi phí = token × đơn giá (model thiếu đơn giá → từ chối gọi).
 
   Test `router.test.ts` (adapter giả lỗi 429 → provider dự phòng trả lời, 2 bản ghi; `bad_request` không dự phòng; giới hạn ngày chặn trước lời gọi; chi phí tính đúng cả token cache).
-- [ ] T016 Hạ tầng AI của server `apps/server/src/ai/`:
+- [x] T016 Hạ tầng AI của server `apps/server/src/ai/`:
   - `brains-config.ts`: nguồn cấu hình tenant → `CORAL_BRAINS_DEFAULT` → none; bảng đơn giá nền tảng + `prices` của tenant; cờ provider (fake chỉ khi `CORAL_BRAIN_FAKE`, copilot khi env + cờ tenant); key từ env hoặc `CORAL_SECRET_<api_key_secret>`.
   - `usage.ts`: ghi `brain_calls` qua callback của router.
   - `content.ts`: lưu `BrainCallContent` vào `<tenant>/ai/<ref_type>/<ref_id>/<id>.json` với tag giữ 30 ngày, chữ đã che secret.
   - `knowledge.ts`: đọc `AGENTS.md` (cắt 16 KB), skill (≤ 50), `rules.yaml` đã hợp nhất, `mcp.yaml` của **đúng** project tại head.
-  - `createProjectBrain(tenantId, projectId, ref)` ghép các phần trên.
+  - `createProjectBrain(tenantId, projectId, ref)` ghép các phần trên (đã làm: `AiService.projectBrain()` trong `ai/service.ts`; `tenants.settings.brains` = `{ yaml, config }` qua `repos/tenant-settings.ts`).
 
   Test `ai-plumbing.int.test.ts`: nguồn cấu hình; fake bị từ chối khi không có env; nội dung lưu S3 có tag và không chứa giá trị secret; project B không thấy skill của project A.
 - [ ] T017 [P] Runner:

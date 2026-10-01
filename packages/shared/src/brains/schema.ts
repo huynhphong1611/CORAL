@@ -85,6 +85,8 @@ export type BrainsConfig = z.infer<typeof brainsSchema>
 export interface ProviderCapability {
   enabled: boolean
   vision: boolean
+  /** The tenant must also turn it on with `providers.<id>.enabled: true` (Copilot, FR-009). */
+  optIn?: boolean
 }
 
 export interface BrainsCheckOptions {
@@ -97,7 +99,7 @@ export interface BrainsCheckOptions {
 export const DEFAULT_PROVIDER_CAPABILITIES: Record<BrainProviderId, ProviderCapability> = {
   claude: { enabled: true, vision: true },
   gemini: { enabled: true, vision: true },
-  copilot: { enabled: false, vision: false },
+  copilot: { enabled: false, vision: false, optIn: true },
   fake: { enabled: false, vision: true },
   'fake-alt': { enabled: false, vision: true },
 }
@@ -153,6 +155,15 @@ function checkBrains(value: unknown, options: BrainsCheckOptions): CheckOutcome<
         path,
         code: 'provider_disabled',
         message: `provider "${id}" is not enabled on this server`,
+      })
+      return false
+    }
+    const tenantFlag = config.providers[id]?.enabled
+    if (tenantFlag === false || (capability.optIn && tenantFlag !== true)) {
+      issues.push({
+        path,
+        code: 'provider_disabled',
+        message: `provider "${id}" is turned off: set providers.${id}.enabled: true`,
       })
       return false
     }

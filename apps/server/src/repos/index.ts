@@ -9,6 +9,7 @@ import { identityRepo } from './identity'
 import { importsRepo } from './imports'
 import { projectsRepo } from './projects'
 import { runsRepo } from './runs'
+import { tenantSettingsRepo } from './tenant-settings'
 import { testCasesRepo } from './test-cases'
 
 export interface RepoDeps {
@@ -35,6 +36,7 @@ export function createRepos({ db, store }: RepoDeps) {
         explorations: explorationsRepo(db, tenantId),
         brainCalls: brainCallsRepo(db, tenantId),
         imports: importsRepo(db, tenantId),
+        settings: tenantSettingsRepo(db, tenantId),
         audit: (entry: Omit<AuditEntry, 'tenantId'>) => audit(db, { tenantId, ...entry }),
       }
     },

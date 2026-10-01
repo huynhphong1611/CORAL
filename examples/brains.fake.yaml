@@ -9,6 +9,9 @@ roles:
 
 fallback: [fake-alt]
 
+providers:
+  fake-alt: { model: fake } # the model a fallback provider runs
+
 limits:
   max_cost_usd_per_day: 20
   max_cost_usd_per_exploration: 3
