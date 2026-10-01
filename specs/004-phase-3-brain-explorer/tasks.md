@@ -320,7 +320,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - Exploration `validating` → `done` khi mọi run xong; `stats.tests_active`.
 
   Test `validation.int.test.ts` (agent giả pass/fail theo kịch bản).
-- [ ] T041 [US3] Route test case (contracts/rest-api-phase3.md):
+- [x] T041 [US3] Route test case (contracts/rest-api-phase3.md):
   - `GET /projects/:id/testcases?source&status` + trường `source_ref`, `draft_reason`, `flags`, `validation`;
   - `PATCH /testcases/:id` ✍ `{ status }` ∈ `draft`/`active`/`quarantined` — bỏ cờ `needs_review_never_tap` (đưa lên `active`) cần 🔑 + `audit_log`.
 
