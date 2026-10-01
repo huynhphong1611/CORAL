@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 // Phase 3 Explorer check over the REST API (T036, quickstart §3):
 //   node scripts/phase3-explore.mjs --apk ./mydemo.apk [--steps 25] [--never-tap 'Log Out'] [--min-screens 4]
-//     [--app <package>] [--device <udid>] [--download <dir>]
+//     [--min-active 0] [--app <package>] [--device <udid>] [--download <dir>]
 // Logs in, creates (or reuses) project + app, uploads the build, adds the --never-tap labels to the
 // project's popups.yaml, waits for an idle device and explores it with the AI the server is
 // configured with (the `fake` brain in CI). Checks: the exploration ends without error, its app
 // map has at least --min-screens screens of different fingerprints, every screen has the
-// activity `observe` read, and no recorded step touches a never_tap label. --download keeps the
+// activity `observe` read, no recorded step touches a never_tap label, and at least --min-active
+// of the test cases the Test writer made from it passed their two validation runs (US3; each is
+// listed with its validation). --download keeps the
 // app map pictures as <dir>/appmap/<nn>-<screen_id>.jpg and each step's screenshot as
-// <dir>/trace/<nnn>-<status>.jpg (contact sheets). Exit code 0 only when every check passed.
+// <dir>/trace/<nnn>-<status>.jpg (contact sheets), and the written YAML as
+// <dir>/testcases/<slug>.yaml. Exit code 0 only when every check passed.
 import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
@@ -21,7 +24,8 @@ import { parseArgs } from 'node:util'
 /**
  * @typedef {{ id: string, status: string, stop_reason: string | null,
  *   stats: { steps: number, screens: number, new_screens: number, transitions: number,
- *   refused: number, findings: number, cost_usd: number },
+ *   refused: number, findings: number, cost_usd: number, tests_written: number,
+ *   tests_active: number },
  *   appmap: { screens: { id: string, name: string, fingerprint: string, is_new: boolean,
  *   screenshot_url: string | null }[], transitions: unknown[] } }} Exploration
  */
@@ -30,6 +34,11 @@ import { parseArgs } from 'node:util'
  *   step: unknown, screenshot_url: string | null, screen: { id: string | null } }} Step
  */
 /** @typedef {{ id: string, fingerprint: string, activity?: string, seen_in: string[] }} MapScreen */
+/**
+ * @typedef {{ id: string, slug: string, status: string, source_ref: string | null,
+ *   draft_reason: string | null, flags: string[], validation: { runs: { status: string,
+ *   failure_code?: string, step_id?: string }[] } | null }} TestCase
+ */
 
 if (existsSync('.env')) process.loadEnvFile('.env')
 
@@ -45,6 +54,7 @@ const { values: opts } = parseArgs({
     steps: { type: 'string', default: '25' },
     'max-minutes': { type: 'string', default: '15' },
     'min-screens': { type: 'string', default: '4' },
+    'min-active': { type: 'string', default: '0' },
     'never-tap': { type: 'string', multiple: true, default: ['Log Out'] },
     download: { type: 'string' },
     help: { type: 'boolean', default: false },
@@ -53,7 +63,7 @@ const { values: opts } = parseArgs({
 
 const usage = `usage:
   node scripts/phase3-explore.mjs --apk <file.apk> [--steps 25] [--max-minutes 15] [--min-screens 4]
-      [--never-tap <label>]... [--app <package>] [--device <udid>] [--download <dir>]
+      [--min-active 0] [--never-tap <label>]... [--app <package>] [--device <udid>] [--download <dir>]
 login: --email/--password or CORAL_SEED_EMAIL/CORAL_SEED_PASSWORD; server: --server or CORAL_SERVER_URL`
 
 /**
@@ -329,6 +339,25 @@ async function main() {
     if (step.flags.includes('never_tap')) problems.push(`step ${step.n} flagged never_tap`)
   }
 
+  // What the Test writer made of it, and how each validation went (US3).
+  const written = /** @type {TestCase[]} */ (
+    await api('GET', `/projects/${project.id}/testcases?source=ai_explore`)
+  ).filter((t) => t.source_ref === `exploration:${created.id}`)
+  console.log(`test cases: ${stats.tests_written} written, ${stats.tests_active} active`)
+  for (const t of written) {
+    const runs = (t.validation?.runs ?? []).map((r) =>
+      r.failure_code ? `${r.status} (${r.failure_code} at ${r.step_id ?? '?'})` : r.status,
+    )
+    const why = [t.draft_reason, ...t.flags].filter(Boolean).join(', ')
+    console.log(
+      `  ${t.slug}: ${t.status}${why ? ` (${why})` : ''} — validation ${runs.join(', ') || 'none'}`,
+    )
+  }
+  const active = written.filter((t) => t.status === 'active').length
+  if (active < Number(opts['min-active'])) {
+    problems.push(`${active} active test case(s), want ≥ ${opts['min-active']}`)
+  }
+
   if (opts.download) {
     const dir = opts.download
     await mkdir(join(dir, 'appmap'), { recursive: true })
@@ -349,9 +378,14 @@ async function main() {
         )
       }
     }
+    await mkdir(join(dir, 'testcases'), { recursive: true })
+    for (const t of written) {
+      const detail = /** @type {{ yaml: string }} */ (await api('GET', `/testcases/${t.id}`))
+      await writeFile(join(dir, 'testcases', `${t.slug}.yaml`), detail.yaml)
+    }
     await writeFile(
       join(dir, 'exploration.json'),
-      JSON.stringify({ exploration, steps, map: mine }, null, 2),
+      JSON.stringify({ exploration, steps, map: mine, test_cases: written }, null, 2),
     )
   }
 

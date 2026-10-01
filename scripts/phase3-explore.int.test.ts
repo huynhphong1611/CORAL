@@ -21,7 +21,8 @@ let agent: DeviceAgent
 let dir = ''
 
 beforeAll(async () => {
-  server = await startRunServer({ explorer: { write: false } })
+  // The writer drafts test cases; validating them needs runs no agent here answers.
+  server = await startRunServer({ explorer: { validate: false } })
   huynh = await server.newUser('Huynh')
   dir = await mkdtemp(join(tmpdir(), 'coral-phase3-'))
   await writeFile(join(dir, 'app.apk'), Buffer.from(`apk ${newId()}`))
@@ -56,7 +57,7 @@ const explore = (...extra: string[]) =>
   )
 
 describe('scripts/phase3-explore.mjs', () => {
-  it('explores, checks screens, activities and never_tap, keeps the pictures', async () => {
+  it('explores, checks screens, activities and never_tap, keeps pictures and test cases', async () => {
     const downloads = join(dir, 'explore')
     const { stdout } = await explore(
       ...['--steps', '16', '--download', downloads],
@@ -65,6 +66,10 @@ describe('scripts/phase3-explore.mjs', () => {
     expect(stdout).toMatch(/: done \(max_steps\) — 16 steps, \d+ screens .* 1 refused/)
     expect(stdout).toMatch(/screen \S+ [0-9a-f]{16} \.catalog$/m)
     expect(stdout.trim().endsWith('PASS')).toBe(true)
+    // What the Test writer made of it, listed with its validation (none here: drafts).
+    const written = /^test cases: (\d+) written, 0 active$/m.exec(stdout)
+    expect(Number(written?.[1])).toBeGreaterThanOrEqual(3)
+    expect(stdout).toMatch(/^ {2}open-\S+: draft — validation none$/m)
     // 'Log out' was already there (labels compare like the popup guard); Place Order, the sample
     // app's trap, joined never_tap: refused, never tapped.
     const popups = (await server.call(huynh, { method: 'GET', url: '/projects' })).body as {
@@ -80,14 +85,16 @@ describe('scripts/phase3-explore.mjs', () => {
     expect((await readdir(join(downloads, 'appmap'))).length).toBeGreaterThanOrEqual(4)
     expect(await readdir(join(downloads, 'trace'))).toHaveLength(16)
     expect(await readdir(join(downloads, 'trace'))).toContain('014-refused.jpg')
+    expect(await readdir(join(downloads, 'testcases'))).toHaveLength(Number(written?.[1]))
   }, 120_000)
 
-  it('fails when the exploration found fewer screens than wanted', async () => {
-    const failed = await explore('--steps', '3', '--min-screens', '50').then(
+  it('fails when the exploration found fewer screens or active test cases than wanted', async () => {
+    const failed = await explore('--steps', '3', '--min-screens', '50', '--min-active', '1').then(
       () => undefined,
       (e: { code: number; stdout: string }) => e,
     )
     expect(failed).toMatchObject({ code: 1 })
     expect(failed?.stdout).toMatch(/FAIL \d+ screens, want ≥ 50/)
+    expect(failed?.stdout).toMatch(/FAIL 0 active test case\(s\), want ≥ 1/)
   }, 120_000)
 })

@@ -82,7 +82,10 @@ last_run=$(grep -oE 'run 5/5 [0-9a-f-]{36}' "$OUT/T056.log" | awk '{print $3}')
 check T063 "scan run ${last_run:-?} for secrets" \
   node scripts/phase1-e2e.mjs --scan-secrets --run "${last_run:-missing}"
 # Phase 3 US2 (T036): explore My Demo App for 25 steps — app map of ≥ 4 screens with their
-# activity, no step on a never_tap button (Log Out added to the project's list).
+# activity, no step on a never_tap button (Log Out added to the project's list). US3: the test
+# cases the writer made from it and their two validation runs on the emulator are listed in
+# T036.log and kept under explore/testcases (reported, not yet required: SC-001 is checked on the
+# fake device by e2e/us3-writer.e2e.ts).
 check T036 'Explorer: 25 steps on My Demo App, ≥ 4 screens, never_tap untouched' \
   node scripts/phase3-explore.mjs --apk "$APK" --steps 25 --never-tap 'Log Out' \
   --download "$OUT/explore"
