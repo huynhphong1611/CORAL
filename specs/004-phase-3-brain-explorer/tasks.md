@@ -400,7 +400,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 **Independent Test**: import `fixtures/manual/mydemo-10.csv` trên thiết bị giả + brain `fake` → ≥ 7 `active`, còn lại có lý do; restart server giữa chừng → job chạy tiếp (quickstart §6).
 
-- [ ] T050 [P] [US6] `apps/server/src/imports/parse-csv.ts` + `mapping.ts` (contracts/manualcase.md):
+- [x] T050 [P] [US6] `apps/server/src/imports/parse-csv.ts` + `mapping.ts` (contracts/manualcase.md):
   - đọc: `csv-parse`, BOM, tự dò `,`/`;`/tab;
   - ánh xạ: tự đoán cột theo tên (bỏ dấu); dòng tiêu đề trống nối vào case trên; tách bước đánh số trong ô;
   - lỗi theo dòng: `missing_title`, `missing_steps`, `too_long` (> 4 000 ký tự), `bad_encoding`;

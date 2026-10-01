@@ -66,6 +66,27 @@ export const createImportFieldsSchema = z.object({
   sheet: z.string().min(1).max(100).optional(),
 })
 
+/** What reading an import file found wrong, by row (CSV, XLSX) or line (Gherkin). */
+export const IMPORT_ISSUE_CODES = [
+  'missing_title',
+  'missing_steps',
+  'too_long',
+  'bad_encoding',
+  'too_many_cases',
+  'syntax',
+  // No column could be told to hold the titles or the steps: the person chooses them.
+  'no_mapping',
+] as const
+export type ImportIssueCode = (typeof IMPORT_ISSUE_CODES)[number]
+
+export const importIssueSchema = z.object({
+  row: z.number().int().positive().optional(),
+  line: z.number().int().positive().optional(),
+  code: z.enum(IMPORT_ISSUE_CODES),
+  message: z.string(),
+})
+export type ImportIssue = z.infer<typeof importIssueSchema>
+
 /** What the file holds under a mapping (`POST /projects/:id/imports`, `PATCH /imports/:id`). */
 export const importPreviewSchema = z.object({
   import_job_id: z.uuid(),
@@ -75,13 +96,7 @@ export const importPreviewSchema = z.object({
   // Gherkin needs no mapping.
   mapping: importMappingSchema.nullable(),
   cases: z.array(manualCaseSchema).max(MAX_IMPORT_CASES),
-  errors: z.array(
-    z.object({
-      row: z.number().int().positive().optional(),
-      line: z.number().int().positive().optional(),
-      message: z.string(),
-    }),
-  ),
+  errors: z.array(importIssueSchema),
 })
 export type ImportPreview = z.infer<typeof importPreviewSchema>
 

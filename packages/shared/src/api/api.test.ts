@@ -513,7 +513,7 @@ describe('Phase 3 REST schemas (contracts/rest-api-phase3.md)', () => {
       ],
       mapping: { title: 0, steps: [1], expected: [], header_row: 0 },
       cases: [manual],
-      errors: [{ row: 5, message: 'no steps' }],
+      errors: [{ row: 5, code: 'missing_steps', message: 'no steps' }],
     }
     expect(importPreviewSchema.safeParse(preview).success).toBe(true)
     expect(importPreviewSchema.safeParse({ ...preview, format: 'docx' }).success).toBe(false)

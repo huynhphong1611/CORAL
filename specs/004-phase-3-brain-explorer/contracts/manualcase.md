@@ -45,7 +45,9 @@ source: { file: manual-login.csv, row: 14 }   # hoặc { file: login.feature, li
   - `missing_title`;
   - `missing_steps`;
   - `too_long` (ô > 4 000 ký tự);
-  - `bad_encoding`.
+  - `bad_encoding` (dòng có byte không phải UTF-8);
+  - `no_mapping` (không đoán được cột tiêu đề hoặc bước: người dùng chọn cột).
+- Mỗi lỗi có `code` và `message`; dòng lỗi bị bỏ, phần còn lại của file vẫn đọc.
 
 ## Gherkin (`.feature`)
 
