@@ -44,6 +44,15 @@ export const importStatsSchema = z.object({
 })
 export type ImportStats = z.infer<typeof importStatsSchema>
 
+export const EMPTY_IMPORT_STATS: ImportStats = {
+  total: 0,
+  done: 0,
+  active: 0,
+  draft: 0,
+  not_processed: 0,
+  cost_usd: 0,
+}
+
 /** `import_jobs.budget`; `POST /imports/:id/start` fills what the body leaves out. */
 export const importBudgetSchema = z.object({
   max_cost_usd: z.number().positive().max(MAX_LIMIT_USD),
