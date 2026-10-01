@@ -1,6 +1,7 @@
 import type { z } from 'zod'
 import {
   BrainOutputError,
+  BudgetExceededError,
   ProviderError,
   type ChatMessage,
   type ChatRequest,
@@ -40,7 +41,7 @@ export interface AttemptRecord {
   latencyMs: number
   ok: boolean
   /** Why the attempt failed; `invalid_output` when its answer broke the schema. */
-  error?: ProviderErrorKind | 'invalid_output'
+  error?: ProviderErrorKind | 'invalid_output' | 'budget'
   system: { stable: string; volatile: string }
   /** The conversation as sent on the attempt's last round. */
   messages: ChatMessage[]
@@ -162,6 +163,19 @@ export async function structuredChat<T>(
       try {
         response = await adapter.chat(request)
       } catch (error) {
+        if (error instanceof BudgetExceededError) {
+          // Refused before the call; tool rounds already paid for are still reported.
+          if (rounds.length > 0) {
+            await report({
+              ...base(),
+              ok: false,
+              error: 'budget',
+              answer: null,
+              validationErrors: [],
+            })
+          }
+          throw error
+        }
         const failure =
           error instanceof ProviderError
             ? error

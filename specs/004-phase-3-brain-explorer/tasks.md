@@ -111,7 +111,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - Không import SDK nào ở `index.ts` ngoài adapter.
 
   Test `structured.test.ts` (JSON sai 1 lần rồi đúng → 2 lời gọi; sai 3 lần → lỗi, không hành động; 6 lượt công cụ → lượt 6 không có công cụ), `fake.test.ts`.
-- [ ] T015 Router `packages/brain/src/router.ts` (research R4):
+- [x] T015 Router `packages/brain/src/router.ts` (research R4):
   - vai trò → provider/model (`writer` thiếu → `explorer`);
   - dự phòng theo `ProviderError.kind` (mọi kind trừ `bad_request`), bỏ provider trùng;
   - trước mỗi lời gọi hỏi callback `limits()`: chi phí ngày của tenant, chi phí của hoạt động → `BudgetExceededError`;

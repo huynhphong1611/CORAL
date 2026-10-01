@@ -205,9 +205,12 @@ export interface ChatRequest {
   task: ChatTask
 }
 
+/** Tokens of one provider call; adapters report input read from cache apart from the rest. */
 export interface Usage {
+  /** Input tokens not read from the prompt cache (cache writes included). */
   input: number
   output: number
+  /** Input tokens read from the prompt cache, billed at the cached price. */
   cachedInput: number
 }
 
