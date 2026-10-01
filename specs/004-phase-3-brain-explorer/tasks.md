@@ -226,7 +226,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - kẹt = 3 thao tác không đổi màn / rời app / app không chạy → gợi ý `back`, rồi `restart_app`.
 
   Test `frontier.test.ts`.
-- [ ] T030 [US2] Prompt `packages/brain/src/prompts/explorer.ts`, `describe.ts` + công cụ `packages/brain/src/tools/skills.ts` (`read_skill`):
+- [x] T030 [US2] Prompt `packages/brain/src/prompts/explorer.ts`, `describe.ts` + công cụ `packages/brain/src/tools/skills.ts` (`read_skill`):
   - phần ổn định trước: vai trò → `AGENTS.md` → danh sách skill → tên `test_data`;
   - phần thay đổi sau: mục tiêu, 10 bước gần nhất, ngân sách, màn hình;
   - `Brain.nextAction`/`describeScreen` dựng trên `structured.ts`.

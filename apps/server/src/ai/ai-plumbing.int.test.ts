@@ -236,6 +236,32 @@ describe('project knowledge (FR-012)', () => {
     // The prompt carries the secret's name, never its value.
     expect(JSON.stringify(loadedA.knowledge)).not.toContain(SECRET)
 
+    // The AI of project A reads A's skill with read_skill; project B offers no such tool.
+    const { service: ai } = service()
+    const brainA = await ai.projectBrain({
+      tenantId: huynh.tenantId,
+      projectId: a.id,
+      ref: { type: 'exploration', id: a.id },
+      maxCostUsd: 3,
+    })
+    const toolsA = brainA.context('explorer').tools
+    expect(toolsA.specs.map((t) => t.name)).toEqual(['read_skill'])
+    expect((await toolsA.call('read_skill', { name: 'login-demo-account' })).result).toContain(
+      'Use TEST_USER.',
+    )
+    const brainB = await ai.projectBrain({
+      tenantId: huynh.tenantId,
+      projectId: b.id,
+      ref: { type: 'exploration', id: b.id },
+      maxCostUsd: 3,
+    })
+    expect(brainB.context('explorer').tools.specs).toEqual([])
+    expect(
+      await brainB.context('explorer').tools.call('read_skill', { name: 'login-demo-account' }),
+    ).toMatchObject({
+      blocked: true,
+    })
+
     const loadedB = await loadKnowledge(server.store, huynh.tenantId, b.id, { stdioAllowlist: [] })
     expect(loadedB.knowledge).toEqual(EMPTY_KNOWLEDGE)
     expect(loadedB.mcp).toBeNull()

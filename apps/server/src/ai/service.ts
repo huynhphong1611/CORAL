@@ -1,7 +1,7 @@
 import {
-  NO_TOOLS,
   createBrain,
   createFakeAdapter,
+  skillTools,
   type Brain,
   type BrainCallRole,
   type CallContext,
@@ -104,6 +104,7 @@ export class AiService {
       secrets: () => this.secretValues(),
       ...(this.deps.log ? { log: this.deps.log } : {}),
     })
+    const tools = skillTools(loaded.skillBodies)
     const brain = createBrain({
       config,
       adapters: this.adaptersFor(config),
@@ -125,8 +126,8 @@ export class AiService {
           spentUsd: () => repos.brainCalls.costOf(input.ref.type, input.ref.id),
         },
         knowledge: loaded.knowledge,
-        // read_skill (T030) and the MCP allowlist (US7) join here.
-        tools: NO_TOOLS,
+        // read_skill over this project's skills; the MCP allowlist joins here in US7.
+        tools,
       }),
     }
   }
