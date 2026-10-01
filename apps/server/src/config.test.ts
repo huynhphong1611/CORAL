@@ -86,6 +86,7 @@ describe('loadConfig', () => {
     const config = loadConfig({ CORAL_GEMINI_API_KEY: 'gemini-secret-value' })
     expect(JSON.stringify(config)).not.toContain('gemini-secret-value')
     expect(inspect(config, { depth: 5 })).not.toContain('gemini-secret-value')
-    expect(String(config.ai.keys)).not.toContain('gemini-secret-value')
+    const keys = config.ai.keys as { toString(): string }
+    expect(keys.toString()).not.toContain('gemini-secret-value')
   })
 })
