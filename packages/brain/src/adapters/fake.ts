@@ -105,7 +105,28 @@ export function fakeDecide(
   return { action: 'tap', element: next.n, reason: reason(`Try "${label}", not tried yet`) }
 }
 
-/** One flow per segment: from its start to its last done step, the Recorder's first suggestion. */
+/** Lowercase words joined by dashes, as a test case slug wants them. */
+const slugOf = (text: string) =>
+  text
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'screen'
+
+/** The expectation the fake keeps for a step: the Recorder's first suggestion, else new text. */
+function expectOf(step: WriteTestInput['steps'][number]): Flow['expects'] {
+  if (step.candidates.length > 0) return [{ step: step.n, candidate: 0 }]
+  const text = step.textsAfter[0]
+  return text ? [{ step: step.n, visible_text: text }] : []
+}
+
+/**
+ * The fake writer (research R12). Free exploration: one flow for each screen a segment reached
+ * for the first time — "open <screen>", from the segment's start to that step — at most
+ * `maxTests`. A goal or a manual case: one flow, the last segment to its last done step.
+ */
 export function fakeWrite(input: WriteTestInput): TestPlan {
   const done = input.steps.filter((s) => s.status === 'done')
   if (done.length === 0) {
@@ -113,31 +134,42 @@ export function fakeWrite(input: WriteTestInput): TestPlan {
       ? { flows: [], outcome: 'app_mismatch', explanation: 'No step could be done on the app' }
       : { flows: [], outcome: 'written' }
   }
-  const segments = [...new Set(done.map((s) => s.segment))]
-  const wanted = input.kind === 'explore' ? segments : segments.slice(-1)
-  const flows: Flow[] = wanted.slice(0, input.maxTests).map((segment) => {
+  if (input.kind !== 'explore') {
+    const segment = done[done.length - 1]?.segment ?? 1
     const steps = done.filter((s) => s.segment === segment)
     const last = steps[steps.length - 1] ?? done[0]
-    const withCandidate = [...steps].reverse().find((s) => s.candidates.length > 0)
-    const withText = [...steps].reverse().find((s) => s.textsAfter.length > 0)
-    const expects = withCandidate
-      ? [{ step: withCandidate.n, candidate: 0 }]
-      : withText
-        ? [{ step: withText.n, visible_text: withText.textsAfter[0] ?? '' }]
-        : []
-    const first = steps[0]
-    const name = input.manualCase?.title ?? input.goal ?? `Flow from ${first?.screen ?? 'start'}`
+    const withExpect = [...steps].reverse().find((s) => expectOf(s).length > 0)
+    const name = input.manualCase?.title ?? input.goal ?? `Flow to ${last?.after ?? 'the end'}`
     return {
-      slug: `flow-${segment}`,
-      name: name.slice(0, 80),
-      intent: (
-        input.goal ?? `From "${first?.screen ?? 'start'}", ${steps.map((s) => s.action).join(', ')}`
-      ).slice(0, 300),
-      segment,
-      end_step: last?.n ?? 1,
-      expects,
+      flows: [
+        {
+          slug: slugOf(name),
+          name: name.slice(0, 80),
+          intent: (input.goal ?? input.manualCase?.title ?? name).slice(0, 300),
+          segment,
+          end_step: last?.n ?? 1,
+          expects: withExpect ? expectOf(withExpect) : [],
+        },
+      ],
+      outcome: 'written',
     }
-  })
+  }
+  const taken = new Set<string>()
+  const flows: Flow[] = []
+  for (const step of done) {
+    if (!step.newScreen || flows.length >= input.maxTests) continue
+    let slug = `open-${slugOf(step.after)}`
+    for (let i = 2; taken.has(slug); i += 1) slug = `open-${slugOf(step.after)}-${i}`
+    taken.add(slug)
+    flows.push({
+      slug,
+      name: `Open ${step.after}`.slice(0, 80),
+      intent: `From the start of the app, ${step.action} reaches "${step.after}"`.slice(0, 300),
+      segment: step.segment,
+      end_step: step.n,
+      expects: expectOf(step),
+    })
+  }
   return { flows, outcome: 'written' }
 }
 

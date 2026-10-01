@@ -79,14 +79,20 @@ export interface DecideInput {
 export interface TraceStepInput {
   n: number
   segment: number
+  /** Name of the screen before the step and after it. */
   screen: string
+  after: string
+  /** The screen after was not seen before in this segment. */
+  newScreen: boolean
   /** What was done, e.g. `tap "Log In" (#4)`. */
   action: string
   status: api.ExplorationStepStatus
-  /** Text on the screen after the step. */
+  /** Text that appeared on the screen with the step. */
   textsAfter: string[]
   /** Expectation candidates for this step, numbered from 0 (the Recorder's suggestions). */
   candidates: string[]
+  /** `never_tap`, `mcp_value`, `invented_text` (the system sets what they mean for a test case). */
+  flags: api.StepFlag[]
 }
 
 export interface ManualCaseInput {

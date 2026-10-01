@@ -7,6 +7,7 @@ import {
   type ScreenElement,
   type ScreenInput,
   type ToolSet,
+  type TraceStepInput,
   type WriteTestInput,
 } from '../brain'
 import { decidePrompt, describePrompt, writeTestPrompt } from '../prompts'
@@ -106,47 +107,55 @@ describe('fake adapter scenario (research R2)', () => {
     expect(fakeDecide(decide(s, { goal: 'until "Checkout"' }))).toMatchObject({ action: 'tap' })
   })
 
-  it('writes one flow per segment, keeping the Recorder suggestion', () => {
+  it('writes one flow per screen a segment reached first, keeping the Recorder suggestion', () => {
+    const step = (over: Partial<TraceStepInput> & Pick<TraceStepInput, 'n'>): TraceStepInput => ({
+      segment: 1,
+      screen: 'Catalog',
+      after: 'Catalog',
+      newScreen: false,
+      action: 'tap',
+      status: 'done',
+      textsAfter: [],
+      candidates: [],
+      flags: [],
+      ...over,
+    })
     const input: WriteTestInput = {
       kind: 'explore',
       maxTests: 5,
       steps: [
-        {
+        step({
           n: 1,
-          segment: 1,
-          screen: 'Catalog',
           action: 'tap "Backpack" (#2)',
-          status: 'done',
+          after: 'Details',
+          newScreen: true,
           textsAfter: ['$29.99'],
           candidates: ['visible_text "$29.99"'],
-        },
-        {
-          n: 2,
-          segment: 1,
-          screen: 'Details',
-          action: 'back',
-          status: 'refused',
-          textsAfter: [],
-          candidates: [],
-        },
-        {
-          n: 3,
+        }),
+        step({ n: 2, screen: 'Details', action: 'back', status: 'refused' }),
+        step({ n: 3, screen: 'Details', action: 'back', after: 'Catalog' }),
+        step({
+          n: 4,
           segment: 2,
-          screen: 'Catalog',
           action: 'tap "Menu" (#1)',
-          status: 'done',
+          after: 'Menu',
+          newScreen: true,
           textsAfter: ['Log In'],
-          candidates: [],
-        },
+        }),
       ],
     }
     const plan = fakeWrite(input)
     expect(plan.flows.map((f) => [f.slug, f.segment, f.end_step, f.expects])).toEqual([
-      ['flow-1', 1, 1, [{ step: 1, candidate: 0 }]],
-      ['flow-2', 2, 3, [{ step: 3, visible_text: 'Log In' }]],
+      ['open-details', 1, 1, [{ step: 1, candidate: 0 }]],
+      ['open-menu', 2, 4, [{ step: 4, visible_text: 'Log In' }]],
     ])
     expect(testPlanSchema.parse(plan)).toEqual(plan)
     expect(fakeWrite({ ...input, maxTests: 1 }).flows).toHaveLength(1)
+    // A goal: one flow, the last segment to its last done step.
+    const goal = fakeWrite({ ...input, kind: 'prompt', goal: 'Open the menu' })
+    expect(goal.flows.map((f) => [f.slug, f.segment, f.end_step])).toEqual([
+      ['open-the-menu', 2, 4],
+    ])
     const imported = fakeWrite({ ...input, kind: 'import', steps: [] })
     expect(testPlanSchema.safeParse(imported).success).toBe(true)
     expect(imported.outcome).toBe('app_mismatch')

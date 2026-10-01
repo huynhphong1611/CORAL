@@ -118,17 +118,23 @@ describe('prompts (research R6, contracts/brain.md §2)', () => {
             n: 1,
             segment: 1,
             screen: 'Catalog',
+            after: 'Menu',
+            newScreen: true,
             action: 'tap "View menu" (#1)',
             status: 'done',
             textsAfter: ['Log In'],
             candidates: ['visible_text "Log In"'],
+            flags: [],
           },
         ],
       },
       knowledge,
     )
     const text = prompt.messages[0]?.role === 'user' ? prompt.messages[0].text : ''
-    expect(text).toContain('1. [segment 1] on "Catalog": tap "View menu" (#1) (done)')
+    expect(text).toContain(
+      '1. [segment 1] on "Catalog": tap "View menu" (#1) (done) → "Menu" (new screen)',
+    )
+    expect(text).toContain('new text: "Log In"')
     expect(text).toContain('candidate 0: visible_text "Log In"')
     expect(prompt.system.volatile).toContain('Step 1: Open menu → expected: Log In shows')
     expect(prompt.system.volatile).toContain('at most 1 flow(s)')

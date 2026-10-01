@@ -290,9 +290,9 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 **Independent Test**: exploration trên thiết bị giả + brain `fake` → ≥ 3 test case `active`; chạy lại mỗi cái 3/3; mọi locator khớp element trong snapshot của trace (quickstart §3).
 
-- [ ] T037 [US3] Prompt `packages/brain/src/prompts/writer.ts` + `Brain.writeTest` (`TestPlan`, contracts/brain.md §3).
+- [x] T037 [US3] Prompt `packages/brain/src/prompts/writer.ts` + `Brain.writeTest` (`TestPlan`, contracts/brain.md §3).
   - Đầu vào gồm: các đoạn trace (bước, thao tác, màn trước/sau, chữ mới, đề xuất Recorder, cờ), `max_tests`, mục tiêu hoặc test case thủ công (import).
-  - Adapter `fake`: mỗi đoạn một flow tới bước cuối có màn mới.
+  - Adapter `fake`: khám phá tự do → mỗi màn hình một đoạn tới lần đầu (bước có màn mới) thành một flow "open <màn>", tối đa `max_tests` (đủ ≥ 3 test cho DoD trên thiết bị giả); có mục tiêu/import → một flow, đoạn cuối tới bước làm được cuối cùng.
 
   Test `writer-prompt.test.ts`: chỉ số bước; không có locator trong prompt ra; ≤ `max_tests`.
 - [ ] T038 [US3] Lắp YAML `apps/server/src/writer/assemble.ts` (research R12):
