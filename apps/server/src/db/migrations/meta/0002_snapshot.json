@@ -100,12 +100,8 @@
           "name": "agents_tenant_id_tenants_id_fk",
           "tableFrom": "agents",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -203,12 +199,8 @@
           "name": "apps_tenant_id_tenants_id_fk",
           "tableFrom": "apps",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -216,12 +208,8 @@
           "name": "apps_project_id_projects_id_fk",
           "tableFrom": "apps",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -314,12 +302,8 @@
           "name": "audit_log_tenant_id_tenants_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -492,12 +476,8 @@
           "name": "brain_calls_tenant_id_tenants_id_fk",
           "tableFrom": "brain_calls",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -613,12 +593,8 @@
           "name": "builds_tenant_id_tenants_id_fk",
           "tableFrom": "builds",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -626,12 +602,8 @@
           "name": "builds_app_id_apps_id_fk",
           "tableFrom": "builds",
           "tableTo": "apps",
-          "columnsFrom": [
-            "app_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["app_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -639,12 +611,8 @@
           "name": "builds_uploaded_by_users_id_fk",
           "tableFrom": "builds",
           "tableTo": "users",
-          "columnsFrom": [
-            "uploaded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["uploaded_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -769,12 +737,8 @@
           "name": "device_commands_tenant_id_tenants_id_fk",
           "tableFrom": "device_commands",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -782,12 +746,8 @@
           "name": "device_commands_device_id_devices_id_fk",
           "tableFrom": "device_commands",
           "tableTo": "devices",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -795,12 +755,8 @@
           "name": "device_commands_live_session_id_live_sessions_id_fk",
           "tableFrom": "device_commands",
           "tableTo": "live_sessions",
-          "columnsFrom": [
-            "live_session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["live_session_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -808,12 +764,8 @@
           "name": "device_commands_recording_id_recordings_id_fk",
           "tableFrom": "device_commands",
           "tableTo": "recordings",
-          "columnsFrom": [
-            "recording_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["recording_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -821,12 +773,8 @@
           "name": "device_commands_user_id_users_id_fk",
           "tableFrom": "device_commands",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -953,12 +901,8 @@
           "name": "devices_tenant_id_tenants_id_fk",
           "tableFrom": "devices",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -966,12 +910,8 @@
           "name": "devices_agent_id_agents_id_fk",
           "tableFrom": "devices",
           "tableTo": "agents",
-          "columnsFrom": [
-            "agent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["agent_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1123,12 +1063,8 @@
           "name": "exploration_steps_tenant_id_tenants_id_fk",
           "tableFrom": "exploration_steps",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1136,12 +1072,8 @@
           "name": "exploration_steps_exploration_id_explorations_id_fk",
           "tableFrom": "exploration_steps",
           "tableTo": "explorations",
-          "columnsFrom": [
-            "exploration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exploration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1149,12 +1081,8 @@
           "name": "exploration_steps_brain_call_id_brain_calls_id_fk",
           "tableFrom": "exploration_steps",
           "tableTo": "brain_calls",
-          "columnsFrom": [
-            "brain_call_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brain_call_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1355,12 +1283,8 @@
           "name": "explorations_tenant_id_tenants_id_fk",
           "tableFrom": "explorations",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1368,12 +1292,8 @@
           "name": "explorations_project_id_projects_id_fk",
           "tableFrom": "explorations",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1381,12 +1301,8 @@
           "name": "explorations_app_id_apps_id_fk",
           "tableFrom": "explorations",
           "tableTo": "apps",
-          "columnsFrom": [
-            "app_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["app_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1394,12 +1310,8 @@
           "name": "explorations_build_id_builds_id_fk",
           "tableFrom": "explorations",
           "tableTo": "builds",
-          "columnsFrom": [
-            "build_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["build_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1407,12 +1319,8 @@
           "name": "explorations_device_id_devices_id_fk",
           "tableFrom": "explorations",
           "tableTo": "devices",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1420,12 +1328,8 @@
           "name": "explorations_user_id_users_id_fk",
           "tableFrom": "explorations",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1433,12 +1337,8 @@
           "name": "explorations_lease_id_leases_id_fk",
           "tableFrom": "explorations",
           "tableTo": "leases",
-          "columnsFrom": [
-            "lease_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lease_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1446,12 +1346,8 @@
           "name": "explorations_import_item_id_import_items_id_fk",
           "tableFrom": "explorations",
           "tableTo": "import_items",
-          "columnsFrom": [
-            "import_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["import_item_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1562,12 +1458,8 @@
           "name": "findings_tenant_id_tenants_id_fk",
           "tableFrom": "findings",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1575,12 +1467,8 @@
           "name": "findings_project_id_projects_id_fk",
           "tableFrom": "findings",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1588,12 +1476,8 @@
           "name": "findings_exploration_id_explorations_id_fk",
           "tableFrom": "findings",
           "tableTo": "explorations",
-          "columnsFrom": [
-            "exploration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exploration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1723,12 +1607,8 @@
           "name": "import_items_tenant_id_tenants_id_fk",
           "tableFrom": "import_items",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1736,12 +1616,8 @@
           "name": "import_items_import_job_id_import_jobs_id_fk",
           "tableFrom": "import_items",
           "tableTo": "import_jobs",
-          "columnsFrom": [
-            "import_job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["import_job_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1749,12 +1625,8 @@
           "name": "import_items_exploration_id_explorations_id_fk",
           "tableFrom": "import_items",
           "tableTo": "explorations",
-          "columnsFrom": [
-            "exploration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exploration_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1762,12 +1634,8 @@
           "name": "import_items_test_case_id_test_cases_id_fk",
           "tableFrom": "import_items",
           "tableTo": "test_cases",
-          "columnsFrom": [
-            "test_case_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["test_case_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1958,12 +1826,8 @@
           "name": "import_jobs_tenant_id_tenants_id_fk",
           "tableFrom": "import_jobs",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1971,12 +1835,8 @@
           "name": "import_jobs_project_id_projects_id_fk",
           "tableFrom": "import_jobs",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1984,12 +1844,8 @@
           "name": "import_jobs_app_id_apps_id_fk",
           "tableFrom": "import_jobs",
           "tableTo": "apps",
-          "columnsFrom": [
-            "app_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["app_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1997,12 +1853,8 @@
           "name": "import_jobs_build_id_builds_id_fk",
           "tableFrom": "import_jobs",
           "tableTo": "builds",
-          "columnsFrom": [
-            "build_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["build_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2010,12 +1862,8 @@
           "name": "import_jobs_device_id_devices_id_fk",
           "tableFrom": "import_jobs",
           "tableTo": "devices",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2023,12 +1871,8 @@
           "name": "import_jobs_created_by_users_id_fk",
           "tableFrom": "import_jobs",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2131,12 +1975,8 @@
           "name": "leases_tenant_id_tenants_id_fk",
           "tableFrom": "leases",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2144,12 +1984,8 @@
           "name": "leases_device_id_devices_id_fk",
           "tableFrom": "leases",
           "tableTo": "devices",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2253,12 +2089,8 @@
           "name": "live_sessions_tenant_id_tenants_id_fk",
           "tableFrom": "live_sessions",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2266,12 +2098,8 @@
           "name": "live_sessions_device_id_devices_id_fk",
           "tableFrom": "live_sessions",
           "tableTo": "devices",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2279,12 +2107,8 @@
           "name": "live_sessions_user_id_users_id_fk",
           "tableFrom": "live_sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2292,12 +2116,8 @@
           "name": "live_sessions_lease_id_leases_id_fk",
           "tableFrom": "live_sessions",
           "tableTo": "leases",
-          "columnsFrom": [
-            "lease_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lease_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2349,12 +2169,8 @@
           "name": "memberships_tenant_id_tenants_id_fk",
           "tableFrom": "memberships",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2362,12 +2178,8 @@
           "name": "memberships_user_id_users_id_fk",
           "tableFrom": "memberships",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2375,10 +2187,7 @@
       "compositePrimaryKeys": {
         "memberships_tenant_id_user_id_pk": {
           "name": "memberships_tenant_id_user_id_pk",
-          "columns": [
-            "tenant_id",
-            "user_id"
-          ]
+          "columns": ["tenant_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -2439,12 +2248,8 @@
           "name": "project_files_tenant_id_tenants_id_fk",
           "tableFrom": "project_files",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2452,12 +2257,8 @@
           "name": "project_files_project_id_projects_id_fk",
           "tableFrom": "project_files",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2465,10 +2266,7 @@
       "compositePrimaryKeys": {
         "project_files_project_id_kind_pk": {
           "name": "project_files_project_id_kind_pk",
-          "columns": [
-            "project_id",
-            "kind"
-          ]
+          "columns": ["project_id", "kind"]
         }
       },
       "uniqueConstraints": {},
@@ -2545,12 +2343,8 @@
           "name": "projects_tenant_id_tenants_id_fk",
           "tableFrom": "projects",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2728,12 +2522,8 @@
           "name": "recordings_tenant_id_tenants_id_fk",
           "tableFrom": "recordings",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2741,12 +2531,8 @@
           "name": "recordings_project_id_projects_id_fk",
           "tableFrom": "recordings",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2754,12 +2540,8 @@
           "name": "recordings_app_id_apps_id_fk",
           "tableFrom": "recordings",
           "tableTo": "apps",
-          "columnsFrom": [
-            "app_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["app_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2767,12 +2549,8 @@
           "name": "recordings_build_id_builds_id_fk",
           "tableFrom": "recordings",
           "tableTo": "builds",
-          "columnsFrom": [
-            "build_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["build_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2780,12 +2558,8 @@
           "name": "recordings_device_id_devices_id_fk",
           "tableFrom": "recordings",
           "tableTo": "devices",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2793,12 +2567,8 @@
           "name": "recordings_user_id_users_id_fk",
           "tableFrom": "recordings",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2806,12 +2576,8 @@
           "name": "recordings_lease_id_leases_id_fk",
           "tableFrom": "recordings",
           "tableTo": "leases",
-          "columnsFrom": [
-            "lease_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lease_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2819,12 +2585,8 @@
           "name": "recordings_test_case_id_test_cases_id_fk",
           "tableFrom": "recordings",
           "tableTo": "test_cases",
-          "columnsFrom": [
-            "test_case_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["test_case_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2910,12 +2672,8 @@
           "name": "refresh_tokens_user_id_users_id_fk",
           "tableFrom": "refresh_tokens",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3026,12 +2784,8 @@
           "name": "run_items_tenant_id_tenants_id_fk",
           "tableFrom": "run_items",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3039,12 +2793,8 @@
           "name": "run_items_run_id_runs_id_fk",
           "tableFrom": "run_items",
           "tableTo": "runs",
-          "columnsFrom": [
-            "run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3052,12 +2802,8 @@
           "name": "run_items_test_case_id_test_cases_id_fk",
           "tableFrom": "run_items",
           "tableTo": "test_cases",
-          "columnsFrom": [
-            "test_case_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["test_case_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3206,12 +2952,8 @@
           "name": "run_steps_tenant_id_tenants_id_fk",
           "tableFrom": "run_steps",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3219,12 +2961,8 @@
           "name": "run_steps_run_item_id_run_items_id_fk",
           "tableFrom": "run_steps",
           "tableTo": "run_items",
-          "columnsFrom": [
-            "run_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["run_item_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3360,12 +3098,8 @@
           "name": "runs_tenant_id_tenants_id_fk",
           "tableFrom": "runs",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3373,12 +3107,8 @@
           "name": "runs_project_id_projects_id_fk",
           "tableFrom": "runs",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3386,12 +3116,8 @@
           "name": "runs_build_id_builds_id_fk",
           "tableFrom": "runs",
           "tableTo": "builds",
-          "columnsFrom": [
-            "build_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["build_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3399,12 +3125,8 @@
           "name": "runs_device_id_devices_id_fk",
           "tableFrom": "runs",
           "tableTo": "devices",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3412,12 +3134,8 @@
           "name": "runs_validation_of_test_cases_id_fk",
           "tableFrom": "runs",
           "tableTo": "test_cases",
-          "columnsFrom": [
-            "validation_of"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["validation_of"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3425,12 +3143,8 @@
           "name": "runs_created_by_users_id_fk",
           "tableFrom": "runs",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3649,12 +3363,8 @@
           "name": "test_cases_tenant_id_tenants_id_fk",
           "tableFrom": "test_cases",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3662,12 +3372,8 @@
           "name": "test_cases_project_id_projects_id_fk",
           "tableFrom": "test_cases",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3675,12 +3381,8 @@
           "name": "test_cases_updated_by_users_id_fk",
           "tableFrom": "test_cases",
           "tableTo": "users",
-          "columnsFrom": [
-            "updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["updated_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3805,12 +3507,8 @@
           "name": "tool_calls_tenant_id_tenants_id_fk",
           "tableFrom": "tool_calls",
           "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tenant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3818,12 +3516,8 @@
           "name": "tool_calls_brain_call_id_brain_calls_id_fk",
           "tableFrom": "tool_calls",
           "tableTo": "brain_calls",
-          "columnsFrom": [
-            "brain_call_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brain_call_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
