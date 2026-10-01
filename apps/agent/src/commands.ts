@@ -10,6 +10,7 @@ import {
   RecorderError,
   SWIPE_MS,
   inspect,
+  observe,
   prepare,
   record,
   type RecorderDeps,
@@ -83,7 +84,12 @@ export class DeviceCommands {
       }
       // Secret values are masked from now on; plain typed text is simply never logged.
       if (command.kind === 'type') this.options.secrets?.add(command.redact)
-      if (command.kind === 'prepare' || command.kind === 'record' || command.kind === 'inspect') {
+      if (
+        command.kind === 'prepare' ||
+        command.kind === 'record' ||
+        command.kind === 'inspect' ||
+        command.kind === 'observe'
+      ) {
         // Every secret value of the tenant: masked in the snapshot's tree.json and in logs.
         this.options.secrets?.add(command.redact)
       }
@@ -91,7 +97,10 @@ export class DeviceCommands {
         this.options.secrets?.add(command.action.redact)
       }
       const appId = 'package' in command ? command.package : undefined
-      if (appId && (command.kind === 'prepare' || command.kind === 'record')) {
+      if (
+        appId &&
+        (command.kind === 'prepare' || command.kind === 'record' || command.kind === 'observe')
+      ) {
         this.packages.set(udid, appId)
       }
       const lease = await this.options.sessions.acquire(udid, appId ? { appId } : {})
@@ -138,11 +147,12 @@ export class DeviceCommands {
     driver: DeviceDriver & Partial<RemoteControl>,
     command: AgentCommand,
   ): Promise<Record<string, unknown> | undefined> {
-    if (command.kind === 'observe') {
-      // The Explorer's look at the screen comes with T018.
-      throw new CommandError('unsupported', 'observe is not supported by this agent yet')
-    }
-    if (command.kind !== 'prepare' && command.kind !== 'record' && command.kind !== 'inspect') {
+    if (
+      command.kind !== 'prepare' &&
+      command.kind !== 'record' &&
+      command.kind !== 'inspect' &&
+      command.kind !== 'observe'
+    ) {
       await control(driver, command)
       return undefined
     }
@@ -169,6 +179,8 @@ export class DeviceCommands {
         return record(deps, command)
       case 'inspect':
         return inspect(deps, { x: command.x, y: command.y }, this.packages.get(udid))
+      case 'observe':
+        return observe(deps, command)
     }
   }
 }

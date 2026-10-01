@@ -120,21 +120,6 @@ describe('DeviceCommands (US3, FR-008)', () => {
     expect(lines.join('\n')).not.toContain('s3cr3t-pass')
   })
 
-  it('answers observe as unsupported until the Explorer support lands (T018)', async () => {
-    const { run } = setup()
-    const url = 'http://s3.test/x?X-Amz-Signature=s'
-    const observe = { screen: url, ai: url, tree: url }
-    expect(
-      await run({
-        kind: 'observe',
-        package: SAMPLE_APP,
-        popups_yaml: '',
-        upload: observe,
-        redact: [],
-      }),
-    ).toMatchObject({ ok: false, error: { code: 'unsupported' } })
-  })
-
   it('refuses while a job runs on the device', async () => {
     const busy = setup({ busy: true })
     expect(await busy.run({ kind: 'back' })).toMatchObject({
@@ -145,6 +130,16 @@ describe('DeviceCommands (US3, FR-008)', () => {
       ok: false,
       error: { code: 'device_busy' },
     })
+    const url = 'http://s3.test/x?X-Amz-Signature=s'
+    expect(
+      await busy.run({
+        kind: 'observe',
+        package: SAMPLE_APP,
+        popups_yaml: '',
+        upload: { screen: url, ai: url, tree: url },
+        redact: [],
+      }),
+    ).toMatchObject({ ok: false, error: { code: 'device_busy' } })
     expect(busy.driver.calls).toEqual([])
   })
 

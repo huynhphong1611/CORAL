@@ -132,7 +132,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `TargetLifecycle.foregroundActivity?()`: Android qua `dumpsys activity activities` (dòng `mResumedActivity`/`topResumedActivity`); FakeDriver trả tên màn hình giả.
 
   Test `downscale.test.ts` (1080×2400 → ≤ 1024 cạnh dài, JPEG hợp lệ), `lifecycle.test.ts` (parse đầu ra dumpsys mẫu của Android 14); 🔌 ca mới trong `android-driver.device.test.ts` (activity của My Demo App).
-- [ ] T018 Agent: lệnh `observe` trong `apps/agent/src/recorder.ts` + `commands.ts` (contracts/agent-ws-phase3.md, research R7).
+- [x] T018 Agent: lệnh `observe` trong `apps/agent/src/recorder.ts` + `commands.ts` (contracts/agent-ws-phase3.md, research R7).
   1. Chờ ổn định; popup guard ≤ 3 popup (D25, tôn trọng `never_tap`).
   2. Chụp PNG một lần → `screen.jpg` q80 + `ai.jpg` (≤ 1024, q70) + `tree.json` đã che `redact`, tải lên URL presigned.
   3. Trả: kích thước, `package`, `activity`, `app_running`, `crash` (nhận diện như `APP_CRASHED`/`APP_NOT_RESPONDING` của runner, log ≤ 4 KB đã che secret), `popups_handled`, cây.
