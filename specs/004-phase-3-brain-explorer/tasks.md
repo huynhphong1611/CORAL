@@ -103,7 +103,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `import_items` (unique `(import_job_id, n)`): `status` ∈ `pending`/`running`/`active`/`draft`/`not_processed`; `reason` ∈ `needs_human`/`ambiguous`/`app_mismatch`/`validation_failed`/`duplicate`.
 
   Test `schema.int.test.ts` ca mới (enum sai bị check constraint từ chối; unique `n`).
-- [ ] T013 Repository có tenant scope trong `apps/server/src/repos/`: `explorations.ts` (+ steps, findings), `brain-calls.ts` (ghi lời gọi, tổng chi phí tenant trong ngày UTC, tổng theo `ref`), `tool-calls.ts`, `imports.ts` (jobs + items); `test-cases.ts` thêm cột mới. Test `repos-phase3.int.test.ts`: tenant khác không đọc được; tổng chi phí theo ngày UTC đúng qua nửa đêm.
+- [x] T013 Repository có tenant scope trong `apps/server/src/repos/`: `explorations.ts` (+ steps, findings), `brain-calls.ts` (ghi lời gọi, tổng chi phí tenant trong ngày UTC, tổng theo `ref`, usage; gồm cả `tool_calls` thay cho file `tool-calls.ts` riêng), `imports.ts` (jobs + items); `test-cases.ts` thêm cột mới. Test `repos-phase3.int.test.ts`: tenant khác không đọc được; tổng chi phí theo ngày UTC đúng qua nửa đêm.
 - [ ] T014 Lõi brain `packages/brain/src/` (contracts/brain.md §1, §5):
   - `brain.ts`: `Brain`, `CallContext`, `ProviderAdapter`, `ProviderError`.
   - `structured.ts`: Zod → JSON Schema; kiểm câu trả lời bằng Zod; hỏi lại ≤ 2 lần kèm lỗi rút gọn → `BrainOutputError`; vòng công cụ ≤ 5 lượt, lượt cuối bỏ công cụ và chỉ dẫn trả quyết định cuối.

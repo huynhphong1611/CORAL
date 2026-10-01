@@ -29,13 +29,56 @@ export function testCasesRepo(
   const inTenant = eq(testCases.tenantId, tenantId)
 
   return {
-    async list(projectId: string) {
+    async list(
+      projectId: string,
+      filter: { source?: TestCaseRow['source']; status?: TestCaseRow['status'] } = {},
+    ) {
       await projects.get(projectId)
       return db
         .select()
         .from(testCases)
-        .where(and(inTenant, eq(testCases.projectId, projectId)))
+        .where(
+          and(
+            inTenant,
+            eq(testCases.projectId, projectId),
+            filter.source ? eq(testCases.source, filter.source) : undefined,
+            filter.status ? eq(testCases.status, filter.status) : undefined,
+          ),
+        )
         .orderBy(asc(testCases.slug))
+    },
+
+    /**
+     * Status and its reasons, which live only in the DB (D15): a person's PATCH, or the result of
+     * the validation runs of an AI-written test case (D41).
+     */
+    async setStatus(
+      id: string,
+      patch: {
+        status: TestCaseRow['status']
+        draftReason?: TestCaseRow['draftReason']
+        flags?: TestCaseRow['flags']
+        validation?: TestCaseRow['validation']
+        validatedAt?: Date | null
+        userId?: string
+      },
+    ): Promise<TestCaseRow> {
+      const { userId, ...columns } = patch
+      const [row] = await db
+        .update(testCases)
+        .set({
+          ...columns,
+          // Leaving draft clears why it was a draft.
+          ...(patch.status !== 'draft' && patch.draftReason === undefined
+            ? { draftReason: null }
+            : {}),
+          ...(userId ? { updatedBy: userId } : {}),
+          updatedAt: new Date(),
+        })
+        .where(and(inTenant, eq(testCases.id, id)))
+        .returning()
+      if (!row) throw notFound('test case')
+      return row
     },
 
     async get(id: string): Promise<TestCaseRow> {
