@@ -530,7 +530,8 @@ export class ExplorationService {
 
     for (;;) {
       const limit = this.limitReached(s)
-      if (limit) return limit
+      // With a goal, the budget ran out before the AI reached it (US5).
+      if (limit) return s.row.kind === 'prompt' ? 'goal_not_reached' : limit
       const outcome = await this.step(run)
       if (outcome) return outcome
       if (s.failures >= MAX_FAILURES_IN_A_ROW) {
@@ -1185,7 +1186,9 @@ export class ExplorationService {
           : 'done',
     )
     const final = failed ? 'failed' : reason === 'user_stopped' ? 'stopped' : 'done'
-    const writer = !failed ? this.options.writer : undefined
+    // A goal not reached leads to no test case (US5): the trace and the AI's reason are the report.
+    const writes = !failed && (row.kind !== 'prompt' || reason === 'goal_reached')
+    const writer = writes ? this.options.writer : undefined
     await repo.update(
       row.id,
       {

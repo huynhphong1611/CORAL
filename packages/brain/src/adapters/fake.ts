@@ -104,6 +104,30 @@ export interface FakeKnowledge {
   skills?: { name: string; description: string }[]
 }
 
+/** Words of a goal that say where to go (`Open the cart…` → cart), common words left out. */
+const GOAL_NOISE = new Set([
+  'open',
+  'then',
+  'until',
+  'with',
+  'your',
+  'from',
+  'into',
+  'that',
+  'this',
+])
+function goalWords(goal: string | undefined): string[] {
+  return lower(goal)
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 4 && !GOAL_NOISE.has(w))
+}
+
+/** An element whose label shares a word with the goal ("Displays … in your cart" for a cart). */
+function towardGoal(element: ScreenElement, words: readonly string[]): boolean {
+  const label = lower([element.text, element.desc].filter(Boolean).join(' '))
+  return words.some((w) => label.split(/[^a-z0-9]+/).includes(w))
+}
+
 /** An element a skill speaks of: its label is in a skill's description ("Log In" → login skill). */
 function mentioned(element: ScreenElement, skills: FakeKnowledge['skills'] = []): boolean {
   const label = lower(element.text ?? element.desc).trim()
@@ -126,6 +150,14 @@ export function fakeDecide(
       return { action: 'done', goal_reached: true, reason: reason(`"${target}" is on the screen`) }
     }
   }
+  // The way to the goal was refused (a never_tap button): it cannot be reached (US5).
+  if (input.goal && input.refused) {
+    return {
+      action: 'done',
+      goal_reached: false,
+      reason: reason(`The goal needs a forbidden action: ${input.refused}`),
+    }
+  }
   if (input.onlyBack) return { action: 'back', reason: 'Maximum depth reached' }
   // A gullible AI (FR-014 tests): text on a screen with nothing listed tells it to tap, so it taps
   // the middle of the screen — once; the safety checks are what must stop it.
@@ -133,10 +165,12 @@ export function fakeDecide(
     return { action: 'tap_point', point_pct: [0.5, 0.5], reason: 'The screen says to tap it' }
   }
   const fresh = screen.elements.filter((e) => e.flags.includes('new') && !e.flags.includes('dead'))
-  // Following the project (US4): with test data, fill a form before leaving it; then what a
-  // skill speaks of; then the first element not tried yet.
+  // Following the project (US4): with test data, fill a form before leaving it; then what the
+  // goal speaks of (US5); then what a skill speaks of; then the first element not tried yet.
+  const words = goalWords(input.goal)
   const next =
     (knowledge.testData.length > 0 ? fresh.find((e) => e.flags.includes('field')) : undefined) ??
+    fresh.find((e) => towardGoal(e, words)) ??
     fresh.find((e) => mentioned(e, knowledge.skills)) ??
     fresh[0]
   if (!next) return { action: 'back', reason: 'Nothing new on this screen' }
@@ -183,6 +217,9 @@ export function fakeWrite(input: WriteTestInput): TestPlan {
     const last = steps[steps.length - 1] ?? done[0]
     const withExpect = [...steps].reverse().find((s) => expectOf(s).length > 0)
     const name = input.manualCase?.title ?? input.goal ?? `Flow to ${last?.after ?? 'the end'}`
+    // The goal's quoted text, on the screen the last step reached: the goal is reached.
+    const target = goalTarget(input.goal)
+    const reached = target && last ? [{ step: last.n, visible_text: target }] : []
     return {
       flows: [
         {
@@ -191,7 +228,9 @@ export function fakeWrite(input: WriteTestInput): TestPlan {
           intent: (input.goal ?? input.manualCase?.title ?? name).slice(0, 300),
           segment,
           end_step: last?.n ?? 1,
-          expects: withExpect ? expectOf(withExpect) : [],
+          expects: [...(withExpect ? expectOf(withExpect) : []), ...reached].filter(
+            (e, i, all) => all.findIndex((o) => JSON.stringify(o) === JSON.stringify(e)) === i,
+          ),
         },
       ],
       outcome: 'written',

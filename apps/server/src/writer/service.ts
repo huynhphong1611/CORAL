@@ -47,6 +47,21 @@ export interface Written {
 }
 
 /** Why the writer gave no plan, as the report says it. */
+/**
+ * A test from a goal (US5) is written from the way there only: the steps of the segment that
+ * reached the goal, up to the AI's `done` (the screen the goal was reached on, no action).
+ * Undefined when the goal was not reached.
+ */
+export function goalPath<T extends { n: number; segment: number; decision: unknown }>(
+  rows: readonly T[],
+): T[] | undefined {
+  const done = rows.findLast((row) => {
+    const decision = row.decision as { action?: unknown; goal_reached?: unknown } | null
+    return decision?.action === 'done' && decision.goal_reached === true
+  })
+  return done ? rows.filter((row) => row.segment === done.segment && row.n <= done.n) : undefined
+}
+
 function writerError(error: unknown): api.WriterReport['error'] | undefined {
   if (error instanceof BudgetExceededError) return 'budget'
   if (error instanceof BrainUnavailableError) return 'ai_unavailable'
@@ -115,7 +130,8 @@ export class WriterService {
     const { db, store } = this.options
     const { tenantId, projectId } = exploration
     const repo = explorationsRepo(db, tenantId)
-    const rows = await repo.steps(exploration.id, { limit: 1000 })
+    const trace = await repo.steps(exploration.id, { limit: 1000 })
+    const rows = exploration.kind === 'prompt' ? (goalPath(trace) ?? []) : trace
     const written: Written = { testCases: [], report: { flows: 0, skipped: [], error: null } }
     if (rows.length === 0) return written
     const app = await projectsRepo(db, tenantId, store).getApp(exploration.appId)
@@ -183,7 +199,24 @@ export class WriterService {
       }
     }
 
-    const flows = plan.flows.slice(0, exploration.maxTests)
+    // A goal: one test, the whole way to it (detours are cut by `assemble`); what the writer
+    // expects on the screen of `done` is expected after the last step.
+    const lastActed = writerRows.findLast((row) => row.status === 'done' && row.step !== null)
+    const flows =
+      exploration.kind === 'prompt' && lastActed
+        ? plan.flows.slice(0, 1).map((flow) => ({
+            ...flow,
+            segment: lastActed.segment,
+            end_step: lastActed.n,
+            expects: flow.expects.flatMap((e) =>
+              e.step <= lastActed.n
+                ? [e]
+                : e.visible_text !== undefined
+                  ? [{ step: lastActed.n, visible_text: e.visible_text }]
+                  : [],
+            ),
+          }))
+        : plan.flows.slice(0, exploration.maxTests)
     written.report.flows = flows.length
     const skip = (
       flow: (typeof flows)[number],

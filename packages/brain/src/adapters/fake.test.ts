@@ -147,6 +147,28 @@ describe('fake adapter scenario (research R2)', () => {
     expect(fakeDecide(decide(s, { goal: 'until "Checkout"' }))).toMatchObject({ action: 'tap' })
   })
 
+  it('heads for what the goal speaks of, and gives up when the way there is refused', () => {
+    const catalog = screen([
+      el(1, ['new'], { desc: 'View menu' }),
+      el(2, ['new'], { desc: 'Displays number of items in your cart' }),
+    ])
+    expect(fakeDecide(decide(catalog, { goal: 'Open the cart until "My Cart"' }))).toMatchObject({
+      action: 'tap',
+      element: 2,
+    })
+    // Common words of the goal ("your", "open") lead nowhere.
+    expect(fakeDecide(decide(catalog, { goal: 'Open your profile' }))).toMatchObject({
+      element: 1,
+    })
+    expect(
+      fakeDecide(decide(catalog, { goal: 'Place the order', refused: 'never_tap: Place Order' })),
+    ).toEqual({
+      action: 'done',
+      goal_reached: false,
+      reason: 'The goal needs a forbidden action: never_tap: Place Order',
+    })
+  })
+
   it('writes one flow per screen a segment reached first, keeping the Recorder suggestion', () => {
     const step = (over: Partial<TraceStepInput> & Pick<TraceStepInput, 'n'>): TraceStepInput => ({
       segment: 1,
@@ -192,9 +214,9 @@ describe('fake adapter scenario (research R2)', () => {
     expect(testPlanSchema.parse(plan)).toEqual(plan)
     expect(fakeWrite({ ...input, maxTests: 1 }).flows).toHaveLength(1)
     // A goal: one flow, the last segment to its last done step.
-    const goal = fakeWrite({ ...input, kind: 'prompt', goal: 'Open the menu' })
-    expect(goal.flows.map((f) => [f.slug, f.segment, f.end_step])).toEqual([
-      ['open-the-menu', 2, 4],
+    const goal = fakeWrite({ ...input, kind: 'prompt', goal: 'Open the menu until "Log In"' })
+    expect(goal.flows.map((f) => [f.slug, f.segment, f.end_step, f.expects])).toEqual([
+      ['open-the-menu-until-log-in', 2, 4, [{ step: 4, visible_text: 'Log In' }]],
     ])
     const imported = fakeWrite({ ...input, kind: 'import', steps: [] })
     expect(testPlanSchema.safeParse(imported).success).toBe(true)

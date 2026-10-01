@@ -379,7 +379,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 **Independent Test**: Goal đạt được → một test case `ai_prompt` được xác thực; Goal cần nút `never_tap` → `goal_not_reached`, không có test `active` (quickstart §5).
 
-- [ ] T048 [US5] Chế độ mục tiêu:
+- [x] T048 [US5] Chế độ mục tiêu:
   - Explorer: `kind = prompt` khi có `goal`, `max_tests` mặc định 1; quyết định `done` → `goal_reached` hoặc `goal_not_reached` (kèm lý do của AI).
   - Hết ngân sách khi chưa đạt → `goal_not_reached`.
   - Writer: chỉ đoạn chứa đường đi tới bước `done`; bỏ nhánh đi lạc bằng đường ngắn nhất theo fingerprint; `source = ai_prompt`.
