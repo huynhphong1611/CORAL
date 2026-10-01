@@ -260,7 +260,7 @@ Mỗi mục: **Decision** / **Rationale** / **Alternatives**. Phiên bản thư 
      - bắt đầu bằng `launch` + `preconditions.app_state: fresh` (clarify 4: tự chứa);
      - chép các step đã ghi của đoạn từ đầu đoạn tới `end_step` (bỏ bước bị từ chối, popup);
      - gộp `tap #n` + `type` liền sau vào cùng ô thành một step `type` có `target`;
-     - bỏ vòng lặp đi-về (A→B→Back→A) bằng rút gọn theo fingerprint;
+     - bỏ vòng lặp đi-về (A→B→Back→A) bằng rút gọn theo fingerprint — chỉ khi nội dung app trên màn (cây, gồm chữ) trước và sau vòng giống hệt, vòng không có bước `type` và không chứa bước cuối của flow (thao tác "không có tác dụng" là vòng một bước);
      - kỳ vọng của AI **chỉ giữ** khi `checkExpect` của runner thỏa trên cây sau bước đó (FR-029); step chạm không còn kỳ vọng thì lấy đề xuất Recorder đầu tiên nếu có, không thì để cảnh báo `no_expect_after_tap`;
      - chữ secret thành `${secret:NAME}`.
   4. **Kiểm và lưu**:

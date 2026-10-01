@@ -295,7 +295,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - Adapter `fake`: khám phá tự do → mỗi màn hình một đoạn tới lần đầu (bước có màn mới) thành một flow "open <màn>", tối đa `max_tests` (đủ ≥ 3 test cho DoD trên thiết bị giả); có mục tiêu/import → một flow, đoạn cuối tới bước làm được cuối cùng.
 
   Test `writer-prompt.test.ts`: chỉ số bước; không có locator trong prompt ra; ≤ `max_tests`.
-- [ ] T038 [US3] Lắp YAML `apps/server/src/writer/assemble.ts` (research R12):
+- [x] T038 [US3] Lắp YAML `apps/server/src/writer/assemble.ts` (research R12):
   - Mở đầu: `launch` + `preconditions.app_state: fresh`.
   - Nội dung: chép step đã ghi của đoạn tới `end_step`, bỏ bước refused/popup.
   - Gộp và rút gọn: gộp `tap #n` + `type` cùng ô thành `type` có `target`; rút vòng đi-về theo fingerprint.
