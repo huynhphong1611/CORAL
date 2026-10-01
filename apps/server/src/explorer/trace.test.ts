@@ -14,7 +14,7 @@ const tap = (n: number, desc: string): Step => ({
   id: `s${n}`,
   action: 'tap',
   target: [{ image: `snap/recording/s${n}/element.png` }, { desc }],
-  expect: { visible_text: 'Menu' },
+  expect: [{ visible_text: 'Menu' }],
 })
 const row = (n: number, fingerprint: string, over: Partial<TraceRow> = {}): TraceRow => ({
   n,
