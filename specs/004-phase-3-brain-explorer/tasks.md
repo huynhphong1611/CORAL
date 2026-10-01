@@ -220,7 +220,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - chặn gửi form sau khi gõ dữ liệu tự đặt, trừ ô tìm kiếm/lọc (class `SearchView`/`SearchAutoComplete` hoặc id/hint/desc chứa `search|tìm|lọc|filter`) và `allow_submit`; Back luôn được.
 
   Test `safety.test.ts`: màn "dụ AI" (T020) → chọn Place Order bị từ chối; gõ tự đặt vào Sign up rồi Submit → `invented_submit`; tìm kiếm rồi bấm kết quả → ok; `test_data` từ rules → gửi được.
-- [ ] T029 [P] [US2] Frontier `apps/server/src/explorer/frontier.ts`:
+- [x] T029 [P] [US2] Frontier `apps/server/src/explorer/frontier.ts`:
   - theo fingerprint: element đã thử (khóa = locator đầu), element `dead` (thao tác xong cây không đổi);
   - độ sâu từ lần mở app gần nhất; `segment` tăng khi mở lại;
   - kẹt = 3 thao tác không đổi màn / rời app / app không chạy → gợi ý `back`, rồi `restart_app`.
