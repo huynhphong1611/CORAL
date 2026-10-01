@@ -601,6 +601,8 @@ export const explorations = pgTable(
     // Screens met so far with their names: the app map is written from them, even after a restart.
     screens: jsonb().$type<ExplorationScreen[]>().notNull().default([]),
     appmapCommit: text(),
+    // What the Test writer did with the flows it chose: those left out and why (D48).
+    writerReport: jsonb().$type<api.WriterReport>(),
     importItemId: uuid().references((): AnyPgColumn => importItems.id),
     createdAt: createdAt(),
     startedAt: timestamp({ withTimezone: true }),

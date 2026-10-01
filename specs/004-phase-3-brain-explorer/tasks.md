@@ -310,9 +310,10 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 - [x] T039 [US3] Dịch vụ `apps/server/src/writer/service.ts`: sau exploration (`writing`) gọi `writeTest` (tính vào ngân sách exploration; hết thì dừng, flow đã viết vẫn lưu) → `assemble`. Mỗi test case lưu **một** commit:
   - nội dung: `testcases/<slug>.yaml` + `snap/<slug>/<step_id>/{screen.jpg,tree.json,element.png}` chép từ S3 trace;
   - `test_cases` ghi `source` = `ai_explore` (khám phá tự do) hoặc `ai_prompt`, `source_ref` = `exploration:<id>`, `status` = `draft`, `flags`/`draft_reason` theo cờ;
-  - `stats.tests_written` cập nhật.
+  - `stats.tests_written` cập nhật;
+  - `explorations.writer_report` (D48, migration 0004): số flow AI chọn, flow bị bỏ (`duplicate` + `duplicate_of` / `invalid` / `no_steps`) và lỗi của Test writer; tab Test cases hiển thị (kịch bản 6–7 của US3).
 
-  Test `writer.int.test.ts`.
+  Test `writer.int.test.ts`, `generated-tests.test.tsx`.
 - [x] T040 [US3] Xác thực `apps/server/src/writer/validation.ts` (research R13):
   - Mỗi test case không có cờ chặn: run 1 `trigger = validation`, `validation_of = test_case_id`, cùng thiết bị + build; xong mới tạo run 2.
   - Cả hai `passed` → `active` + `validated_at`; fail → `draft`, `draft_reason = validation_failed`, `validation.runs[].failure_code/step_id`.

@@ -65,6 +65,8 @@ describe('Test writer (US3, T039)', { timeout: 120_000 }, () => {
     expect(written.length).toBeGreaterThanOrEqual(3)
     expect(written.length).toBeLessThanOrEqual(first.maxTests)
     expect(first.stats.tests_written).toBe(written.length)
+    // Every flow the writer chose became a test case: nothing in the report left out.
+    expect(first.writerReport).toEqual({ flows: written.length, skipped: [], error: null })
     for (const row of written) {
       expect(row).toMatchObject({ source: 'ai_explore', status: 'draft', flags: [] })
       const yaml = await testCases.readYaml(row)
@@ -124,5 +126,26 @@ describe('Test writer (US3, T039)', { timeout: 120_000 }, () => {
     expect(again.status).toBe('done')
     expect(again.stats.tests_written).toBe(0)
     expect((await repo.get(first.id)).stats.tests_written).toBeGreaterThanOrEqual(3)
+    // The report says which flows were already in the project, and as which test case (D48).
+    const report = again.writerReport
+    expect(report?.error).toBeNull()
+    expect(report?.flows).toBeGreaterThan(0)
+    expect(report?.skipped).toHaveLength(report?.flows ?? -1)
+    const slugs = (
+      await testCasesRepo(
+        server.db,
+        huynh.tenantId,
+        server.store,
+        projectsRepo(server.db, huynh.tenantId, server.store),
+      ).list(first.projectId, { sourceRef: `exploration:${first.id}` })
+    ).map((t) => t.slug)
+    for (const skipped of report?.skipped ?? []) {
+      expect(skipped.reason).toBe('duplicate')
+      expect(skipped.name).not.toBe('')
+      expect(slugs).toContain(skipped.duplicate_of)
+    }
+    // GET /explorations/:id carries it.
+    const detail = await server.call(huynh, { method: 'GET', url: `/explorations/${again.id}` })
+    expect(detail.body).toMatchObject({ writer_report: { skipped: report?.skipped } })
   })
 })

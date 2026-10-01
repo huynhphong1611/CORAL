@@ -42,6 +42,7 @@ function exploration(over: Partial<api.ExplorationDetail> = {}): api.Exploration
     appmap: { screens: [], transitions: [] },
     test_cases: [],
     findings: [],
+    writer_report: null,
     ...over,
   }
 }

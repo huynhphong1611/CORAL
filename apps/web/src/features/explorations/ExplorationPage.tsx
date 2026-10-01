@@ -8,7 +8,7 @@ import {
   useStopExploration,
   useWatchExploration,
 } from '../../api/explorations'
-import { useDevices, useProjects, useRole } from '../../api/queries'
+import { useDevices, useProjects, useRole, useTestCases } from '../../api/queries'
 import { PageHeader } from '../../components/Layout'
 import { LiveView } from '../../components/LiveView'
 import {
@@ -403,7 +403,8 @@ function validationOf(
 }
 
 function TestCases({ exploration }: { exploration: api.ExplorationDetail }) {
-  if (exploration.test_cases.length === 0) {
+  const report = exploration.writer_report
+  if (exploration.test_cases.length === 0 && !report?.error && !report?.skipped.length) {
     return (
       <p className="text-sm text-slate-500">
         {exploration.status === 'writing' ? t.writing : t.testCasesEmpty}
@@ -412,37 +413,98 @@ function TestCases({ exploration }: { exploration: api.ExplorationDetail }) {
   }
   const validating = exploration.status === 'validating'
   return (
-    <Table label={t.tabs.testcases}>
-      <thead>
-        <tr>
-          <Th>{en.testCases.slug}</Th>
-          <Th>{en.testCases.status}</Th>
-          <Th>{t.validation}</Th>
-          <Th>{t.draftReason}</Th>
-          <Th>{t.flags}</Th>
-        </tr>
-      </thead>
-      <tbody>
-        {exploration.test_cases.map((testCase) => (
-          <tr key={testCase.id}>
-            <Td className="font-mono">
-              <Link
-                to="/projects/$projectId/testcases/$testCaseId"
-                params={{ projectId: exploration.project_id, testCaseId: testCase.id }}
-                className={buttonClass.link}
-              >
-                {testCase.slug}
-              </Link>
-            </Td>
-            <Td>
-              <Badge tone={TEST_CASE_TONES[testCase.status]}>{testCase.status}</Badge>
-            </Td>
-            <Td className="text-slate-600">{validationOf(testCase, validating)}</Td>
-            <Td className="text-slate-600">{testCase.draft_reason ?? '—'}</Td>
-            <Td className="text-slate-600">{testCase.flags.join(', ') || '—'}</Td>
-          </tr>
-        ))}
-      </tbody>
-    </Table>
+    <div className="space-y-4">
+      {report?.error && (
+        <p role="alert" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {t.writerErrors[report.error]}
+        </p>
+      )}
+      {exploration.test_cases.length > 0 && (
+        <Table label={t.tabs.testcases}>
+          <thead>
+            <tr>
+              <Th>{en.testCases.slug}</Th>
+              <Th>{en.testCases.status}</Th>
+              <Th>{t.validation}</Th>
+              <Th>{t.draftReason}</Th>
+              <Th>{t.flags}</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {exploration.test_cases.map((testCase) => (
+              <tr key={testCase.id}>
+                <Td className="font-mono">
+                  <Link
+                    to="/projects/$projectId/testcases/$testCaseId"
+                    params={{ projectId: exploration.project_id, testCaseId: testCase.id }}
+                    className={buttonClass.link}
+                  >
+                    {testCase.slug}
+                  </Link>
+                </Td>
+                <Td>
+                  <Badge tone={TEST_CASE_TONES[testCase.status]}>{testCase.status}</Badge>
+                </Td>
+                <Td className="text-slate-600">{validationOf(testCase, validating)}</Td>
+                <Td className="text-slate-600">{testCase.draft_reason ?? '—'}</Td>
+                <Td className="text-slate-600">{testCase.flags.join(', ') || '—'}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+      {report && report.skipped.length > 0 && (
+        <LeftOut projectId={exploration.project_id} skipped={report.skipped} />
+      )}
+    </div>
+  )
+}
+
+/** Flows the writer chose that became no test case, and why (US3 scenarios 6–7, D48). */
+function LeftOut({
+  projectId,
+  skipped,
+}: {
+  projectId: string
+  skipped: api.WriterReport['skipped']
+}) {
+  const testCases = useTestCases(projectId).data
+  const idOf = (slug: string) => testCases?.find((tc) => tc.slug === slug)?.id
+  return (
+    <Card className="p-4 text-sm">
+      <h2 className="mb-2 font-medium">{t.leftOut(skipped.length)}</h2>
+      <ul aria-label={t.leftOutLabel} className="space-y-1.5">
+        {skipped.map((flow) => {
+          const same = flow.duplicate_of
+          const sameId = same === undefined ? undefined : idOf(same)
+          return (
+            <li key={flow.slug}>
+              <span className="font-mono">{flow.slug}</span>
+              <span className="text-slate-500"> — {flow.intent}</span>
+              <div className="text-slate-600">
+                {flow.reason === 'duplicate' && same !== undefined ? (
+                  <>
+                    {t.duplicateOf}{' '}
+                    {sameId ? (
+                      <Link
+                        to="/projects/$projectId/testcases/$testCaseId"
+                        params={{ projectId, testCaseId: sameId }}
+                        className={`${buttonClass.link} font-mono`}
+                      >
+                        {same}
+                      </Link>
+                    ) : (
+                      <span className="font-mono">{same}</span>
+                    )}
+                  </>
+                ) : (
+                  `${t.skipReasons[flow.reason]}${flow.message ? `: ${flow.message}` : ''}`
+                )}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </Card>
   )
 }

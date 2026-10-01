@@ -461,8 +461,27 @@ describe('Phase 3 REST schemas (contracts/rest-api-phase3.md)', () => {
           created_at: at,
         },
       ],
+      writer_report: {
+        flows: 2,
+        skipped: [
+          {
+            slug: 'open-menu',
+            name: 'Open the menu',
+            intent: 'Open the menu from the catalog',
+            reason: 'duplicate',
+            duplicate_of: 'menu',
+          },
+        ],
+        error: null,
+      },
     }
     expect(explorationDetailSchema.safeParse(detail).success).toBe(true)
+    expect(
+      explorationDetailSchema.safeParse({
+        ...detail,
+        writer_report: { flows: 0, skipped: [], error: 'tired' },
+      }).success,
+    ).toBe(false)
     // A transition is a step without id or expectation.
     const withId = {
       ...detail,

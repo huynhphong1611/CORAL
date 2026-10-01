@@ -46,6 +46,31 @@ const written = (slug: string, over: Partial<api.TestCaseSummary> = {}) =>
     ...over,
   })
 
+/** An exploration of the shop as GET /explorations/:id answers it. */
+const exploration = (over: Partial<api.ExplorationDetail> = {}): api.ExplorationDetail => ({
+  id: explorationId,
+  project_id: shop.id,
+  app_id: newId(),
+  build_id: newId(),
+  device_id: newId(),
+  kind: 'explore',
+  goal: null,
+  budget: { max_steps: 60, max_depth: 8, max_minutes: 20, max_cost_usd: 3 },
+  max_tests: 5,
+  status: 'validating',
+  stop_reason: 'max_steps',
+  stats: { ...api.EMPTY_EXPLORATION_STATS, tests_written: 4 },
+  created_by: { id: TEST_USER.id, name: TEST_USER.name },
+  created_at: at,
+  started_at: at,
+  finished_at: null,
+  appmap: { screens: [], transitions: [] },
+  test_cases: [],
+  findings: [],
+  writer_report: null,
+  ...over,
+})
+
 /** The editor of `summary` on a fake server; PATCH /testcases/:id answers with the new status. */
 async function openEditor(summary: api.TestCaseSummary, role?: string) {
   const state = { summary }
@@ -172,24 +197,7 @@ describe('test cases the AI wrote (T042)', () => {
     })
     const waiting = written('open-menu')
     const flagged = written('place-order', { flags: ['needs_review_never_tap'] })
-    const detail: api.ExplorationDetail = {
-      id: explorationId,
-      project_id: shop.id,
-      app_id: newId(),
-      build_id: newId(),
-      device_id: newId(),
-      kind: 'explore',
-      goal: null,
-      budget: { max_steps: 60, max_depth: 8, max_minutes: 20, max_cost_usd: 3 },
-      max_tests: 5,
-      status: 'validating',
-      stop_reason: 'max_steps',
-      stats: { ...api.EMPTY_EXPLORATION_STATS, tests_written: 4 },
-      created_by: { id: TEST_USER.id, name: TEST_USER.name },
-      created_at: at,
-      started_at: at,
-      finished_at: null,
-      appmap: { screens: [], transitions: [] },
+    const detail = exploration({
       test_cases: [passed, failed, waiting, flagged].map((t) => ({
         id: t.id,
         slug: t.slug,
@@ -198,11 +206,31 @@ describe('test cases the AI wrote (T042)', () => {
         flags: t.flags,
         validation: t.validation,
       })),
-      findings: [],
-    }
+      writer_report: {
+        flows: 6,
+        skipped: [
+          {
+            slug: 'open-cart-again',
+            name: 'Open the cart',
+            intent: 'Open the cart from the catalog',
+            reason: 'duplicate',
+            duplicate_of: 'open-cart',
+          },
+          {
+            slug: 'type-nothing',
+            name: 'Type nothing',
+            intent: 'Type in the search box',
+            reason: 'invalid',
+            message: 'steps.1.value: required',
+          },
+        ],
+        error: null,
+      },
+    })
     await renderApp(`/explorations/${explorationId}?tab=testcases`, {
       routes: {
         'GET /projects': [shop],
+        [`GET /projects/${shop.id}/testcases`]: [passed, failed, waiting, flagged],
         'GET /devices': [],
         [`GET /explorations/${explorationId}`]: detail,
         [`GET /explorations/${explorationId}/steps`]: [],
@@ -229,5 +257,42 @@ describe('test cases the AI wrote (T042)', () => {
     expect(within(table).getByRole('link', { name: 'open-cart' }).getAttribute('href')).toBe(
       `/projects/${shop.id}/testcases/${passed.id}`,
     )
+
+    // The flows the writer left out, and why: a duplicate links to the test case it repeats.
+    expect(screen.getByRole('heading', { name: '2 flows left out' })).toBeDefined()
+    const leftOut = screen.getByRole('list', { name: 'Flows left out' })
+    const [duplicate, invalid] = within(leftOut).getAllByRole('listitem')
+    expect(duplicate?.textContent).toBe(
+      'open-cart-again — Open the cart from the catalogAlready in the project as open-cart',
+    )
+    await waitFor(() =>
+      expect(
+        within(duplicate ?? leftOut)
+          .getByRole('link', { name: 'open-cart' })
+          .getAttribute('href'),
+      ).toBe(`/projects/${shop.id}/testcases/${passed.id}`),
+    )
+    expect(invalid?.textContent).toBe(
+      'type-nothing — Type in the search boxNot a valid test case: steps.1.value: required',
+    )
+  })
+
+  it('says why the writer wrote nothing', async () => {
+    await renderApp(`/explorations/${explorationId}?tab=testcases`, {
+      routes: {
+        'GET /projects': [shop],
+        'GET /devices': [],
+        [`GET /explorations/${explorationId}`]: {
+          ...exploration(),
+          status: 'done',
+          writer_report: { flows: 0, skipped: [], error: 'budget' },
+        },
+        [`GET /explorations/${explorationId}/steps`]: [],
+      },
+    })
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'The Test writer stopped: the exploration used its cost budget.',
+    )
+    expect(screen.queryByRole('table', { name: 'Test cases' })).toBeNull()
   })
 })

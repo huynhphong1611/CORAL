@@ -99,6 +99,30 @@ export const explorationStatsSchema = z.object({
 })
 export type ExplorationStats = z.infer<typeof explorationStatsSchema>
 
+/** Why a flow the Test writer chose became no test case (US3 scenarios 6–7, D48). */
+export const WRITER_SKIP_REASONS = ['duplicate', 'invalid', 'no_steps'] as const
+/** Why the Test writer wrote nothing at all. */
+export const WRITER_ERRORS = ['budget', 'ai_unavailable', 'invalid_output'] as const
+
+/** `explorations.writer_report`: what the Test writer did with the flows it chose (D48). */
+export const writerReportSchema = z.object({
+  flows: count,
+  skipped: z.array(
+    z.object({
+      slug: z.string(),
+      name: z.string(),
+      intent: z.string(),
+      reason: z.enum(WRITER_SKIP_REASONS),
+      // `duplicate`: the project's test case with the same steps.
+      duplicate_of: z.string().optional(),
+      // `invalid` / `no_steps`: what was wrong with it.
+      message: z.string().optional(),
+    }),
+  ),
+  error: z.enum(WRITER_ERRORS).nullable(),
+})
+export type WriterReport = z.infer<typeof writerReportSchema>
+
 export const EMPTY_EXPLORATION_STATS: ExplorationStats = {
   steps: 0,
   refused: 0,
@@ -234,6 +258,8 @@ export const explorationDetailSchema = explorationSchema.extend({
     }),
   ),
   findings: z.array(findingSchema),
+  // Null until the Test writer ran (and for an exploration it never ran on).
+  writer_report: writerReportSchema.nullable(),
 })
 export type ExplorationDetail = z.infer<typeof explorationDetailSchema>
 

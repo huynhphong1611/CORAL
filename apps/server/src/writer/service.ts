@@ -7,6 +7,7 @@ import {
 import {
   elementTreeSchema,
   referenceSecrets,
+  type api,
   validateTestCaseSource,
   walkTree,
   type ElementNode,
@@ -39,10 +40,18 @@ export interface WriterServiceOptions {
   log?: FastifyBaseLogger
 }
 
-/** What one writing produced: the test cases saved, in order, and the flows left out. */
+/** What one writing produced: the test cases saved, in order, and what it reports (D48). */
 export interface Written {
   testCases: TestCaseRow[]
-  skipped: { slug: string; reason: 'duplicate' | 'invalid' | 'no_steps' }[]
+  report: api.WriterReport
+}
+
+/** Why the writer gave no plan, as the report says it. */
+function writerError(error: unknown): api.WriterReport['error'] | undefined {
+  if (error instanceof BudgetExceededError) return 'budget'
+  if (error instanceof BrainUnavailableError) return 'ai_unavailable'
+  if (error instanceof BrainOutputError) return 'invalid_output'
+  return undefined
 }
 
 const quote = (text: string) => JSON.stringify(text)
@@ -107,7 +116,7 @@ export class WriterService {
     const { tenantId, projectId } = exploration
     const repo = explorationsRepo(db, tenantId)
     const rows = await repo.steps(exploration.id, { limit: 1000 })
-    const written: Written = { testCases: [], skipped: [] }
+    const written: Written = { testCases: [], report: { flows: 0, skipped: [], error: null } }
     if (rows.length === 0) return written
     const app = await projectsRepo(db, tenantId, store).getApp(exploration.appId)
     const appPackage = app.packageOrBundleId
@@ -144,28 +153,26 @@ export class WriterService {
         brain.context('writer'),
       )
     } catch (error) {
-      if (
-        error instanceof BudgetExceededError ||
-        error instanceof BrainUnavailableError ||
-        error instanceof BrainOutputError
-      ) {
-        this.options.log?.warn(
-          { err: error, exploration: exploration.id },
-          'no test case written: the writer gave no plan',
-        )
-        return written
-      }
-      throw error
+      const code = writerError(error)
+      if (!code) throw error
+      this.options.log?.warn(
+        { err: error, exploration: exploration.id },
+        'no test case written: the writer gave no plan',
+      )
+      written.report.error = code
+      await repo.update(exploration.id, { writerReport: written.report })
+      return written
     }
 
     const projects = projectsRepo(db, tenantId, store)
     const testCases = testCasesRepo(db, tenantId, store, projects)
     const existing = await testCases.list(projectId)
     const taken = new Set(existing.map((t) => t.slug))
-    const signatures = new Set<string>()
+    // Steps of every test case the project has → its slug: a flow with the same steps is left out.
+    const signatures = new Map<string, string>()
     for (const row of existing) {
       const parsed = validateTestCaseSource(await testCases.readYaml(row), row.pathInRepo)
-      if (parsed.value) signatures.add(signatureOf(parsed.value.steps))
+      if (parsed.value) signatures.set(signatureOf(parsed.value.steps), row.slug)
     }
     const author = await this.authorOf(exploration)
     const elements = new Map<number, boolean>()
@@ -176,7 +183,21 @@ export class WriterService {
       }
     }
 
-    for (const flow of plan.flows.slice(0, exploration.maxTests)) {
+    const flows = plan.flows.slice(0, exploration.maxTests)
+    written.report.flows = flows.length
+    const skip = (
+      flow: (typeof flows)[number],
+      reason: api.WriterReport['skipped'][number]['reason'],
+      extra: { duplicate_of?: string; message?: string },
+    ) =>
+      written.report.skipped.push({
+        slug: flow.slug,
+        name: flow.name,
+        intent: flow.intent,
+        reason,
+        ...extra,
+      })
+    for (const flow of flows) {
       const slug = freeSlug(taken, flow.slug)
       let made
       try {
@@ -195,11 +216,15 @@ export class WriterService {
           { exploration: exploration.id, flow: flow.slug, issues: error.issues },
           `flow left out: ${error.message}`,
         )
-        written.skipped.push({ slug: flow.slug, reason: error.code })
+        const [issue] = error.issues
+        skip(flow, error.code, {
+          message: issue ? `${issue.path}: ${issue.message}` : error.message,
+        })
         continue
       }
-      if (signatures.has(made.signature)) {
-        written.skipped.push({ slug: flow.slug, reason: 'duplicate' })
+      const same = signatures.get(made.signature)
+      if (same !== undefined) {
+        skip(flow, 'duplicate', { duplicate_of: same })
         continue
       }
       const snapshots: Record<string, Uint8Array> = {}
@@ -219,13 +244,14 @@ export class WriterService {
         draftReason: made.draftReason,
       })
       taken.add(slug)
-      signatures.add(made.signature)
+      signatures.set(made.signature, slug)
       written.testCases.push(saved)
       const current = await repo.get(exploration.id)
       await repo.update(exploration.id, {
         stats: { ...current.stats, tests_written: current.stats.tests_written + 1 },
       })
     }
+    await repo.update(exploration.id, { writerReport: written.report })
     return written
   }
 

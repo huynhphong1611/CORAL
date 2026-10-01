@@ -383,6 +383,7 @@ export class ExplorationService {
           created_at: finding.createdAt.toISOString(),
         })),
       ),
+      writer_report: row.writerReport,
     }
   }
 

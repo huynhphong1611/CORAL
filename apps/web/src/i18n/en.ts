@@ -175,6 +175,19 @@ export const en = {
     flags: 'Flags',
     validation: 'Validation',
     validating: 'validating…',
+    leftOut: (n: number) => (n === 1 ? '1 flow left out' : `${n} flows left out`),
+    leftOutLabel: 'Flows left out',
+    duplicateOf: 'Already in the project as',
+    skipReasons: {
+      duplicate: 'Already in the project',
+      invalid: 'Not a valid test case',
+      no_steps: 'No step to replay',
+    },
+    writerErrors: {
+      budget: 'The Test writer stopped: the exploration used its cost budget.',
+      ai_unavailable: 'The Test writer could not reach the AI; no test case was written.',
+      invalid_output: 'The Test writer’s answer was not valid; no test case was written.',
+    },
   },
   recordStart: {
     title: 'Record a test case',

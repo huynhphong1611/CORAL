@@ -25,6 +25,7 @@ export type ExplorationPatch = Partial<
     | 'finishedAt'
     | 'appmapCommit'
     | 'leaseId'
+    | 'writerReport'
   >
 >
 
