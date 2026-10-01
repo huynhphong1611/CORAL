@@ -1,5 +1,5 @@
 import { newId, type api } from '@coral/shared'
-import { and, asc, desc, eq, gt, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, inArray, isNull } from 'drizzle-orm'
 import type { Db } from '../db/client'
 import { devices, explorationSteps, explorations, findings, leases, users } from '../db/schema'
 import { notFound } from '../http/errors'
@@ -17,7 +17,14 @@ type Status = Exploration['status']
 export type ExplorationPatch = Partial<
   Pick<
     Exploration,
-    'status' | 'stopReason' | 'stats' | 'startedAt' | 'finishedAt' | 'appmapCommit' | 'leaseId'
+    | 'status'
+    | 'stopReason'
+    | 'stats'
+    | 'screens'
+    | 'startedAt'
+    | 'finishedAt'
+    | 'appmapCommit'
+    | 'leaseId'
   >
 >
 
@@ -30,6 +37,7 @@ export interface NewExplorationStep {
   status: ExplorationStepRow['status']
   refusal?: ExplorationStepRow['refusal']
   step?: unknown
+  suggestions?: unknown[]
   flags?: api.StepFlag[]
   artifactPrefix?: string | null
   brainCallId?: string | null
@@ -139,6 +147,29 @@ export function explorationsRepo(db: Db, tenantId: string) {
       return rows.length > 0
     },
 
+    /** Keeps the device: the lease of a running exploration is pushed back after every step. */
+    async touchLease(id: string, ttlMs: number): Promise<void> {
+      await db
+        .update(leases)
+        .set({ expiresAt: new Date(Date.now() + ttlMs) })
+        .where(
+          and(
+            eq(leases.tenantId, tenantId),
+            eq(leases.holderRef, explorationHolder(id)),
+            isNull(leases.releasedAt),
+          ),
+        )
+    },
+
+    /** Explorations of this tenant still holding a device or writing (`CORAL_MAX_EXPLORATIONS`). */
+    async countActive(): Promise<number> {
+      const rows = await db
+        .select({ id: explorations.id })
+        .from(explorations)
+        .where(and(eq(explorations.tenantId, tenantId), inStatuses(ACTIVE)))
+      return rows.length
+    },
+
     /** A trace step; its number is unique within the exploration. */
     async addStep(explorationId: string, step: NewExplorationStep): Promise<ExplorationStepRow> {
       await this.get(explorationId)
@@ -155,6 +186,7 @@ export function explorationsRepo(db: Db, tenantId: string) {
           status: step.status,
           refusal: step.refusal ?? null,
           step: step.step ?? null,
+          suggestions: step.suggestions ?? [],
           flags: step.flags ?? [],
           artifactPrefix: step.artifactPrefix ?? null,
           brainCallId: step.brainCallId ?? null,
@@ -230,6 +262,26 @@ export function explorationsRepo(db: Db, tenantId: string) {
         .orderBy(asc(findings.stepN))
     },
   }
+}
+
+/** An exploration in these is running or about to: it counts against the tenant's limit. */
+const ACTIVE = ['queued', 'running', 'writing'] as const satisfies readonly Status[]
+
+/** Explorations a server restart cut off, every tenant unless one is given (research R9). */
+export function interruptedExplorations(db: Db, tenantId?: string) {
+  return db
+    .select({ id: explorations.id, tenantId: explorations.tenantId })
+    .from(explorations)
+    .where(and(inStatuses(ACTIVE), tenantId ? eq(explorations.tenantId, tenantId) : undefined))
+}
+
+/** Running explorations on the devices of an agent that went away. */
+export function explorationsOnAgent(db: Db, agentId: string) {
+  return db
+    .select({ id: explorations.id, tenantId: explorations.tenantId })
+    .from(explorations)
+    .innerJoin(devices, eq(devices.id, explorations.deviceId))
+    .where(and(eq(devices.agentId, agentId), eq(explorations.status, 'running')))
 }
 
 function inStatuses(statuses: readonly Status[]) {

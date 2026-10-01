@@ -555,6 +555,20 @@ export const deviceCommands = pgTable(
 
 // ---- Phase 3: Explorer, AI calls and imports (specs/004-phase-3-brain-explorer/data-model.md) ------
 
+/** A screen an exploration met (`explorations.screens`). */
+export interface ExplorationScreen {
+  fingerprint: string
+  id: string
+  name: string
+  package: string
+  activity?: string
+  /** Trace step whose `screen.jpg` / `tree.json` picture it. */
+  first_step: number
+  /** Not in the app map when the exploration started. */
+  is_new: boolean
+  first_seen_at: string
+}
+
 /** One exploration (US2), test-from-prompt (US5) or imported case (US6): lease kind `exploration`. */
 export const explorations = pgTable(
   'explorations',
@@ -584,6 +598,8 @@ export const explorations = pgTable(
     status: text({ enum: api.EXPLORATION_STATUSES }).notNull().default('queued'),
     stopReason: text({ enum: api.STOP_REASONS }),
     stats: jsonb().$type<api.ExplorationStats>().notNull().default(api.EMPTY_EXPLORATION_STATS),
+    // Screens met so far with their names: the app map is written from them, even after a restart.
+    screens: jsonb().$type<ExplorationScreen[]>().notNull().default([]),
     appmapCommit: text(),
     importItemId: uuid().references((): AnyPgColumn => importItems.id),
     createdAt: createdAt(),
@@ -620,6 +636,8 @@ export const explorationSteps = pgTable(
     status: text({ enum: api.EXPLORATION_STEP_STATUSES }).notNull(),
     refusal: text({ enum: api.STEP_REFUSALS }),
     step: jsonb().$type<unknown>(),
+    // What `record` suggested to expect after the step (the Recorder's, no AI): the writer's candidates.
+    suggestions: jsonb().$type<unknown[]>().notNull().default([]),
     flags: emptyArray().$type<api.StepFlag[]>(),
     artifactPrefix: text(),
     brainCallId: uuid().references((): AnyPgColumn => brainCalls.id),

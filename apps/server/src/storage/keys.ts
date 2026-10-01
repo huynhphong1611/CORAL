@@ -65,7 +65,19 @@ export function recordingStepKey(
   return `${recordingPrefix(tenantId, recordingId)}${step}/${file}`
 }
 
-export const EXPLORATION_FILES = ['screen.jpg', 'ai.jpg', 'tree.json', 'element.png'] as const
+/**
+ * Files of trace step `n` (data-model §5): `screen.jpg`, `ai.jpg` and `tree.json` are what
+ * `observe` saw before it; `step.jpg`, `step.json` and `element.png` are the snapshot `record` took
+ * right before acting — the step's snapshot in a test case. Step 0 holds what `prepare` saw.
+ */
+export const EXPLORATION_FILES = [
+  'screen.jpg',
+  'ai.jpg',
+  'tree.json',
+  'step.jpg',
+  'step.json',
+  'element.png',
+] as const
 export type ExplorationFile = (typeof EXPLORATION_FILES)[number]
 
 /** The trace of an exploration (data-model §5), kept 30 days by the retention tag. */
@@ -73,14 +85,14 @@ export function explorationPrefix(tenantId: string, explorationId: string): stri
   return `${tenantPrefix(tenantId)}explorations/${uuid.parse(explorationId)}/`
 }
 
-/** One file of trace step `n`: what `observe` saw before it, and the element `record` cut out. */
+/** One file of trace step `n` (0: `prepare`). */
 export function explorationStepKey(
   tenantId: string,
   explorationId: string,
   n: number,
   file: ExplorationFile,
 ): string {
-  const step = z.number().int().positive().parse(n)
+  const step = z.number().int().nonnegative().parse(n)
   return `${explorationPrefix(tenantId, explorationId)}${step}/${file}`
 }
 
