@@ -232,7 +232,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `Brain.nextAction`/`describeScreen` dựng trên `structured.ts`.
 
   Test `prompts.test.ts`: thứ tự phần; không có giá trị secret; chỉ có skill truyền vào; `read_skill` trả nội dung đúng skill và tính một lượt công cụ.
-- [ ] T031 [US2] App map `apps/server/src/explorer/appmap.ts` (contracts/appmap.md):
+- [x] T031 [US2] App map `apps/server/src/explorer/appmap.ts` (contracts/appmap.md):
   - gộp theo fingerprint (giữ `id`/`name`/`snapshot` cũ, thêm `seen_in`);
   - `id` slug, trùng thì thêm `-2`;
   - chuyển màn từ step đã ghi (bỏ `id`/`expect`), trùng `(from, to, locator đầu)` chỉ thêm `seen_in`;

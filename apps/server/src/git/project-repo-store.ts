@@ -123,25 +123,53 @@ export class ProjectRepoStore {
    */
   async commitFiles(tenantId: string, projectId: string, input: CommitFilesInput): Promise<string> {
     const dir = this.repoPath(tenantId, projectId)
+    if (Object.keys(input.files).length === 0 && (input.removeDirs ?? []).length === 0) {
+      throw new Error('nothing to commit')
+    }
+    return this.withLock(dir, () => this.commitUnlocked(dir, input))
+  }
+
+  /**
+   * Read-modify-write in one commit, under the project's lock: `build` reads the current files
+   * and returns what to commit (null: nothing). Two writers of the same file (two explorations
+   * merging the app map) never overwrite each other. Returns the commit sha, or null.
+   */
+  async updateFiles(
+    tenantId: string,
+    projectId: string,
+    build: (read: (path: string) => Promise<string | null>) => Promise<CommitFilesInput | null>,
+  ): Promise<string | null> {
+    const dir = this.repoPath(tenantId, projectId)
+    return this.withLock(dir, async () => {
+      const input = await build(async (path) => {
+        try {
+          return await readFs(join(dir, safePath(path)), 'utf8')
+        } catch {
+          return null
+        }
+      })
+      if (!input) return null
+      return this.commitUnlocked(dir, input)
+    })
+  }
+
+  private async commitUnlocked(dir: string, input: CommitFilesInput): Promise<string> {
     const paths = Object.keys(input.files).map(safePath)
     const removed = (input.removeDirs ?? []).map(safePath)
-    if (paths.length === 0 && removed.length === 0) throw new Error('nothing to commit')
-    return this.withLock(dir, async () => {
-      const git = this.git(dir)
-      for (const path of removed) {
-        await git.raw(['rm', '-r', '-q', '--ignore-unmatch', '--', path])
-      }
-      for (const [path, content] of Object.entries(input.files)) {
-        await this.put(dir, safePath(path), content)
-      }
-      if (paths.length > 0) await git.add(paths)
-      const staged = await git.raw(['diff', '--cached', '--name-only'])
-      if (staged.trim() === '') return (await git.revparse(['HEAD'])).trim()
-      await git.commit(input.message, undefined, {
-        '--author': `${input.author.name} <${input.author.email}>`,
-      })
-      return (await git.revparse(['HEAD'])).trim()
+    const git = this.git(dir)
+    for (const path of removed) {
+      await git.raw(['rm', '-r', '-q', '--ignore-unmatch', '--', path])
+    }
+    for (const [path, content] of Object.entries(input.files)) {
+      await this.put(dir, safePath(path), content)
+    }
+    if (paths.length > 0) await git.add(paths)
+    const staged = await git.raw(['diff', '--cached', '--name-only'])
+    if (staged.trim() === '') return (await git.revparse(['HEAD'])).trim()
+    await git.commit(input.message, undefined, {
+      '--author': `${input.author.name} <${input.author.email}>`,
     })
+    return (await git.revparse(['HEAD'])).trim()
   }
 
   /** File content at `commit` (default HEAD), or null when it does not exist there. */

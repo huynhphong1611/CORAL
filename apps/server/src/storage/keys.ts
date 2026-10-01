@@ -65,6 +65,25 @@ export function recordingStepKey(
   return `${recordingPrefix(tenantId, recordingId)}${step}/${file}`
 }
 
+export const EXPLORATION_FILES = ['screen.jpg', 'ai.jpg', 'tree.json', 'element.png'] as const
+export type ExplorationFile = (typeof EXPLORATION_FILES)[number]
+
+/** The trace of an exploration (data-model §5), kept 30 days by the retention tag. */
+export function explorationPrefix(tenantId: string, explorationId: string): string {
+  return `${tenantPrefix(tenantId)}explorations/${uuid.parse(explorationId)}/`
+}
+
+/** One file of trace step `n`: what `observe` saw before it, and the element `record` cut out. */
+export function explorationStepKey(
+  tenantId: string,
+  explorationId: string,
+  n: number,
+  file: ExplorationFile,
+): string {
+  const step = z.number().int().positive().parse(n)
+  return `${explorationPrefix(tenantId, explorationId)}${step}/${file}`
+}
+
 /** True when `key` belongs to `tenantId`; check before presigning any key that came from outside. */
 export function keyBelongsTo(key: string, tenantId: string): boolean {
   return key.startsWith(tenantPrefix(tenantId)) && !key.includes('..')
