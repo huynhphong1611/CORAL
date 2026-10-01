@@ -21,6 +21,7 @@ import {
 import { StartExplorationPage } from './features/explorations/StartExplorationPage'
 import { RecorderPage } from './features/recorder/RecorderPage'
 import { StartRecordingPage } from './features/recorder/StartRecordingPage'
+import { BrainsPage } from './routes/settings/brains'
 import { DevicePage } from './routes/device'
 import { DevicesPage } from './routes/devices'
 import { LoginPage, safeNext } from './routes/login'
@@ -168,6 +169,12 @@ const runRoute = createRoute({
   component: RunDetailPage,
 })
 
+const brainsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/settings/brains',
+  component: BrainsPage,
+})
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   appRoute.addChildren([
@@ -183,6 +190,7 @@ const routeTree = rootRoute.addChildren([
     deviceRoute,
     runsRoute,
     runRoute,
+    brainsRoute,
   ]),
 ])
 

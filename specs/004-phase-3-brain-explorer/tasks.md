@@ -176,7 +176,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `GET /brain-calls/:id` (nội dung từ S3, `null` khi hết hạn, `tool_calls`) — đã làm sớm cùng T034 (`routes/brain-calls.ts`, test trong `explorations.int.test.ts`) vì trace cần.
 
   Test `brains-routes.int.test.ts`: viewer/member PUT → 403; lỗi `price_missing` đúng dòng; `fake` bị từ chối khi không có `CORAL_BRAIN_FAKE`; usage nhóm đúng; tenant khác 404.
-- [ ] T024 [US1] Web `apps/web/src/routes/settings/brains.tsx` (contracts/web-ui-phase3.md):
+- [x] T024 [US1] Web `apps/web/src/routes/settings/brains.tsx` (contracts/web-ui-phase3.md):
   - editor YAML lint bằng `validateBrainsSource` (debounce 300 ms như editor Phase 2), **Save** 🔑 (khóa khi có lỗi), bảng provider (enabled, vision), nguồn cấu hình;
   - bảng **Usage** (ngày / vai trò / provider, hôm nay so với giới hạn);
   - link trong `Layout.tsx`; chuỗi trong `i18n/en.ts`.

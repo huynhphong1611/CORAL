@@ -145,6 +145,23 @@ describe('ApiClient (research R2)', () => {
     })
   })
 
+  it('sends a text body as written, with its content type', async () => {
+    let type: string | undefined
+    const server = fakeFetch({
+      'POST /api/auth/login': () => Response.json(session('t1')),
+      'PUT /api/brains/config': (init) => {
+        type = (init.headers as Record<string, string>)['content-type']
+        return Response.json({ ok: true })
+      },
+    })
+    const client = new ApiClient({ fetch: server.impl })
+    await client.login('huynh@coral.test', 'pw')
+    const yaml = 'schema: coral/brains@1 # kept\n'
+    await client.putText('/brains/config', yaml, 'application/yaml')
+    expect(server.calls.at(-1)?.body).toBe(yaml)
+    expect(type).toBe('application/yaml')
+  })
+
   it('logs out even when the server call fails', async () => {
     const server = fakeFetch({ 'POST /api/auth/login': () => Response.json(session('t')) })
     const client = new ApiClient({ fetch: server.impl })
