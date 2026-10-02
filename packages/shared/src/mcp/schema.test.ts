@@ -1,3 +1,4 @@
+import { examples } from '../testing/fixtures'
 import { describe, expect, it } from 'vitest'
 import { validateMcpSource } from './schema'
 
@@ -18,6 +19,12 @@ const issues = (text: string, stdioAllowlist?: string[]) => {
 }
 
 describe('validateMcpSource', () => {
+  it('accepts examples/mcp.example.yaml, without a warning', () => {
+    const result = validateMcpSource(examples['mcp.example.yaml'] ?? '', 'mcp.yaml')
+    expect(result).toMatchObject({ valid: true, errors: [], warnings: [] })
+    expect(Object.keys(result.value?.servers.otp?.tools ?? {})).toEqual(['get_otp', 'send_sms'])
+  })
+
   it('accepts a remote server with an allowlist', () => {
     const result = validateMcpSource(source)
     expect(result.errors).toEqual([])

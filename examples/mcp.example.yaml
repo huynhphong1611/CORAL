@@ -1,0 +1,16 @@
+# Example MCP servers of a project — format defined in docs/SPEC.md §14.5 (D29, specs/004
+# contracts/project-knowledge.md). Lives at mcp.yaml in the project repo; edited in the web's
+# Knowledge tab by owners and admins. The AI is offered only the tools listed here, as
+# `<server>__<tool>`; a tool the server does not mark read-only needs `side_effects: true`.
+# Credentials only as ${secret:NAME}. Try it with the fake OTP server: pnpm mcp:otp --port 3333.
+schema: coral/mcp@1
+
+servers:
+  otp:
+    url: http://localhost:3333/mcp
+    headers:
+      Authorization: 'Bearer ${secret:OTP_TOKEN}'
+    roles: [explorer]
+    tools:
+      get_otp: {} # read-only: offered
+      send_sms: { side_effects: true } # sends a message: offered only because it says so

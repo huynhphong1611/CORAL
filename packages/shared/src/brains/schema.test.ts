@@ -156,12 +156,21 @@ providers: { gemini: { model: gemini-flash, api_key_secret: GEMINI_KEY } }
     ])
   })
 
-  it('checks examples/brains.example.yaml: valid once Copilot is enabled', () => {
-    expect(codes(example)).toEqual([['provider_disabled', 8]])
+  it('checks examples/brains.example.yaml: valid, Copilot left to opt in', () => {
+    expect(codes(example)).toEqual([])
+    // Its commented Copilot block, put to use as the writer: refused until the server allows it.
+    const copilot = example
+      .replace(
+        "writer: { provider: claude, model: '<reasoning-class>' }",
+        'writer: { provider: copilot }',
+      )
+      .replace('# providers:', 'providers:')
+      .replace('#   copilot: { enabled: true', '  copilot: { enabled: true')
+    expect(codes(copilot)).toEqual([['provider_disabled', 9]])
     const providers = {
       ...DEFAULT_PROVIDER_CAPABILITIES,
-      copilot: { enabled: true, vision: false },
+      copilot: { enabled: true, vision: true },
     }
-    expect(codes(example, { providers })[0]?.[0]).toBe('schema') // writer: copilot has no model
+    expect(codes(copilot, { providers })).toEqual([])
   })
 })

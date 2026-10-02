@@ -493,7 +493,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 ## Phase 10: Polish & Cross-Cutting Concerns
 
-- [ ] T061 Cập nhật tài liệu **sau khi Huynh duyệt** research R19 (đã duyệt 2026-10-01; phần SPEC xong sớm — D41–D46, còn CLAUDE.md/README/examples):
+- [x] T061 Cập nhật tài liệu **sau khi Huynh duyệt** research R19 (đã duyệt 2026-10-01; phần SPEC xong sớm — D41–D46, còn CLAUDE.md/README/examples):
   - SPEC:
     - §6: bảng mới, cột mới, `ai_explore`;
     - §13: `rules.yaml`, `imports/`;
