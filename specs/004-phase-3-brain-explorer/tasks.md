@@ -520,8 +520,8 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `--out`: `report.md` + ảnh chụp trang bằng Playwright.
 
   Test `scripts/phase3-dod.int.test.ts` chạy cả script với brain `fake` + agent giả (không tốn tiền).
-- [ ] T064 Chạy đủ cổng chất lượng (format, lint, boundaries, typecheck, test, test:int, test:e2e, build) + quickstart §1; push; CI xanh mọi job (`checks`, `infra`, `integration`, `e2e`, `Device`).
-- [ ] T065 🧑‍💻 Huynh chạy `scripts/phase3-dod.mjs` trên máy (emulator + key Claude/Gemini) và gửi thư mục kết quả; sửa lỗi nếu có rồi chạy lại.
+- [x] T064 Chạy đủ cổng chất lượng (format, lint, boundaries, typecheck, test, test:int, test:e2e, build) + quickstart §1; push; CI xanh mọi job (`checks`, `infra`, `integration`, `e2e`, `Device`).
+- [ ] T065 🧑‍💻 Huynh chạy `scripts/phase3-dod.mjs` trên máy (thiết bị Android thật hoặc emulator + key của các provider trong `--brains`, ví dụ `--switch gemini,copilot`) và gửi thư mục kết quả; sửa lỗi nếu có rồi chạy lại.
 - [ ] T066 Đóng Phase 3:
   - tự kiểm từng mục DoD (quickstart checklist) theo báo cáo của T065;
   - đánh dấu `[x]` Phase 3 trong `docs/ROADMAP.md`;
