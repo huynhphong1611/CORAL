@@ -13,7 +13,15 @@ import { runTestCase } from '../core/run-testcase'
 import { FakeClock } from './fake-clock'
 import { FakeDriver } from './fake-driver'
 import { renderTree } from './render'
-import { INJECTION_TEXT, PLACE_ORDER, SAMPLE_APP, SAMPLE_OTP, sampleApp } from './sample-app'
+import {
+  INJECTION_TEXT,
+  LOGIN_ERROR,
+  PLACE_ORDER,
+  SAMPLE_APP,
+  SAMPLE_OTP,
+  SAMPLE_PASSWORD,
+  sampleApp,
+} from './sample-app'
 
 const fixture = (name: string) => {
   const source = readFileSync(
@@ -46,7 +54,7 @@ describe('sample app (My Demo App look-alike)', () => {
     expect(result.steps.map((s) => s.step_id)).toEqual(['s1', 's2', 's3', 's4', 's5', 's6', 's7'])
     // Structured locators match: no fallbacks needed.
     expect(result.steps.filter((s) => s.degraded)).toEqual([])
-    expect(driver.current).toBe('catalog')
+    expect(driver.current).toBe('catalog_in')
     // What was typed stays in the login form: refs are index paths, the catalog has the same
     // ones, and its screenshots must not show the password (SC-008).
     const texts = [...walkTree(await driver.tree())].map((n) => n.text)
@@ -147,6 +155,24 @@ describe('sample app screens for the Explorer (T020)', () => {
     await driver.type(SAMPLE_OTP)
     await tapId(driver, 'verifyBtn')
     expect(driver.current).toBe('otp_done')
+  })
+
+  it('signs in with the demo password only; signed in, the menu offers Log Out', async () => {
+    const driver = await open('Log In')
+    await tapId(driver, 'loginBtn')
+    expect(driver.current).toBe('login_wrong')
+    expect([...walkTree(await driver.tree())].map((n) => n.text)).toContain(LOGIN_ERROR)
+    await tapId(driver, 'passwordET')
+    await driver.type(SAMPLE_PASSWORD)
+    await tapId(driver, 'loginBtn')
+    expect(driver.current).toBe('catalog_in')
+    await tapId(driver, 'menuIV')
+    const menu = [...walkTree(await driver.tree())].map((n) => n.text)
+    expect(menu).toContain('Log Out')
+    expect(menu).not.toContain('Log In')
+    await tapText(driver, 'Log Out')
+    expect(driver.current).toBe('catalog')
+    expect((await open('Search')).current).toBe('search')
   })
 
   it('has a Place Order button behind the cart and a screen that tries to steer the AI', async () => {

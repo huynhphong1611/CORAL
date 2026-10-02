@@ -70,10 +70,18 @@ function dataFor(
   })
 }
 
+/** Secrets a goal names (`${secret:TEST_USER}`): an imported case says what to type (US6). */
+function goalSecrets(goal: string | undefined): string[] {
+  return [...(goal ?? '').matchAll(/\$\{secret:([A-Za-z_][A-Za-z0-9_]*)\}/g)].flatMap((m) =>
+    m[1] ? [m[1]] : [],
+  )
+}
+
 function fieldValue(
   element: ScreenElement,
   knowledge: { testData: { name: string; value?: string; secret?: string }[] },
   toolResult: string | undefined,
+  goal?: string,
 ): ActionDecision {
   const base = { action: 'type' as const, element: element.n }
   if (toolResult !== undefined) {
@@ -82,6 +90,12 @@ function fieldValue(
   // Test data named for this field, a secret or not: the skill says what to type (US4).
   const named = dataFor(element, knowledge.testData)
   if (named) return { ...base, test_data: named.name, reason: `Test data ${named.name} of a skill` }
+  // A secret the goal names: the password one for a password field, another for the rest.
+  const password = element.flags.includes('password')
+  const fromGoal = goalSecrets(goal).find((name) => /pass/i.test(name) === password)
+  if (fromGoal && !element.flags.includes('search')) {
+    return { ...base, secret: fromGoal, reason: `The goal names secret ${fromGoal}` }
+  }
   if (element.flags.includes('password')) {
     const secret = knowledge.testData.find((d) => d.secret !== undefined)?.secret
     if (secret) return { ...base, secret, reason: 'Password from the project test data' }
@@ -109,7 +123,7 @@ const NEEDS_HUMAN = /\b(otp|sms|captcha|fingerprint|face id)\b|vân tay|mã xác
 /** Steps that say too little to follow (`Làm gì đó…`, `something?`). */
 const AMBIGUOUS = /\.\.\.|…|\?|\bsomething\b|gì đó|tùy ý/i
 
-/** Words of a goal that say where to go (`Open the cart…` → cart), common words left out. */
+/** Words of a goal that say nothing of the app: common ones, and those of an import's goal. */
 const GOAL_NOISE = new Set([
   'open',
   'then',
@@ -120,17 +134,70 @@ const GOAL_NOISE = new Set([
   'into',
   'that',
   'this',
+  'done',
+  'when',
+  'follow',
+  'manual',
+  'test',
+  'case',
+  'expected',
+  'precondition',
 ])
-function goalWords(goal: string | undefined): string[] {
-  return lower(goal)
-    .split(/[^a-z0-9]+/)
-    .filter((w) => w.length >= 4 && !GOAL_NOISE.has(w))
+
+/** A goal as the fake follows it: what shows it done comes last (a later place is further). */
+interface GoalPlan {
+  text: string
+  quoted: string[]
+  words: string[]
 }
 
-/** An element whose label shares a word with the goal ("Displays … in your cart" for a cart). */
-function towardGoal(element: ScreenElement, words: readonly string[]): boolean {
-  const label = lower([element.text, element.desc].filter(Boolean).join(' '))
-  return words.some((w) => label.split(/[^a-z0-9]+/).includes(w))
+function planOf(goal: string): GoalPlan {
+  const lines = lower(goal).split('\n')
+  const done = (line: string) => line.startsWith('done when:')
+  const text = [...lines.filter((l) => !done(l)), ...lines.filter(done)].join('\n')
+  return {
+    text,
+    quoted: [...text.matchAll(/"([^"]+)"|“([^”]+)”/g)].flatMap((m) => {
+      const q = (m[1] ?? m[2] ?? '').trim()
+      return q ? [q] : []
+    }),
+    words: text.split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !GOAL_NOISE.has(w)),
+  }
+}
+
+/**
+ * How far along the goal an element is: a label the goal quotes ("Log In") before one sharing a
+ * word with it ("… in your cart" for a cart), each by the last place the goal names it.
+ */
+function goalRank(element: ScreenElement, plan: GoalPlan): [number, number] | undefined {
+  const label = lower([element.text, element.desc].filter(Boolean).join(' ')).trim()
+  if (!label) return undefined
+  const strong = plan.quoted.filter((q) => q === label).map((q) => plan.text.lastIndexOf(`"${q}"`))
+  if (strong.length > 0) return [2, Math.max(...strong)]
+  const words = label.split(/[^a-z0-9]+/)
+  const compact = label.replace(/[^a-z0-9]/g, '')
+  const weak = plan.words
+    .filter((w) => words.includes(w) || compact === w)
+    .map((w) => plan.text.lastIndexOf(w))
+  return weak.length > 0 ? [1, Math.max(...weak)] : undefined
+}
+
+/** The element furthest along the goal, a new one before one tried; dead ones never. */
+function towardGoal(elements: readonly ScreenElement[], goal: string | undefined) {
+  if (!goal) return undefined
+  const plan = planOf(goal)
+  return elements
+    .filter((e) => !e.flags.includes('dead'))
+    .flatMap((e) => {
+      const rank = goalRank(e, plan)
+      return rank ? [{ e, rank }] : []
+    })
+    .sort(
+      (a, b) =>
+        b.rank[0] - a.rank[0] ||
+        b.rank[1] - a.rank[1] ||
+        Number(b.e.flags.includes('new')) - Number(a.e.flags.includes('new')),
+    )[0]?.e
 }
 
 /** An element a skill speaks of: its label is in a skill's description ("Log In" → login skill). */
@@ -146,7 +213,8 @@ export function fakeDecide(
 ): ActionDecision {
   const { screen } = input
   const target = goalTarget(input.goal)
-  if (target) {
+  // Reached only after doing something: a test needs a step.
+  if (target && input.history.length > 0) {
     const seen = [
       ...screen.visibleTexts.map((t) => t.text),
       ...screen.elements.map((e) => e.text ?? ''),
@@ -178,21 +246,23 @@ export function fakeDecide(
     return { action: 'tap_point', point_pct: [0.5, 0.5], reason: 'The screen says to tap it' }
   }
   const fresh = screen.elements.filter((e) => e.flags.includes('new') && !e.flags.includes('dead'))
-  // Following the project (US4): with test data, fill a form before leaving it; then what the
-  // goal speaks of (US5); then what a skill speaks of; then the first element not tried yet.
-  const words = goalWords(input.goal)
+  // Following the project (US4): with test data (or secrets the goal names), fill a form before
+  // leaving it; then what the goal speaks of, furthest first (US5, US6); then what a skill
+  // speaks of; then the first element not tried yet.
+  const fill = knowledge.testData.length > 0 || goalSecrets(input.goal).length > 0
   const next =
-    (knowledge.testData.length > 0 ? fresh.find((e) => e.flags.includes('field')) : undefined) ??
-    fresh.find((e) => towardGoal(e, words)) ??
+    (fill ? fresh.find((e) => e.flags.includes('field')) : undefined) ??
+    towardGoal(screen.elements, input.goal) ??
     fresh.find((e) => mentioned(e, knowledge.skills)) ??
     fresh[0]
   if (!next) return { action: 'back', reason: 'Nothing new on this screen' }
-  if (next.flags.includes('field')) return fieldValue(next, knowledge, toolResult)
+  if (next.flags.includes('field')) return fieldValue(next, knowledge, toolResult, input.goal)
   if (next.flags.includes('scroll')) {
     return { action: 'swipe', element: next.n, direction: 'up', reason: 'See more of the list' }
   }
   const label = next.text ?? next.desc ?? next.id ?? `#${next.n}`
-  return { action: 'tap', element: next.n, reason: reason(`Try "${label}", not tried yet`) }
+  const why = next.flags.includes('new') ? 'not tried yet' : 'the way to the goal'
+  return { action: 'tap', element: next.n, reason: reason(`Try "${label}", ${why}`) }
 }
 
 /**

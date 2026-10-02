@@ -109,6 +109,18 @@ describe('checkDecision (research R10, FR-022, FR-022a)', () => {
         signup.ctx,
       ),
     ).toMatchObject({ ok: false, refusal: 'invalid_text' })
+    // A secret the goal names (an imported case, a prompt) may be typed too, if the server has it.
+    const named = {
+      ...signup.ctx,
+      goalSecrets: new Set(['ADMIN_PASSWORD', 'NOWHERE']),
+      secrets: { ...signup.ctx.secrets, ADMIN_PASSWORD: 'p4ssw0rd!' },
+    }
+    expect(
+      checkDecision({ action: 'type', element: email, secret: 'ADMIN_PASSWORD', reason }, named).ok,
+    ).toBe(true)
+    expect(
+      checkDecision({ action: 'type', element: email, secret: 'NOWHERE', reason }, named),
+    ).toMatchObject({ ok: false, refusal: 'invalid_text' })
     expect(
       checkDecision({ action: 'type', element: email, test_data: 'nope', reason }, signup.ctx),
     ).toMatchObject({ ok: false, refusal: 'invalid_text' })

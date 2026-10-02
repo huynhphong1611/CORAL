@@ -62,6 +62,15 @@ type AgentAction = protocol.AgentAction
 type ObserveResult = protocol.CommandResult<'observe'>
 type EventType = 'exploration.updated' | 'exploration.step' | 'exploration.screen'
 
+/** Secret names a goal writes as `${secret:NAME}` (an imported case names what it types). */
+function secretsNamedIn(goal: string | null): Set<string> {
+  return new Set(
+    [...(goal ?? '').matchAll(/\$\{secret:([A-Za-z_][A-Za-z0-9_]*)\}/g)].flatMap((m) =>
+      m[1] ? [m[1]] : [],
+    ),
+  )
+}
+
 /** Where exploration progress goes (`exploration.watch` of /ws/ui, T033). */
 export interface ExplorationEvents {
   emit<T extends EventType>(tenantId: string, type: T, payload: protocol.UiPayload<T>): void
@@ -683,6 +692,7 @@ export class ExplorationService {
       tree,
       neverTap: run.neverTap,
       testData: run.brain.loaded.rules.testData,
+      goalSecrets: secretsNamedIn(s.row.goal),
       secrets: run.secrets,
       allowSubmit: run.brain.loaded.rules.allowSubmit,
       inventedFields: s.invented.get(fingerprint) ?? new Set(),

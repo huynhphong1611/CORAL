@@ -23,6 +23,8 @@ export interface SafetyContext {
   neverTap: readonly string[]
   /** Named test data of the skills (`${secret:NAME}` values stay references). */
   testData: Readonly<Record<string, string>>
+  /** Secrets the goal names (`${secret:NAME}`): a person's prompt or imported case uses them. */
+  goalSecrets?: ReadonlySet<string>
   /** Secret values the server knows, name → value: made-up text may not equal one. */
   secrets: Readonly<Record<string, string>>
   /** Screens where submitting made-up data is allowed (rules.yaml `allow_submit`). */
@@ -128,10 +130,13 @@ function checkTyping(
     return refuse('not_actionable', `element #${element.n} is not a field`)
   }
   if (decision.secret !== undefined) {
-    if (!allowedSecrets(ctx.testData).has(decision.secret)) {
+    if (
+      !allowedSecrets(ctx.testData).has(decision.secret) &&
+      !ctx.goalSecrets?.has(decision.secret)
+    ) {
       return refuse(
         'invalid_text',
-        `secret ${decision.secret} is not in the test data of the skills`,
+        `secret ${decision.secret} is not in the test data of the skills nor in the goal`,
       )
     }
     if (ctx.secrets[decision.secret] === undefined) {

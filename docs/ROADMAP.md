@@ -2,7 +2,7 @@
 
 Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definition of Done (DoD)** đã đạt. Chi tiết kỹ thuật tham chiếu `docs/SPEC.md` (ký hiệu §, quyết định ký hiệu D). Mỗi phase là một feature Spec Kit trong `specs/` (D22).
 
-**Phase hiện tại:** Phase 3 — đang làm (`specs/004-phase-3-brain-explorer`): xong Setup + Foundational, US1 Bộ não AI (adapter Claude/Gemini/Copilot, Brain config, Usage), US2 Explorer, US3 Test writer + xác thực; còn US4–US7 và Polish. Phase 2 đạt DoD ngày 2026-09-30 (Recorder ghi, lưu và chạy lại 3/3 trên emulator Android 14 của CI — Device run 36686819869). Phase 1 đạt DoD ngày 2026-09-29 (các task 🔌 chạy trên emulator Android 14 trong CI — D37). Phase 0 đạt DoD ngày 2026-09-28.
+**Phase hiện tại:** Phase 3 — đang làm (`specs/004-phase-3-brain-explorer`): xong Setup + Foundational, US1 Bộ não AI (adapter Claude/Gemini/Copilot, Brain config, Usage), US2 Explorer, US3 Test writer + xác thực, US4 Tri thức project, US5 Test case từ prompt, US6 Import test case thủ công (10 case → 7 `active` trên thiết bị giả); còn US7 (MCP) và Polish. Phase 2 đạt DoD ngày 2026-09-30 (Recorder ghi, lưu và chạy lại 3/3 trên emulator Android 14 của CI — Device run 36686819869). Phase 1 đạt DoD ngày 2026-09-29 (các task 🔌 chạy trên emulator Android 14 trong CI — D37). Phase 0 đạt DoD ngày 2026-09-28.
 
 ---
 
@@ -93,8 +93,8 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 - [x] Prompt builder: nạp `AGENTS.md` + skill phù hợp của **đúng project** (§13).
 - [x] Explorer (§10): fingerprint màn hình (`packages/shared`, D24), app map, frontier, ngân sách, kiểm tra `never_tap`.
 - [x] Test writer (§11.2) + xác thực 2 lần liên tiếp → `active` / `draft`.
-- [ ] Tạo test case từ prompt (§11.3): Explorer có mục tiêu → Test writer.
-- [ ] Import test case thủ công (§11.3, D31): CSV/Excel + Gherkin → `coral/manualcase@1`; job nền có ngân sách; báo cáo đã tạo / `needs_human` / `ambiguous` / `app_mismatch`.
+- [x] Tạo test case từ prompt (§11.3): Explorer có mục tiêu → Test writer.
+- [x] Import test case thủ công (§11.3, D31): CSV/Excel + Gherkin → `coral/manualcase@1`; job nền có ngân sách; báo cáo đã tạo / `needs_human` / `ambiguous` / `app_mismatch`.
 - [x] Web: màn Explorations (tiến trình, app map), Brain config.
 
 **DoD:**

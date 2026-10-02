@@ -84,7 +84,8 @@ describe('image matcher (T050, SC-005)', { timeout: 60_000 }, () => {
       if (!buttonOf(tree) || covered.includes(name)) screens.push([file, renderTree(tree, SIZE)])
     }
     for (const [name, spec] of Object.entries(sampleApp().screens)) {
-      if (name === 'login') continue
+      // The login form, with or without the wrong-password error, shows the button.
+      if (name === 'login' || name === 'login_wrong') continue
       for (const frame of spec.frames) screens.push([`sample ${name}`, renderTree(frame, SIZE)])
     }
     expect(screens.length).toBeGreaterThanOrEqual(12)

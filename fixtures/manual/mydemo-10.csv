@@ -1,0 +1,21 @@
+Mã,Tiêu đề,Tiền điều kiện,Bước,Kết quả mong đợi
+TC-01,Mở menu chính,Ứng dụng ở màn danh sách sản phẩm,Bấm biểu tượng menu ở góc trái,"Menu hiện mục ""Virtual USB"""
+TC-02,Xem giỏ hàng,Ứng dụng ở màn danh sách sản phẩm,Bấm biểu tượng giỏ hàng (cart) ở góc phải,"Màn ""My Cart"" hiện ra"
+TC-03,Đăng nhập bằng tài khoản demo,Chưa đăng nhập,"1. Mở menu, chọn ""Log In""
+2. Nhập username bod@example.com, password 10203040, bấm ""Login""
+3. Mở menu","1. Màn Login hiện ra
+2. Quay về danh sách sản phẩm
+3. Menu hiện ""Log Out"""
+TC-04,Đăng nhập sai mật khẩu,Chưa đăng nhập,"1. Mở menu, chọn ""Log In""
+2. Nhập username sai@example.com, password 000000, bấm ""Login""","1. Màn Login hiện ra
+2. Hiện lỗi ""Provided credentials do not match any user in this service."""
+TC-05,Tìm kiếm sản phẩm,,"1. Mở menu, chọn ""Search""
+2. Xem danh sách kết quả","Danh sách hiện ""2 results"""
+TC-06,Xem thông tin ứng dụng,,"Mở menu, chọn ""About""","Màn About hiện ""My Demo App by Sauce Labs"""
+TC-07,Đăng ký tài khoản mới,Chưa có tài khoản,"1. Mở menu, chọn ""Sign Up""
+2. Bấm ""Sign up""","Hiện lời chào ""Welcome to My Demo App"""
+TC-08,Đăng nhập bằng mã OTP gửi qua SMS,Có số điện thoại nhận SMS,"1. Mở menu, chọn ""Log In""
+2. Nhập số điện thoại, bấm gửi mã
+3. Nhập mã OTP nhận qua SMS",Đăng nhập thành công
+TC-09,Kiểm tra ứng dụng,,Làm gì đó với sản phẩm...,Mọi thứ ổn
+TC-10,Giỏ hàng hiện đúng tổng tiền,Giỏ có 1 sản phẩm,Bấm biểu tượng giỏ hàng (cart),"Tổng tiền hiện ""Total: $ 0.00"""

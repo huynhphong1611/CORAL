@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { api } from '@coral/shared'
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -239,5 +240,52 @@ Open the menu,Tap the menu icon,"""Log In"" shows"
     const job = await until(id, ended)
     expect(job.status).toBe('cancelled')
     expect(job.items[1]?.status).toBe('not_processed')
+  })
+})
+
+describe('fixtures/manual/mydemo-10.csv (US6 DoD, SC-004)', { timeout: 300_000 }, () => {
+  beforeAll(async () => {
+    await server.close()
+    server = await startRunServer({
+      explorer: {},
+      secrets: { TEST_USER: 'bod@example.com', TEST_PASSWORD: '10203040' },
+    })
+    huynh = await server.newUser('Mai')
+    project = await sampleProject(server, huynh)
+    const found = await sampleDevice(server, huynh, 'imports-mydemo')
+    agents.push(found.sample)
+    deviceId = found.deviceId
+    void answerJobs(found.sample.agent)
+  })
+
+  it('makes 7 of the 10 cases active, the others draft with why', async () => {
+    const csv = readFileSync(new URL('../../../../fixtures/manual/mydemo-10.csv', import.meta.url))
+    const id = await importCsv(csv.toString('utf8'))
+    const job = await until(id, ended, 240_000)
+    expect(job.status).toBe('done')
+    expect(job.items.map((i) => [i.n, i.status, i.reason])).toEqual([
+      [1, 'active', null],
+      [2, 'active', null],
+      [3, 'active', null],
+      [4, 'active', null],
+      [5, 'active', null],
+      [6, 'active', null],
+      [7, 'active', null],
+      [8, 'draft', 'needs_human'],
+      [9, 'draft', 'ambiguous'],
+      [10, 'draft', 'app_mismatch'],
+    ])
+    expect(job.report).toMatchObject({ total: 10, active: 7, not_processed: 0 })
+    // The demo login typed the secrets by name: no value in its test case.
+    const testCases = testCasesRepo(
+      server.db,
+      huynh.tenantId,
+      server.store,
+      projectsRepo(server.db, huynh.tenantId, server.store),
+    )
+    const login = await testCases.get(job.items[2]?.test_case_id ?? '')
+    const yaml = await testCases.readYaml(login)
+    expect(yaml).toContain('${secret:TEST_USER}')
+    expect(yaml).not.toContain('10203040')
   })
 })

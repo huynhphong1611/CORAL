@@ -444,11 +444,13 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `/imports/$importId`: tiến độ trực tiếp, Cancel, bảng case (trạng thái, lý do, bằng chứng, link test case), báo cáo.
 
   Test component `imports.test.tsx`.
-- [ ] T056 [US6] Fixture `fixtures/manual/mydemo-10.csv`: 10 test case thủ công của My Demo App (tiếng Việt), gồm:
+- [x] T056 [US6] Fixture `fixtures/manual/mydemo-10.csv`: 10 test case thủ công của My Demo App (tiếng Việt), gồm:
   - các case làm được: danh sách, chi tiết, giỏ hàng, đăng nhập đúng, đăng nhập sai, menu;
   - 1 case cần OTP qua SMS thật (`needs_human`);
   - 1 case mô tả mơ hồ (`ambiguous`);
   - 1 case kết quả mong đợi sai với app (`app_mismatch`).
+
+  Đã làm: app giả không có màn chi tiết sản phẩm, nên 7 case làm được là menu, giỏ hàng, đăng nhập đúng (menu hiện "Log Out"), đăng nhập sai (lỗi của app thật), tìm kiếm (danh sách kết quả), About, đăng ký; app giả được bổ sung kiểm tra mật khẩu và trạng thái đã đăng nhập như app thật.
 
   E2E `e2e/us6-import.e2e.ts` trên thiết bị giả + brain `fake` (import file, xem trước, chạy, báo cáo), chụp ảnh.
 

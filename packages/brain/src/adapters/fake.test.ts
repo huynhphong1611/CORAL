@@ -134,17 +134,68 @@ describe('fake adapter scenario (research R2)', () => {
     })
   })
 
-  it('says done once the quoted text of the goal is on screen', () => {
+  it('says done once the quoted text of the goal is on screen, after a step', () => {
     expect(goalTarget('Add to cart until "Cart (1)" shows')).toBe('Cart (1)')
     expect(goalTarget('Mở giỏ “Giỏ hàng”')).toBe('Giỏ hàng')
     expect(goalTarget('Explore')).toBeUndefined()
     const s = screen([el(1, ['new'])], [['Cart (1)', 50]])
-    expect(fakeDecide(decide(s, { goal: 'until "cart (1)"' }))).toEqual({
+    const history = [{ n: 1, screen: 'Catalog', action: 'tap "Add"', outcome: '' }]
+    expect(fakeDecide(decide(s, { goal: 'until "cart (1)"', history }))).toEqual({
       action: 'done',
       goal_reached: true,
       reason: '"cart (1)" is on the screen',
     })
-    expect(fakeDecide(decide(s, { goal: 'until "Checkout"' }))).toMatchObject({ action: 'tap' })
+    // Already there before doing anything: a test needs a step, so it acts first.
+    expect(fakeDecide(decide(s, { goal: 'until "cart (1)"' }))).toMatchObject({ action: 'tap' })
+    expect(fakeDecide(decide(s, { goal: 'until "Checkout"', history }))).toMatchObject({
+      action: 'tap',
+    })
+  })
+
+  it('follows a manual case: quoted labels first, furthest along; secrets it names', () => {
+    const goal = [
+      'Done when: Menu shows "Log Out"',
+      'Follow the manual test case: Log in',
+      '1. Open the menu, choose "Log In"',
+      '2. Type ${secret:TEST_USER} and ${secret:TEST_PASSWORD}, tap "Login"',
+      '3. Open the menu → expected: Menu shows "Log Out"',
+    ].join('\n')
+    const menu = screen([
+      el(1, ['new'], { desc: 'View menu' }),
+      el(2, ['new'], { text: 'Catalog' }),
+      el(3, ['new'], { text: 'Log In' }),
+    ])
+    expect(fakeDecide(decide(menu, { goal }))).toMatchObject({ action: 'tap', element: 3 })
+    const login = screen([
+      el(1, ['new'], { desc: 'View menu' }),
+      el(2, ['new', 'field'], { id: 'nameET' }),
+      el(3, ['new', 'field', 'password'], { id: 'passwordET' }),
+      el(4, ['new'], { text: 'Login' }),
+    ])
+    expect(fakeDecide(decide(login, { goal }))).toMatchObject({ secret: 'TEST_USER', element: 2 })
+    const typed = screen([
+      el(1, ['new'], { desc: 'View menu' }),
+      el(2, ['tried', 'field'], { id: 'nameET' }),
+      el(3, ['new', 'field', 'password'], { id: 'passwordET' }),
+      el(4, ['new'], { text: 'Login' }),
+    ])
+    expect(fakeDecide(decide(typed, { goal }))).toMatchObject({
+      secret: 'TEST_PASSWORD',
+      element: 3,
+    })
+    const filled = screen([
+      el(1, ['new'], { desc: 'View menu' }),
+      el(2, ['tried', 'field'], { id: 'nameET' }),
+      el(3, ['tried', 'field', 'password'], { id: 'passwordET' }),
+      el(4, ['new'], { text: 'Login' }),
+    ])
+    expect(fakeDecide(decide(filled, { goal }))).toMatchObject({ action: 'tap', element: 4 })
+    // Signed in, back on a catalog where the menu was tried: the way to the goal goes on.
+    const catalog = screen([
+      el(1, ['tried'], { desc: 'View menu' }),
+      el(2, ['new'], { desc: 'Cart' }),
+    ])
+    expect(fakeDecide(decide(catalog, { goal }))).toMatchObject({ action: 'tap', element: 1 })
   })
 
   it('heads for what the goal speaks of, and gives up when the way there is refused', () => {

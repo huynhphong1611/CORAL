@@ -63,6 +63,7 @@ Screen 1080x2400 · app com.saucelabs.mydemoapp.android · known as "Catalog" (o
 ```
 - `element` là số trong danh sách của màn hình hiện tại. `reason` ≤ 300 ký tự.
 - `type` có đúng một trong `text` (≤ 64 ký tự), `secret`, `test_data`.
+- `secret` chỉ được dùng khi tên đó có trong `test_data` của skill, hoặc chính mục tiêu ghi `${secret:NAME}` (goal người dùng viết, case thủ công đã import — giá trị trong file được che thành tên trước khi gửi AI).
 - `done` chỉ hợp lệ khi có `goal`. Với `goal_reached: false` AI giải thích vì sao không đạt được (ví dụ cần thao tác bị cấm).
 
 **`TestPlan`** (`writeTest`)
