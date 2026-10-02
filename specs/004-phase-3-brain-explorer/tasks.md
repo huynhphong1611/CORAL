@@ -60,7 +60,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - Hàm `toJsonSchema(schema)` (`z.toJSONSchema`).
 
   Test `decisions.test.ts`: mỗi biến thể hợp lệ; `type` có cả `text` và `secret` bị từ chối; JSON Schema có `additionalProperties: false`.
-- [ ] T006 [P] `packages/shared/src/brains/schema.ts`: `coral/brains@1` (contracts/brains-yaml.md) + `validateBrainsSource(source, { providers: { id → { enabled, vision } }, prices })` trả issue có dòng/cột.
+- [x] T006 [P] `packages/shared/src/brains/schema.ts`: `coral/brains@1` (contracts/brains-yaml.md) + `validateBrainsSource(source, { providers: { id → { enabled, vision } }, prices })` trả issue có dòng/cột.
   - Mã lỗi: `unknown_provider`, `provider_disabled`, `vision_required`, `price_missing`, `invalid_limit`, `schema`.
   - Provider `fake` và `fake-alt` (hai tên của cùng adapter giả, để thử đổi provider) chỉ nhận khi server bật `CORAL_BRAIN_FAKE`.
   - Quy tắc: `writer` thiếu → dùng `explorer`; giới hạn > 0 và ≤ 10 000; `api_key_secret` khớp `[A-Za-z_][A-Za-z0-9_]*`.
