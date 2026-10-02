@@ -12,6 +12,8 @@ type Role = AccessClaims['role']
 
 /** Roles that may change things (FR-002a): hold devices, record, save test cases, start runs. */
 export const WRITER_ROLES: readonly Role[] = ['owner', 'admin', 'member']
+/** Roles that may change tenant-wide settings and approve risky changes (🔑, Phase 3 contracts). */
+export const ADMIN_ROLES: readonly Role[] = ['owner', 'admin']
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 declare module 'fastify' {

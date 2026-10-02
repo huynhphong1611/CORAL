@@ -5,6 +5,7 @@ import { CORAL_VERSION, protocol, type HealthResponse, type api } from '@coral/s
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { AgentGateway } from './agents/gateway'
 import { registerAuthGuard } from './auth/guard'
+import type { BrainsSettings } from './ai/brains-config'
 import { registerAuthRoutes } from './auth/routes'
 import type { ServerConfig } from './config'
 import type { Db } from './db/client'
@@ -14,9 +15,17 @@ import { createRepos } from './repos'
 import { registerAgentRoutes, type AgentConnections } from './routes/agents'
 import type { LiveControl } from './live/control'
 import type { RecordingService } from './recordings/service'
+import type { ExplorationService } from './explorer/service'
+import type { ImportService } from './imports/service'
+import { registerBrainCallRoutes } from './routes/brain-calls'
+import { registerBrainRoutes } from './routes/brains'
+import { registerKnowledgeRoutes } from './routes/knowledge'
 import { registerBuildRoutes } from './routes/builds'
 import { registerControlRoutes } from './routes/devices-control'
 import { registerProjectRoutes } from './routes/projects'
+import { registerAppMapRoutes } from './routes/appmap'
+import { registerExplorationRoutes } from './routes/explorations'
+import { registerImportRoutes } from './routes/imports'
 import { registerRecordingRoutes } from './routes/recordings'
 import { registerRunRoutes } from './routes/runs'
 import { registerTestCaseRoutes } from './routes/testcases'
@@ -42,6 +51,14 @@ export interface ServerDeps {
   live?: LiveControl
   /** The Recorder (`/recordings`, recording commands over `/ws/ui`). */
   recordings?: RecordingService
+  /** The Explorer (`/explorations`, Phase 3). */
+  explorations?: ExplorationService
+  /** Imports of manual test cases (`/imports`, Phase 3). */
+  imports?: ImportService
+  /** The AI brains of tenants (`/brains/config`, `/usage/ai`, Phase 3). */
+  brains?: BrainsSettings
+  /** Names of local (stdio) MCP servers a project's `mcp.yaml` may declare (§14.5). */
+  mcpStdioAllowlist?: readonly string[]
   /** `GET /health/ready`: true when Postgres, Redis, S3 and the data dir are usable. */
   readiness?: () => Promise<boolean>
   /** Largest build upload (config CORAL_MAX_BUILD_MB). */
@@ -94,9 +111,10 @@ export function buildServer(
 
   if (deps.db) registerAuthRoutes(app, { db: deps.db, jwtSecret: config.jwtSecret })
   if (deps.gateway || deps.uiGateway) {
-    // One plugin for both sockets: two would both handle every HTTP upgrade. Binary live-view
-    // frames are the largest messages (JSON is capped lower by each protocol's parser).
-    void app.register(websocket, { options: { maxPayload: protocol.MAX_FRAME_BYTES + 64 * 1024 } })
+    // One plugin for both sockets: two would both handle every HTTP upgrade. The largest messages
+    // are binary live-view frames and `observe` results (each protocol's parser caps its JSON).
+    const maxPayload = Math.max(protocol.MAX_FRAME_BYTES, protocol.MAX_MESSAGE_BYTES) + 64 * 1024
+    void app.register(websocket, { options: { maxPayload } })
   }
   deps.gateway?.register(app)
   deps.uiGateway?.register(app)
@@ -108,8 +126,16 @@ export function buildServer(
     registerAgentRoutes(app, { repos, ...(connections ? { connections } : {}) })
     if (deps.live) registerControlRoutes(app, { repos, live: deps.live })
     if (deps.recordings) registerRecordingRoutes(app, { repos, recordings: deps.recordings })
+    if (deps.explorations) {
+      registerExplorationRoutes(app, { repos, explorations: deps.explorations })
+    }
+    if (deps.imports) registerImportRoutes(app, { repos, imports: deps.imports })
+    registerAppMapRoutes(app, { repos, store: deps.store })
+    if (deps.brains) registerBrainRoutes(app, { repos, settings: deps.brains })
+    registerKnowledgeRoutes(app, { repos, stdioAllowlist: deps.mcpStdioAllowlist ?? [] })
     if (deps.artifacts) {
       registerBuildRoutes(app, { repos, artifacts: deps.artifacts })
+      registerBrainCallRoutes(app, { repos, artifacts: deps.artifacts })
       if (deps.runs) {
         registerRunRoutes(app, {
           repos,

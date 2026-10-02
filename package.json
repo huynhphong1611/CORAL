@@ -21,7 +21,8 @@
     "test:e2e": "playwright test",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "coral": "tsx packages/cli/src/main.ts",
-    "dev:fake-device": "tsx --env-file-if-exists=.env scripts/dev-fake-device.ts"
+    "dev:fake-device": "tsx --env-file-if-exists=.env scripts/dev-fake-device.ts",
+    "mcp:otp": "tsx fixtures/mcp/otp-server.ts"
   },
   "devDependencies": {
     "@coral/runner": "workspace:*",

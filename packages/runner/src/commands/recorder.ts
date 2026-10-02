@@ -1,3 +1,8 @@
+/**
+ * The device commands of the Recorder and the Explorer (contracts/agent-ws-phase2.md, phase3):
+ * `prepare`, `record`, `inspect`, `observe`. Deterministic, no AI (P1): the agent runs them on
+ * the device it holds; server tests run them on a FakeDriver to stand in for an agent.
+ */
 import {
   RECORDED_STEP_ID,
   RECORDING_SNAP_DIR,
@@ -11,29 +16,31 @@ import {
   type Popups,
   type Redactor,
   type Step,
-  type protocol,
+  protocol,
 } from '@coral/shared'
-import {
-  MAX_POPUPS_PER_STEP,
-  createPopupGuard,
-  extractLocators,
-  findPopups,
-  pickTarget,
-  realClock,
-  snapshotFromPng,
-  suggestExpects,
-  topNodeAt,
-  waitForStable,
-  type Clock,
-  type DeviceDriver,
-  type Point,
-  type ResolveContext,
-} from '@coral/runner'
+import { realClock, type Clock } from '../core/clock'
+import type { DeviceDriver, Point } from '../core/driver'
+import { StepFailure } from '../core/errors'
+import { topNodeAt } from '../core/hit-test'
+import { observedImagesFromPng } from '../core/image/downscale'
+import type { ResolveContext } from '../core/locator/resolve'
+import { createPopupGuard, findPopups } from '../core/popup-guard'
+import { snapshotFromPng } from '../core/recorder/crop'
+import { extractLocators } from '../core/recorder/locators'
+import { pickTarget } from '../core/recorder/pick'
+import { suggestExpects } from '../core/recorder/suggest'
+import { MAX_POPUPS_PER_STEP } from '../core/run-testcase'
+import { waitForStable } from '../core/stability'
 
 type AgentCommand = protocol.Payload<'device.command'>['command']
 type PrepareCommand = Extract<AgentCommand, { kind: 'prepare' }>
 type RecordCommand = Extract<AgentCommand, { kind: 'record' }>
 type RecordResult = protocol.CommandResult<'record'>
+type ObserveCommand = Extract<AgentCommand, { kind: 'observe' }>
+type ObserveResult = protocol.CommandResult<'observe'>
+
+/** How far back `observe` reads the device log to explain a crash. */
+export const CRASH_LOG_WINDOW_MS = 60_000
 
 /** Gesture lengths when the browser does not say (contracts/ui-ws.md). */
 export const LONG_PRESS_MS = 800
@@ -42,7 +49,7 @@ export const SWIPE_MS = 300
 /** A recorder command the device cannot do (answered with this code, nothing done). */
 export class RecorderError extends Error {
   constructor(
-    readonly code: 'secret_required' | 'not_recordable' | 'invalid_popups',
+    readonly code: 'secret_required' | 'not_recordable' | 'invalid_popups' | 'upload_failed',
     message: string,
   ) {
     super(message)
@@ -297,5 +304,112 @@ export async function inspect(
     element: { ...node, ...(field ? { text: '' } : {}), children: [] },
     locators: extractLocators(node, tree, ctx),
     text: field ? '' : node.text,
+  }
+}
+
+/**
+ * The lines of a device log about a crash or ANR of `appId` (logcat threadtime): from the
+ * `FATAL EXCEPTION` / `ANR in` line on, masked and cut to the protocol's 4 KB.
+ */
+export function crashExcerpt(
+  log: string,
+  appId: string,
+  redactor: Redactor,
+): { kind: 'crashed' | 'not_responding'; excerpt: string } | undefined {
+  const lines = log.split('\n')
+  const fatal = lines.findIndex(
+    (line, i) =>
+      line.includes('FATAL EXCEPTION') &&
+      lines.slice(i, i + 4).some((next) => next.includes(`Process: ${appId}`)),
+  )
+  const anr = lines.findIndex((line) => line.includes(`ANR in ${appId}`))
+  const start = fatal >= 0 ? fatal : anr
+  if (start < 0) return undefined
+  const excerpt = redactor.text(lines.slice(start, start + 60).join('\n'))
+  return {
+    kind: fatal >= 0 ? 'crashed' : 'not_responding',
+    excerpt: excerpt.slice(0, protocol.MAX_LOG_EXCERPT),
+  }
+}
+
+/**
+ * `observe` (contracts/agent-ws-phase3.md, research R7): what the Explorer looks at before each
+ * decision. Waits for a stable screen, lets the project's popup rules handle up to 3 popups
+ * (never_tap respected; unknown popups stay for the AI), takes one screenshot for `screen.jpg`
+ * and `ai.jpg`, and returns the tree with secrets masked. A crash or ANR of the app under test is
+ * reported with its log, never dismissed.
+ */
+export async function observe(deps: RecorderDeps, command: ObserveCommand): Promise<ObserveResult> {
+  const { driver } = deps
+  const clock = deps.clock ?? realClock
+  const appId = command.package
+  const popups = popupsOf(command.popups_yaml)
+  const ctx = await context(deps, appId)
+  const guard = createPopupGuard({ popups, driver })
+  const handled: string[] = []
+  let crash: ObserveResult['crash'] = null
+  let tree = await stable(deps)
+  for (let i = 0; i < MAX_POPUPS_PER_STEP; i += 1) {
+    try {
+      // `launch`: a popup no rule knows is left for the AI to deal with.
+      const popup = await guard.handle(tree, {
+        appId,
+        reason: 'launch',
+        resolveCtx: ctx,
+        limitReached: false,
+      })
+      if (!popup) break
+      handled.push(popup.rule)
+      tree = await stable(deps)
+    } catch (error) {
+      if (!(error instanceof StepFailure)) throw error
+      if (error.code === 'APP_CRASHED' || error.code === 'APP_NOT_RESPONDING') {
+        crash = {
+          kind: error.code === 'APP_CRASHED' ? 'crashed' : 'not_responding',
+          log_excerpt: '',
+        }
+      }
+      break
+    }
+  }
+
+  const appRunning = await driver.isAppRunning(appId)
+  if (crash || !appRunning) {
+    const log = await driver.deviceLogs(clock.now() - CRASH_LOG_WINDOW_MS).catch(() => '')
+    const found = crashExcerpt(log, appId, deps.redactor)
+    if (found) crash = { kind: crash?.kind ?? found.kind, log_excerpt: found.excerpt }
+  }
+
+  const masked = deps.redactor.value(tree)
+  const treeJson = JSON.stringify(masked)
+  if (treeJson.length > protocol.MAX_OBSERVE_TREE_BYTES) {
+    throw new RecorderError(
+      'not_recordable',
+      `the screen's tree is over ${protocol.MAX_OBSERVE_TREE_BYTES} bytes`,
+    )
+  }
+  const images = observedImagesFromPng(await driver.screenshot())
+  try {
+    await Promise.all([
+      deps.put(command.upload.screen, images.screen, 'image/jpeg'),
+      deps.put(command.upload.ai, images.ai, 'image/jpeg'),
+      deps.put(command.upload.tree, treeJson, 'application/json'),
+    ])
+  } catch (error) {
+    throw new RecorderError(
+      'upload_failed',
+      error instanceof Error ? error.message : 'snapshot upload failed',
+    )
+  }
+  const foreground = await driver.foregroundActivity?.().catch(() => undefined)
+  return {
+    screen_width: ctx.screen.width,
+    screen_height: ctx.screen.height,
+    package: foreground?.package ?? appId,
+    ...(foreground?.activity ? { activity: foreground.activity } : {}),
+    app_running: appRunning,
+    crash,
+    popups_handled: handled,
+    tree: masked,
   }
 }

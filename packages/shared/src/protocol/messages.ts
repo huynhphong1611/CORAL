@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { FAILURE_CODES } from '../failure-codes'
 import { STEP_ID_PATTERN } from '../testcase/schema'
-import { elementNodeSchema } from '../element'
+import { FINGERPRINT_PATTERN, SCREEN_ID_PATTERN } from '../appmap/schema'
+import { elementNodeSchema, elementTreeSchema } from '../element'
 import { expectConditionSchema, locatorSchema, stepSchema } from '../testcase/schema'
 import { RECORDING_WARNINGS } from '../recording'
 import { PLAIN_COMMAND_SCHEMAS, coordSchema, secretNameSchema } from './device-command'
@@ -105,6 +106,14 @@ export const agentCommandSchema = z.discriminatedUnion('kind', [
     ...redact,
   }),
   z.strictObject({ kind: z.literal('inspect'), x: coordSchema, y: coordSchema, ...redact }),
+  // The Explorer's look at the screen (contracts/agent-ws-phase3.md, research R7).
+  z.strictObject({
+    kind: z.literal('observe'),
+    package: packageName,
+    popups_yaml: z.string(),
+    upload: z.object({ ...uploadUrls, ai: z.url() }),
+    ...redact,
+  }),
 ])
 export type AgentCommand = z.infer<typeof agentCommandSchema>
 
@@ -112,6 +121,11 @@ const screenSize = {
   screen_width: z.number().int().positive(),
   screen_height: z.number().int().positive(),
 }
+
+/** Largest crash log excerpt an `observe` result carries (contracts/agent-ws-phase3.md). */
+export const MAX_LOG_EXCERPT = 4096
+/** Largest serialised tree in an `observe` result; the agent fails the command above it. */
+export const MAX_OBSERVE_TREE_BYTES = 2 * 1024 * 1024
 
 /** `device.command_result.result` per command kind; the server validates it knowing the kind. */
 export const commandResultSchemas = {
@@ -129,6 +143,23 @@ export const commandResultSchemas = {
     element: elementNodeSchema,
     locators: z.array(locatorSchema),
     text: z.string(),
+  }),
+  observe: z.object({
+    ...screenSize,
+    package: z.string(),
+    // From `dumpsys activity` when the platform tells; fingerprints use it (research R8).
+    activity: z.string().min(1).optional(),
+    app_running: z.boolean(),
+    // Same detection as the runner's APP_CRASHED / APP_NOT_RESPONDING; secrets already masked.
+    crash: z
+      .object({
+        kind: z.enum(['crashed', 'not_responding']),
+        log_excerpt: z.string().max(MAX_LOG_EXCERPT),
+      })
+      .nullable(),
+    popups_handled: z.array(z.string()),
+    // Secrets masked; at most MAX_OBSERVE_TREE_BYTES serialised (bounded by the message size).
+    tree: elementTreeSchema,
   }),
 } as const
 export type CommandResult<K extends keyof typeof commandResultSchemas> = z.infer<
@@ -180,6 +211,13 @@ export const payloadSchemas = {
               }),
             )
             .default([]),
+          // Fingerprints of the app map screens the test case's `expect.screen` names (D24).
+          screens: z
+            .record(
+              z.string().regex(SCREEN_ID_PATTERN, 'screen id'),
+              z.string().regex(FINGERPRINT_PATTERN, '16 hex characters'),
+            )
+            .default({}),
         }),
       )
       .min(1),

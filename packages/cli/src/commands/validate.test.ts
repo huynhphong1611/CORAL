@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -104,6 +104,39 @@ describe('coral validate', () => {
     expect(result.out).toContain('image_not_found')
     // fixtures/testcases/ plays the project repo: the referenced images are there.
     expect((await coral(['validate', file, '--project-root', fixture('')])).code).toBe(0)
+  })
+
+  it('checks expect.screen against appmap/screens.json under --project-root (unknown_screen)', async () => {
+    const file = fixture('invalid/unknown-screen.yaml')
+    // Without a project root nothing tells which screens exist.
+    expect((await coral(['validate', file])).code).toBe(0)
+    const project = join(tmp, 'project')
+    await mkdir(join(project, 'appmap'), { recursive: true })
+    const appmap = (id: string) =>
+      JSON.stringify({
+        schema: 'coral/appmap@1',
+        screens: [
+          {
+            id,
+            name: id,
+            fingerprint: '9f2c4e71a0b3d5e8',
+            package: 'com.saucelabs.mydemoapp.android',
+            snapshot: `appmap/snap/${id}`,
+            first_seen_at: '2026-10-01T08:00:00Z',
+          },
+        ],
+        transitions: [],
+      })
+    await writeFile(join(project, 'appmap/screens.json'), appmap('catalog'))
+    const missing = await coral(['validate', file, '--project-root', project])
+    expect(missing.code).toBe(1)
+    expect(missing.out).toContain('s1  steps[0].expect[0].screen  unknown_screen')
+    await writeFile(join(project, 'appmap/screens.json'), appmap('login'))
+    expect((await coral(['validate', file, '--project-root', project])).code).toBe(0)
+    await writeFile(join(project, 'appmap/screens.json'), '{"schema":"nope"}')
+    const broken = await coral(['validate', file, '--project-root', project])
+    expect(broken.code).toBe(2)
+    expect(broken.err).toContain('not a valid coral/appmap@1')
   })
 
   it('exits 2 for unreadable files and bad options', async () => {

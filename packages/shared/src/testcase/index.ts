@@ -5,6 +5,7 @@ export {
   VALIDATION_ERROR_CODES,
   VALIDATION_WARNING_CODES,
   imagePaths,
+  referencedScreens,
   isValidImagePath,
   locatorPlatforms,
   validateTestCase,

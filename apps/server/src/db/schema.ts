@@ -1,12 +1,14 @@
-import { newId } from '@coral/shared'
+import { IMPORT_FORMATS, api, newId } from '@coral/shared'
 import { sql } from 'drizzle-orm'
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -28,9 +30,29 @@ const tenantId = () =>
     .notNull()
     .references(() => tenants.id)
 
+const quoted = (values: readonly string[]) => values.map((v) => `'${v}'`).join(', ')
+
 function oneOf(column: string, values: readonly string[]) {
-  return sql.raw(`${column} in (${values.map((v) => `'${v}'`).join(', ')})`)
+  return sql.raw(`${column} in (${quoted(values)})`)
 }
+
+/** A nullable column holds null or one of `values`. */
+function nullOrOneOf(column: string, values: readonly string[]) {
+  return sql.raw(`${column} is null or ${column} in (${quoted(values)})`)
+}
+
+/** Every element of a text[] column is one of `values`. */
+function allOf(column: string, values: readonly string[]) {
+  return sql.raw(`${column} <@ array[${quoted(values)}]::text[]`)
+}
+
+/** Money in USD: 6 decimals keep the cost of one cheap call. */
+const usd = () => numeric({ precision: 14, scale: 6, mode: 'number' }).notNull().default(0)
+const emptyArray = () =>
+  text()
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`)
 
 // ---- identity (global) -----------------------------------------------------------------------------
 
@@ -230,8 +252,8 @@ export const leases = pgTable(
   ],
 )
 
-export const TEST_CASE_STATUSES = ['draft', 'active', 'quarantined'] as const
-export const TEST_CASE_SOURCES = ['manual', 'recorder', 'ai_prompt', 'ai_import'] as const
+export const TEST_CASE_STATUSES = api.TEST_CASE_STATUSES
+export const TEST_CASE_SOURCES = api.TEST_CASE_SOURCES
 
 export const testCases = pgTable(
   'test_cases',
@@ -253,6 +275,11 @@ export const testCases = pgTable(
     headCommit: text().notNull(),
     source: text({ enum: TEST_CASE_SOURCES }).notNull().default('manual'),
     sourceRef: text(),
+    // Phase 3 (D41): the validation runs of an AI-written test case and why it stays a draft.
+    validation: jsonb().$type<api.TestCaseValidation>(),
+    draftReason: text({ enum: api.DRAFT_REASONS }),
+    flags: emptyArray().$type<api.TestCaseFlag[]>(),
+    validatedAt: timestamp({ withTimezone: true }),
     updatedBy: uuid().references(() => users.id),
     createdAt: createdAt(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -261,6 +288,8 @@ export const testCases = pgTable(
     uniqueIndex().on(t.projectId, t.slug),
     check('test_cases_status', oneOf('status', TEST_CASE_STATUSES)),
     check('test_cases_source', oneOf('source', TEST_CASE_SOURCES)),
+    check('test_cases_draft_reason', nullOrOneOf('draft_reason', api.DRAFT_REASONS)),
+    check('test_cases_flags', allOf('flags', api.TEST_CASE_FLAGS)),
   ],
 )
 
@@ -305,6 +334,8 @@ export const runs = pgTable(
     status: text({ enum: RUN_STATUSES }).notNull().default('queued'),
     failureCode: text(),
     popupsCommit: text().notNull(),
+    // Phase 3: the AI-written test case a `validation` run checks (FR-030).
+    validationOf: uuid().references(() => testCases.id),
     queuedAt: createdAt(),
     startedAt: timestamp({ withTimezone: true }),
     finishedAt: timestamp({ withTimezone: true }),
@@ -522,6 +553,248 @@ export const deviceCommands = pgTable(
   ],
 )
 
+// ---- Phase 3: Explorer, AI calls and imports (specs/004-phase-3-brain-explorer/data-model.md) ------
+
+/** A screen an exploration met (`explorations.screens`). */
+export interface ExplorationScreen {
+  fingerprint: string
+  id: string
+  name: string
+  package: string
+  activity?: string
+  /** Trace step whose `screen.jpg` / `tree.json` picture it. */
+  first_step: number
+  /** Not in the app map when the exploration started. */
+  is_new: boolean
+  first_seen_at: string
+}
+
+/** One exploration (US2), test-from-prompt (US5) or imported case (US6): lease kind `exploration`. */
+export const explorations = pgTable(
+  'explorations',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    projectId: uuid()
+      .notNull()
+      .references(() => projects.id),
+    appId: uuid()
+      .notNull()
+      .references(() => apps.id),
+    buildId: uuid()
+      .notNull()
+      .references(() => builds.id),
+    deviceId: uuid()
+      .notNull()
+      .references(() => devices.id),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id),
+    leaseId: uuid().references(() => leases.id),
+    kind: text({ enum: api.EXPLORATION_KINDS }).notNull(),
+    goal: text(),
+    budget: jsonb().$type<api.ExplorationBudget>().notNull(),
+    maxTests: integer().notNull(),
+    status: text({ enum: api.EXPLORATION_STATUSES }).notNull().default('queued'),
+    stopReason: text({ enum: api.STOP_REASONS }),
+    stats: jsonb().$type<api.ExplorationStats>().notNull().default(api.EMPTY_EXPLORATION_STATS),
+    // Screens met so far with their names: the app map is written from them, even after a restart.
+    screens: jsonb().$type<ExplorationScreen[]>().notNull().default([]),
+    appmapCommit: text(),
+    // What the Test writer did with the flows it chose: those left out and why (D48).
+    writerReport: jsonb().$type<api.WriterReport>(),
+    importItemId: uuid().references((): AnyPgColumn => importItems.id),
+    createdAt: createdAt(),
+    startedAt: timestamp({ withTimezone: true }),
+    finishedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    index().on(t.tenantId, t.projectId, t.createdAt.desc()),
+    index().on(t.status),
+    check('explorations_kind', oneOf('kind', api.EXPLORATION_KINDS)),
+    check('explorations_status', oneOf('status', api.EXPLORATION_STATUSES)),
+    check('explorations_stop_reason', nullOrOneOf('stop_reason', api.STOP_REASONS)),
+    check(
+      'explorations_max_tests',
+      sql`${t.maxTests} between 1 and ${sql.raw(String(api.MAX_TESTS_LIMIT))}`,
+    ),
+  ],
+)
+
+/** The trace: one row per AI decision, refusal, handled popup or restart (research R5). */
+export const explorationSteps = pgTable(
+  'exploration_steps',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    explorationId: uuid()
+      .notNull()
+      .references(() => explorations.id, { onDelete: 'cascade' }),
+    n: integer().notNull(),
+    segment: integer().notNull(),
+    fingerprint: text().notNull(),
+    screenId: text(),
+    decision: jsonb().$type<unknown>(),
+    status: text({ enum: api.EXPLORATION_STEP_STATUSES }).notNull(),
+    refusal: text({ enum: api.STEP_REFUSALS }),
+    step: jsonb().$type<unknown>(),
+    // What `record` suggested to expect after the step (the Recorder's, no AI): the writer's candidates.
+    suggestions: jsonb().$type<unknown[]>().notNull().default([]),
+    flags: emptyArray().$type<api.StepFlag[]>(),
+    artifactPrefix: text(),
+    brainCallId: uuid().references((): AnyPgColumn => brainCalls.id),
+    costUsd: usd(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex().on(t.explorationId, t.n),
+    check('exploration_steps_status', oneOf('status', api.EXPLORATION_STEP_STATUSES)),
+    check('exploration_steps_refusal', nullOrOneOf('refusal', api.STEP_REFUSALS)),
+    check('exploration_steps_flags', allOf('flags', api.STEP_FLAGS)),
+  ],
+)
+
+/** A crash or ANR met while exploring: a bug candidate for Phase 4. */
+export const findings = pgTable(
+  'findings',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    projectId: uuid()
+      .notNull()
+      .references(() => projects.id),
+    explorationId: uuid()
+      .notNull()
+      .references(() => explorations.id, { onDelete: 'cascade' }),
+    stepN: integer().notNull(),
+    kind: text({ enum: api.FINDING_KINDS }).notNull(),
+    logExcerpt: text().notNull().default(''),
+    artifactPrefix: text(),
+    createdAt: createdAt(),
+  },
+  (t) => [index().on(t.explorationId), check('findings_kind', oneOf('kind', api.FINDING_KINDS))],
+)
+
+/** One attempt to call a provider (fallback and re-asks each add a row); content kept 30 days. */
+export const brainCalls = pgTable(
+  'brain_calls',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    role: text({ enum: api.BRAIN_CALL_ROLES }).notNull(),
+    provider: text().notNull(),
+    model: text().notNull(),
+    attempt: integer().notNull(),
+    tokensIn: integer().notNull().default(0),
+    tokensOut: integer().notNull().default(0),
+    tokensCached: integer().notNull().default(0),
+    costUsd: usd(),
+    latencyMs: integer().notNull().default(0),
+    ok: boolean().notNull(),
+    error: text({ enum: api.BRAIN_CALL_ERRORS }),
+    refType: text({ enum: api.BRAIN_CALL_REF_TYPES }).notNull(),
+    refId: uuid().notNull(),
+    contentKey: text(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    // The tenant's cost of a UTC day (daily limit, usage page).
+    index().on(t.tenantId, t.createdAt),
+    index().on(t.refType, t.refId),
+    check('brain_calls_role', oneOf('role', api.BRAIN_CALL_ROLES)),
+    check('brain_calls_error', nullOrOneOf('error', api.BRAIN_CALL_ERRORS)),
+    check('brain_calls_ref_type', oneOf('ref_type', api.BRAIN_CALL_REF_TYPES)),
+    check('brain_calls_attempt', sql`${t.attempt} >= 1`),
+  ],
+)
+
+/** A tool the AI called — or tried to call and was blocked (SC-003). */
+export const toolCalls = pgTable(
+  'tool_calls',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    brainCallId: uuid()
+      .notNull()
+      .references(() => brainCalls.id, { onDelete: 'cascade' }),
+    mcpServer: text().notNull(),
+    tool: text().notNull(),
+    argsRedacted: jsonb().$type<unknown>().notNull().default({}),
+    ok: boolean().notNull(),
+    blocked: boolean().notNull().default(false),
+    error: text({ enum: api.TOOL_CALL_ERRORS }),
+    latencyMs: integer().notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index().on(t.brainCallId),
+    check('tool_calls_error', nullOrOneOf('error', api.TOOL_CALL_ERRORS)),
+  ],
+)
+
+/** Manual test cases imported from a file (US6); each case runs as a `kind = import` exploration. */
+export const importJobs = pgTable(
+  'import_jobs',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    projectId: uuid()
+      .notNull()
+      .references(() => projects.id),
+    appId: uuid().references(() => apps.id),
+    buildId: uuid().references(() => builds.id),
+    deviceId: uuid().references(() => devices.id),
+    createdBy: uuid()
+      .notNull()
+      .references(() => users.id),
+    sourceFormat: text({ enum: IMPORT_FORMATS }).notNull(),
+    fileName: text().notNull(),
+    // The XLSX sheet read; the uploaded file is kept until the job ends (data-model §5).
+    sheet: text(),
+    mapping: jsonb().$type<unknown>(),
+    status: text({ enum: api.IMPORT_JOB_STATUSES }).notNull().default('preview'),
+    budget: jsonb().$type<api.ImportBudget>(),
+    stats: jsonb().$type<api.ImportStats>().notNull().default(api.EMPTY_IMPORT_STATS),
+    report: jsonb().$type<api.ImportReport>(),
+    manualCommit: text(),
+    createdAt: createdAt(),
+    startedAt: timestamp({ withTimezone: true }),
+    finishedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    index().on(t.tenantId, t.projectId, t.createdAt.desc()),
+    index().on(t.status),
+    check('import_jobs_source_format', oneOf('source_format', IMPORT_FORMATS)),
+    check('import_jobs_status', oneOf('status', api.IMPORT_JOB_STATUSES)),
+  ],
+)
+
+export const importItems = pgTable(
+  'import_items',
+  {
+    id: id(),
+    tenantId: tenantId(),
+    importJobId: uuid()
+      .notNull()
+      .references(() => importJobs.id, { onDelete: 'cascade' }),
+    n: integer().notNull(),
+    manualPath: text().notNull(),
+    title: text().notNull(),
+    status: text({ enum: api.IMPORT_ITEM_STATUSES }).notNull().default('pending'),
+    reason: text({ enum: api.IMPORT_ITEM_REASONS }),
+    evidence: jsonb().$type<{ step_n?: number; artifact_prefix?: string; message: string }>(),
+    explorationId: uuid().references((): AnyPgColumn => explorations.id),
+    testCaseId: uuid().references(() => testCases.id),
+    costUsd: usd(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex().on(t.importJobId, t.n),
+    check('import_items_status', oneOf('status', api.IMPORT_ITEM_STATUSES)),
+    check('import_items_reason', nullOrOneOf('reason', api.IMPORT_ITEM_REASONS)),
+  ],
+)
+
 /** Tables that must carry tenant_id (P5); used by the schema test. */
 export const BUSINESS_TABLES = [
   'memberships',
@@ -540,4 +813,11 @@ export const BUSINESS_TABLES = [
   'live_sessions',
   'recordings',
   'device_commands',
+  'explorations',
+  'exploration_steps',
+  'findings',
+  'brain_calls',
+  'tool_calls',
+  'import_jobs',
+  'import_items',
 ] as const

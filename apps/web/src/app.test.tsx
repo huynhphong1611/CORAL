@@ -49,7 +49,7 @@ describe('web app shell (T017, T021)', () => {
     })
     await waitFor(() => expect(router.state.location.pathname).toBe('/projects'))
     const nav = screen.getByRole('navigation', { name: 'Main' })
-    expect(nav.textContent).toBe('ProjectsDevicesRuns')
+    expect(nav.textContent).toBe('ProjectsDevicesRunsAI')
     expect(screen.getByText('Huynh')).toBeDefined()
     expect(screen.getByText('Viewer')).toBeDefined()
   })

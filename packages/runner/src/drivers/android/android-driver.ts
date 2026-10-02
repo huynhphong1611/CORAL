@@ -1,6 +1,7 @@
 import type { ElementNode, Permission } from '@coral/shared'
 import type {
   DeviceDriver,
+  ForegroundActivity,
   FrameOptions,
   FrameSource,
   LiveFrame,
@@ -202,6 +203,9 @@ export class AndroidDriver implements DeviceDriver, FrameSource, RemoteControl {
   }
   systemDialogOwner(): Promise<string | undefined> {
     return this.lifecycle.systemDialogOwner()
+  }
+  foregroundActivity(): Promise<ForegroundActivity | undefined> {
+    return this.lifecycle.foregroundActivity()
   }
 }
 

@@ -1,0 +1,4 @@
+﻿Mã;Tiêu đề;Tiền điều kiện;Bước;Kết quả mong đợi
+TC-10;Xem chi tiết sản phẩm;Ứng dụng ở màn danh sách sản phẩm;Bấm vào sản phẩm đầu tiên;Màn chi tiết hiện ra
+;;;Bấm nút quay lại;Danh sách sản phẩm hiện lại
+TC-11;Mở menu;;Bấm biểu tượng menu;Menu hiện ra

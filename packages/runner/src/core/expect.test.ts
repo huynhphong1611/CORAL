@@ -1,3 +1,4 @@
+import { screenFingerprint } from '@coral/shared'
 import { describe, expect, it } from 'vitest'
 import { APP, androidTree } from '../testing/android-fixtures'
 import { FakeClock } from '../testing/fake-clock'
@@ -72,5 +73,46 @@ describe('checkExpect', () => {
       ctx,
     )
     expect(slow.now()).toBe(8000)
+  })
+})
+
+describe('expect.screen (D24, FR-023)', () => {
+  const loginPrint = screenFingerprint(login, { package: APP, activity: '.a' })
+  const screens = { 'dang-nhap': loginPrint }
+
+  it('compares the fingerprint of the screen with the app map screen it names', () => {
+    const at = { ...ctx, screens, activity: '.a' }
+    expect(expectFailure([{ screen: 'dang-nhap' }], login, at)).toBeUndefined()
+    expect(expectFailure([{ screen: 'dang-nhap' }], list, at)).toMatch(
+      /screen "dang-nhap" is not shown \(fingerprint [0-9a-f]{16}, expected [0-9a-f]{16}\)/,
+    )
+    // Another activity is another screen, even with the same elements.
+    expect(expectFailure([{ screen: 'dang-nhap' }], login, { ...at, activity: '.b' })).toMatch(
+      /is not shown/,
+    )
+    expect(expectFailure([{ screen: 'gio-hang' }], login, at)).toBe(
+      'screen "gio-hang" is not in the app map',
+    )
+  })
+
+  it('reads the foreground activity with each tree and waits for the screen', async () => {
+    const driver = new FakeDriver({ screens: { a: { frames: [list, list, login] } }, start: 'a' })
+    driver.show('a')
+    const clock = new FakeClock()
+    const result = await checkExpect([{ screen: 'dang-nhap' }], driver, clock, { ...ctx, screens })
+    expect(result.ok).toBe(true)
+    expect(clock.sleeps).toEqual([250, 250])
+  })
+
+  it('ignores the activity of another app (a permission dialog)', async () => {
+    const plain = screenFingerprint(login, { package: APP })
+    const driver = new FakeDriver({ screens: { a: { frames: [login] } }, start: 'a' })
+    driver.foregroundActivity = () =>
+      Promise.resolve({ package: 'com.google.android.permissioncontroller', activity: '.Grant' })
+    const result = await checkExpect([{ screen: 'login' }], driver, new FakeClock(), {
+      ...ctx,
+      screens: { login: plain },
+    })
+    expect(result.ok).toBe(true)
   })
 })

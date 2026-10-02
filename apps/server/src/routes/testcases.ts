@@ -8,6 +8,7 @@ import {
 } from '@coral/shared'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { ADMIN_ROLES, requireRole } from '../auth/guard'
 import { HttpError, notFound, parseInput } from '../http/errors'
 import type { Repos } from '../repos'
 import { snapshotDir, type TestCaseRow } from '../repos/test-cases'
@@ -77,6 +78,10 @@ const toSummary = (row: TestCaseRow) =>
     status: row.status,
     head_commit: row.headCommit,
     source: row.source,
+    source_ref: row.sourceRef,
+    draft_reason: row.draftReason,
+    flags: row.flags,
+    validation: row.validation,
     updated_at: iso(row.updatedAt),
   }) satisfies api.TestCaseSummary
 
@@ -90,7 +95,8 @@ export function registerTestCaseRoutes(
 ): void {
   app.get('/projects/:id/testcases', async (request) => {
     const { id } = parseInput(projectParams, request.params)
-    return (await scope(deps.repos, request).testCases.list(id)).map(toSummary)
+    const filter = parseInput(api.listTestCasesQuerySchema, request.query)
+    return (await scope(deps.repos, request).testCases.list(id, filter)).map(toSummary)
   })
 
   app.post('/projects/:id/testcases', async (request, reply) => {
@@ -143,6 +149,29 @@ export function registerTestCaseRoutes(
       userId: s.auth.userId,
     })
     return { head_commit: row.headCommit, warnings }
+  })
+
+  // A person changes the status by hand (D46). Activating a test case flagged because its steps
+  // tap a never_tap element is a separate approval: owner/admin only, audited (SPEC §9.4).
+  app.patch('/testcases/:id', async (request) => {
+    const { id } = parseInput(api.idParamsSchema, request.params)
+    const { status } = parseInput(api.patchTestCaseSchema, request.body)
+    const s = scope(deps.repos, request)
+    const current = await s.testCases.get(id)
+    const approves = status === 'active' && current.flags.includes('needs_review_never_tap')
+    if (approves) requireRole(s.auth, ADMIN_ROLES)
+    const row = await s.testCases.setStatus(id, {
+      status,
+      ...(approves ? { flags: current.flags.filter((f) => f !== 'needs_review_never_tap') } : {}),
+      userId: s.auth.userId,
+    })
+    await s.audit({
+      actor: `user:${s.auth.userId}`,
+      action: approves ? 'testcase.approve_never_tap' : 'testcase.status',
+      target: id,
+      meta: { from: current.status, to: status },
+    })
+    return toSummary(row)
   })
 
   app.get('/testcases/:id/history', async (request) => {

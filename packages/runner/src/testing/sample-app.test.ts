@@ -12,7 +12,16 @@ import { createPopupGuard } from '../core/popup-guard'
 import { runTestCase } from '../core/run-testcase'
 import { FakeClock } from './fake-clock'
 import { FakeDriver } from './fake-driver'
-import { SAMPLE_APP, sampleApp } from './sample-app'
+import { renderTree } from './render'
+import {
+  INJECTION_TEXT,
+  LOGIN_ERROR,
+  PLACE_ORDER,
+  SAMPLE_APP,
+  SAMPLE_OTP,
+  SAMPLE_PASSWORD,
+  sampleApp,
+} from './sample-app'
 
 const fixture = (name: string) => {
   const source = readFileSync(
@@ -45,7 +54,7 @@ describe('sample app (My Demo App look-alike)', () => {
     expect(result.steps.map((s) => s.step_id)).toEqual(['s1', 's2', 's3', 's4', 's5', 's6', 's7'])
     // Structured locators match: no fallbacks needed.
     expect(result.steps.filter((s) => s.degraded)).toEqual([])
-    expect(driver.current).toBe('catalog')
+    expect(driver.current).toBe('catalog_in')
     // What was typed stays in the login form: refs are index paths, the catalog has the same
     // ones, and its screenshots must not show the password (SC-008).
     const texts = [...walkTree(await driver.tree())].map((n) => n.text)
@@ -86,6 +95,12 @@ describe('sample app (My Demo App look-alike)', () => {
     expect(decode(after).width).toBe(540)
     await driver.resetApp(SAMPLE_APP)
     expect(driver.typed.size).toBe(0)
+    // A launch starts the app afresh too: no text left in the fields from a run before.
+    driver.show('login')
+    await driver.tapAt({ x: (field?.bounds.x ?? 0) + 10, y: (field?.bounds.y ?? 0) + 10 })
+    await driver.type('old')
+    await driver.launch(SAMPLE_APP)
+    expect(driver.typed.size).toBe(0)
   })
 
   it('streams the drawn screen as live-view frames without recording a call', async () => {
@@ -103,5 +118,84 @@ describe('sample app (My Demo App look-alike)', () => {
     })
     expect(frame.image).toBe(await driver.screenshot())
     expect(driver.calls.length).toBe(calls + 1)
+  })
+})
+
+describe('sample app screens for the Explorer (T020)', () => {
+  const tapId = async (driver: FakeDriver, suffix: string) => {
+    const node = [...walkTree(await driver.tree())].find(
+      (n) => n.visible && n.platform_id.endsWith(`:id/${suffix}`),
+    )
+    if (!node) throw new Error(`${suffix} not on ${driver.current}`)
+    await driver.tapAt({ x: node.bounds.x + 10, y: node.bounds.y + 10 })
+  }
+  const tapText = async (driver: FakeDriver, text: string) => {
+    const node = [...walkTree(await driver.tree())].find((n) => n.visible && n.text === text)
+    if (!node) throw new Error(`"${text}" not on ${driver.current}`)
+    await driver.tapAt({ x: node.bounds.x + 10, y: node.bounds.y + 10 })
+  }
+  const open = async (item: string) => {
+    const driver = new FakeDriver({ ...sampleApp(), showTyped: true })
+    await driver.launch(SAMPLE_APP)
+    await tapId(driver, 'menuIV')
+    await tapText(driver, item)
+    return driver
+  }
+
+  it('opens Search, Sign Up and Verify Code from the menu', async () => {
+    expect((await open('Search')).current).toBe('search')
+    const signup = await open('Sign Up')
+    expect(signup.current).toBe('signup')
+    await tapId(signup, 'signUpBtn')
+    expect(signup.current).toBe('signup_done')
+    expect((await open('About')).current).toBe('about')
+  })
+
+  it('accepts only the code of the fake OTP server', async () => {
+    const driver = await open('Verify Code')
+    await tapId(driver, 'otpET')
+    await driver.type('000000')
+    await tapId(driver, 'verifyBtn')
+    expect(driver.current).toBe('otp_wrong')
+    await tapId(driver, 'otpET')
+    await driver.type(SAMPLE_OTP)
+    await tapId(driver, 'verifyBtn')
+    expect(driver.current).toBe('otp_done')
+  })
+
+  it('signs in with the demo password only; signed in, the menu offers Log Out', async () => {
+    const driver = await open('Log In')
+    await tapId(driver, 'loginBtn')
+    expect(driver.current).toBe('login_wrong')
+    expect([...walkTree(await driver.tree())].map((n) => n.text)).toContain(LOGIN_ERROR)
+    await tapId(driver, 'passwordET')
+    await driver.type(SAMPLE_PASSWORD)
+    await tapId(driver, 'loginBtn')
+    expect(driver.current).toBe('catalog_in')
+    await tapId(driver, 'menuIV')
+    const menu = [...walkTree(await driver.tree())].map((n) => n.text)
+    expect(menu).toContain('Log Out')
+    expect(menu).not.toContain('Log In')
+    await tapText(driver, 'Log Out')
+    expect(driver.current).toBe('catalog')
+    expect((await open('Search')).current).toBe('search')
+  })
+
+  it('has a Place Order button behind the cart and a screen that tries to steer the AI', async () => {
+    const driver = new FakeDriver({ ...sampleApp() })
+    await driver.launch(SAMPLE_APP)
+    await tapId(driver, 'cartIV')
+    expect(driver.current).toBe('cart')
+    const texts = [...walkTree(await driver.tree())].map((n) => n.text)
+    expect(texts).toContain(PLACE_ORDER)
+    driver.show('about')
+    expect([...walkTree(await driver.tree())].map((n) => n.text)).toContain(INJECTION_TEXT)
+  })
+
+  it('draws every screen at the size of its tree', () => {
+    for (const [name, screen] of Object.entries(sampleApp().screens)) {
+      const png = decode(renderTree(screen.frames.at(-1) ?? [], { width: 1080, height: 2400 }))
+      expect([png.width, png.height], name).toEqual([1080, 2400])
+    }
   })
 })

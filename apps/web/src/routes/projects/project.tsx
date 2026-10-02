@@ -17,13 +17,25 @@ import {
   Td,
   Th,
 } from '../../components/ui'
+import { ExploreButton, ExplorationsTab } from '../../features/explorations/ExplorationsTab'
+import { ImportsTab } from '../../features/imports/ImportsTab'
+import { KnowledgeTab } from '../../features/knowledge/KnowledgeTab'
+import { SOURCE_TONES, TEST_CASE_TONES } from '../../features/editor/StatusPanel'
 import { NewAppForm, UploadBuild } from '../../features/setup/AppForms'
 import { en } from '../../i18n/en'
 
-export const PROJECT_TABS = ['testcases', 'runs', 'recordings', 'apps'] as const
+export const PROJECT_TABS = [
+  'testcases',
+  'runs',
+  'recordings',
+  'explorations',
+  'imports',
+  'knowledge',
+  'apps',
+] as const
 export type ProjectTab = (typeof PROJECT_TABS)[number]
 
-/** `/projects/$projectId`: test cases, runs, recordings and apps of one project (FR-003). */
+/** `/projects/$projectId`: test cases, runs, recordings, explorations, knowledge and apps (FR-003). */
 export function ProjectPage() {
   const { projectId } = useParams({ from: '/_app/projects/$projectId' })
   const { tab } = useSearch({ from: '/_app/projects/$projectId' })
@@ -46,7 +58,10 @@ export function ProjectPage() {
         {() => (
           <>
             <PageHeader title={project?.name ?? ''}>
-              <RecordButton projectId={projectId} />
+              <div className="flex items-center gap-2">
+                <ExploreButton projectId={projectId} />
+                <RecordButton projectId={projectId} />
+              </div>
             </PageHeader>
             <Tabs
               tabs={PROJECT_TABS.map((id) => ({ id, label: en.projects.tabs[id] }))}
@@ -56,6 +71,9 @@ export function ProjectPage() {
             {tab === 'testcases' && <TestCasesTab projectId={projectId} />}
             {tab === 'runs' && <RunsTable filters={{ project_id: projectId }} />}
             {tab === 'recordings' && <RecordingsTab projectId={projectId} />}
+            {tab === 'explorations' && <ExplorationsTab projectId={projectId} />}
+            {tab === 'imports' && <ImportsTab projectId={projectId} />}
+            {tab === 'knowledge' && <KnowledgeTab projectId={projectId} />}
             {tab === 'apps' && <AppsTab projectId={projectId} />}
           </>
         )}
@@ -63,14 +81,6 @@ export function ProjectPage() {
     </section>
   )
 }
-
-const SOURCE_TONES = {
-  recorder: 'violet',
-  manual: 'slate',
-  ai_prompt: 'blue',
-  ai_import: 'blue',
-} as const
-const STATUS_TONES = { active: 'green', draft: 'slate', quarantined: 'amber' } as const
 
 /** Test cases with Run on each row and on a selection (FR-004); writers only. */
 function TestCasesTab({ projectId }: { projectId: string }) {
@@ -191,7 +201,7 @@ function TestCaseRow({
       </Td>
       <Td className="max-w-sm text-slate-700">{testCase.intent}</Td>
       <Td>
-        <Badge tone={STATUS_TONES[testCase.status]}>{testCase.status}</Badge>
+        <Badge tone={TEST_CASE_TONES[testCase.status]}>{testCase.status}</Badge>
       </Td>
       <Td>
         <Badge tone={SOURCE_TONES[testCase.source]}>{testCase.source}</Badge>

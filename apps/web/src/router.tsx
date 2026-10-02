@@ -13,8 +13,17 @@ import type { SessionStore } from './api/session'
 import type { UiSocket } from './api/ws'
 import { Layout } from './components/Layout'
 import { TestCasePage } from './features/editor/TestCasePage'
+import {
+  EXPLORATION_TABS,
+  ExplorationPage,
+  type ExplorationTab,
+} from './features/explorations/ExplorationPage'
+import { StartExplorationPage } from './features/explorations/StartExplorationPage'
+import { ImportPage } from './features/imports/ImportPage'
+import { NewImportPage } from './features/imports/NewImportPage'
 import { RecorderPage } from './features/recorder/RecorderPage'
 import { StartRecordingPage } from './features/recorder/StartRecordingPage'
+import { BrainsPage } from './routes/settings/brains'
 import { DevicePage } from './routes/device'
 import { DevicesPage } from './routes/devices'
 import { LoginPage, safeNext } from './routes/login'
@@ -99,6 +108,40 @@ const recordRoute = createRoute({
   component: StartRecordingPage,
 })
 
+const exploreRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/projects/$projectId/explore',
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { app?: string | undefined; build?: string | undefined; device?: string | undefined } => ({
+    app: uuid(search.app),
+    build: uuid(search.build),
+    device: uuid(search.device),
+  }),
+  component: StartExplorationPage,
+})
+
+const explorationRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/explorations/$explorationId',
+  validateSearch: (search: Record<string, unknown>): { tab: ExplorationTab } => ({
+    tab: EXPLORATION_TABS.find((t) => t === search.tab) ?? 'progress',
+  }),
+  component: ExplorationPage,
+})
+
+const newImportRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/projects/$projectId/imports/new',
+  component: NewImportPage,
+})
+
+const importRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/imports/$importId',
+  component: ImportPage,
+})
+
 const recordingRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/recordings/$recordingId',
@@ -140,6 +183,12 @@ const runRoute = createRoute({
   component: RunDetailPage,
 })
 
+const brainsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/settings/brains',
+  component: BrainsPage,
+})
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   appRoute.addChildren([
@@ -149,10 +198,15 @@ const routeTree = rootRoute.addChildren([
     testCaseRoute,
     recordRoute,
     recordingRoute,
+    exploreRoute,
+    explorationRoute,
+    newImportRoute,
+    importRoute,
     devicesRoute,
     deviceRoute,
     runsRoute,
     runRoute,
+    brainsRoute,
   ]),
 ])
 

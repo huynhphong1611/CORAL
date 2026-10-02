@@ -1,7 +1,19 @@
 import { randomBytes } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
+import type { FakeScript } from '@coral/brain'
 import { api, newId, type LogLevel } from '@coral/shared'
 import { eq } from 'drizzle-orm'
 import { AgentGateway } from '../agents/gateway'
+import { BrainsSettings } from '../ai/brains-config'
+import { AiService } from '../ai/service'
+import {
+  ExplorationService,
+  type ExplorationEvents,
+  type ExplorationServiceOptions,
+} from '../explorer/service'
+import { createRepos } from '../repos'
+import { ValidationService } from '../writer/validation'
+import { WriterService, writeAndValidate } from '../writer/service'
 import { DEV_JWT_SECRET, loadConfig } from '../config'
 import { leases } from '../db/schema'
 import { RunDispatcher } from '../runs/dispatcher'
@@ -9,6 +21,9 @@ import { registerIngest, startLeaseSweeper } from '../runs/ingest'
 import { envSecrets } from '../runs/secrets'
 import { UiGateway } from '../ui/gateway'
 import { RunEvents } from '../ui/run-events'
+import { ExplorationWatchers } from '../ui/exploration-events'
+import { ImportWatchers } from '../ui/import-events'
+import { ImportService } from '../imports/service'
 import { AgentCommands } from '../live/agent-commands'
 import { LiveControl } from '../live/control'
 import { RecordingService } from '../recordings/service'
@@ -29,7 +44,23 @@ export interface RunServerOptions {
   secrets?: Record<string, string>
   /** Server log (default silent), wired to the gateway, dispatcher, ingest and sweeper as in main. */
   logging?: { level?: LogLevel; stream?: { write(line: string): void } }
+  /** The Explorer with the `fake` brains (examples/brains.fake.yaml as the platform default). */
+  explorer?: Partial<Pick<ExplorationServiceOptions, 'maxPerTenant' | 'leaseTtlMs'>> & {
+    /** false: no platform default, so a tenant without brains.yaml gets `brains_not_configured`. */
+    platformBrains?: boolean
+    /** false: no Test writer after an exploration (US2 tests). */
+    write?: boolean
+    /** false: test cases are written but not validated. */
+    validate?: boolean
+    /** Tool calls the `fake` brains make (US7). */
+    fakeScript?: FakeScript
+  }
 }
+
+const FAKE_BRAINS = fileURLToPath(new URL('../../../../examples/brains.fake.yaml', import.meta.url))
+
+/** Exploration events as the service emitted them, for assertions. */
+export type EmittedEvent = { tenantId: string; type: string; payload: unknown }
 
 export const LOGIN_YAML = `schema: coral/testcase@1
 id: login
@@ -71,6 +102,10 @@ export async function startRunServer(options: RunServerOptions = {}) {
   let streams: StreamHub | undefined
   let live: LiveControl | undefined
   let recordings: RecordingService | undefined
+  let explorations: ExplorationService | undefined
+  let imports: ImportService | undefined
+  let brains: BrainsSettings | undefined
+  const emitted: EmittedEvent[] = []
   const server = await startTestServer(({ db, store, artifacts }) => {
     gateway = new AgentGateway({ db, heartbeatMs: options.heartbeatMs ?? 15_000 })
     uiGateway = new UiGateway({ jwtSecret: DEV_JWT_SECRET })
@@ -121,10 +156,81 @@ export async function startRunServer(options: RunServerOptions = {}) {
       idleMs: options.liveIdleMs ?? 600_000,
       notify,
     })
-    return { gateway, uiGateway, runs: { dispatcher, secrets }, live, recordings }
+    if (options.explorer) {
+      const aiConfig: typeof config.ai = {
+        ...config.ai,
+        fakeBrains: true,
+        brainsDefaultPath: FAKE_BRAINS,
+      }
+      if (options.explorer.platformBrains === false) delete aiConfig.brainsDefaultPath
+      const settings = new BrainsSettings({ ai: aiConfig, secrets })
+      brains = settings
+      const watchers = new ExplorationWatchers({ db, ui: uiGateway })
+      const events: ExplorationEvents = {
+        emit: (tenantId, type, payload) => {
+          emitted.push({ tenantId, type, payload })
+          watchers.emit(tenantId, type, payload)
+        },
+      }
+      const ai = new AiService({
+        repos: createRepos({ db, store }),
+        store,
+        artifacts,
+        settings,
+        secrets,
+        fakeBrains: true,
+        stdioAllowlist: [],
+        ...(options.explorer.fakeScript ? { fakeScript: options.explorer.fakeScript } : {}),
+      })
+      const writer =
+        options.explorer.write === false
+          ? undefined
+          : writeAndValidate(
+              new WriterService({ db, store, artifacts, ai }),
+              options.explorer.validate === false
+                ? undefined
+                : new ValidationService({ db, store, secrets, queue: dispatcher, pollMs: 100 }),
+              db,
+            )
+      explorations = new ExplorationService({
+        db,
+        store,
+        artifacts,
+        agents: gateway,
+        commands,
+        ai,
+        maxPerTenant: options.explorer.maxPerTenant ?? 5,
+        notify,
+        events,
+        ...(writer ? { writer } : {}),
+        ...(options.explorer.leaseTtlMs ? { leaseTtlMs: options.explorer.leaseTtlMs } : {}),
+      })
+      imports = new ImportService({
+        db,
+        store,
+        artifacts,
+        agents: gateway,
+        ai,
+        explorations,
+        events: new ImportWatchers({ db, ui: uiGateway }),
+        pollMs: 100,
+        retryMs: 300,
+      })
+    }
+    return {
+      gateway,
+      uiGateway,
+      runs: { dispatcher, secrets },
+      live,
+      recordings,
+      ...(explorations ? { explorations } : {}),
+      ...(imports ? { imports } : {}),
+      ...(brains ? { brains } : {}),
+    }
   }, options.logging)
   if (!gateway || !dispatcher) throw new Error('run server not wired')
   dispatcher.attachLogger(server.app.log)
+  explorations?.attachLogger(server.app.log)
   events?.attachLogger(server.app.log)
   const url = await server.listen()
   const sweeper = startLeaseSweeper({
@@ -132,7 +238,9 @@ export async function startRunServer(options: RunServerOptions = {}) {
     dispatcher,
     notify: events,
     expire: async (lease) =>
-      ((await live?.expire(lease)) ?? false) || ((await recordings?.expire(lease)) ?? false),
+      ((await live?.expire(lease)) ?? false) ||
+      ((await recordings?.expire(lease)) ?? false) ||
+      ((await explorations?.expire(lease)) ?? false),
     intervalMs: 60_000,
     log: server.app.log,
   })
@@ -194,6 +302,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
   }
 
   async function close() {
+    imports?.close()
     sweeper.stop()
     events?.stop()
     streams?.stop()
@@ -219,6 +328,15 @@ export async function startRunServer(options: RunServerOptions = {}) {
       if (!recordings) throw new Error('run server not wired')
       return recordings
     },
+    get explorations(): ExplorationService {
+      if (!explorations) throw new Error('run server started without the explorer')
+      return explorations
+    },
+    get imports(): ImportService {
+      if (!imports) throw new Error('run server started without the explorer')
+      return imports
+    },
+    emitted,
     close,
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type HTMLAttributes, type ReactNode } from 'react'
 import { ApiError } from '../api/client'
 import { en } from '../i18n/en'
 
@@ -56,9 +56,18 @@ export const buttonClass = {
 export const inputClass =
   'rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200'
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function Card({
+  children,
+  className = '',
+  ...rest
+}: { children: ReactNode; className?: string } & Omit<
+  HTMLAttributes<HTMLDivElement>,
+  'className'
+>) {
   return (
-    <div className={`rounded-lg border border-slate-200 bg-white ${className}`}>{children}</div>
+    <div {...rest} className={`rounded-lg border border-slate-200 bg-white ${className}`}>
+      {children}
+    </div>
   )
 }
 

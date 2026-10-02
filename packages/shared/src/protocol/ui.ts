@@ -1,5 +1,19 @@
 import { z } from 'zod'
 import { ROLES } from '../api/auth'
+import {
+  EXPLORATION_STATUSES,
+  STOP_REASONS,
+  explorationStatsSchema,
+  explorationStepSchema,
+  fingerprintSchema,
+  screenIdSchema,
+} from '../api/explorations'
+import {
+  IMPORT_ITEM_REASONS,
+  IMPORT_ITEM_STATUSES,
+  IMPORT_JOB_STATUSES,
+  importStatsSchema,
+} from '../api/imports'
 import { deviceViewSchema } from '../api/live'
 import { RUN_ITEM_STATUSES, RUN_STATUSES } from '../api/runs'
 import { elementNodeSchema } from '../element'
@@ -98,6 +112,46 @@ export const uiPayloadSchemas = {
     locators: z.array(locatorSchema),
     text: z.string(),
   }),
+  // Explorer and imports (contracts/ui-ws-phase3.md).
+  'exploration.watch': z.object({ exploration_id: uuid }),
+  'exploration.unwatch': z.object({ exploration_id: uuid }),
+  'exploration.updated': z.object({
+    exploration_id: uuid,
+    status: z.enum(EXPLORATION_STATUSES),
+    stop_reason: z.enum(STOP_REASONS).optional(),
+    stats: explorationStatsSchema,
+    current: z
+      .object({
+        n: z.number().int().positive(),
+        screen_name: z.string().optional(),
+        action_summary: z.string().max(200),
+      })
+      .optional(),
+  }),
+  'exploration.step': z.object({ exploration_id: uuid, step: explorationStepSchema }),
+  'exploration.screen': z.object({
+    exploration_id: uuid,
+    screen: z.object({
+      id: screenIdSchema,
+      name: z.string().min(1),
+      fingerprint: fingerprintSchema,
+      is_new: z.boolean(),
+    }),
+  }),
+  'import.watch': z.object({ import_job_id: uuid }),
+  'import.unwatch': z.object({ import_job_id: uuid }),
+  'import.updated': z.object({
+    import_job_id: uuid,
+    status: z.enum(IMPORT_JOB_STATUSES),
+    stats: importStatsSchema,
+    item: z
+      .object({
+        n: z.number().int().positive(),
+        status: z.enum(IMPORT_ITEM_STATUSES),
+        reason: z.enum(IMPORT_ITEM_REASONS).optional(),
+      })
+      .optional(),
+  }),
   error: z.object({ code: z.string(), message: z.string() }),
 } as const
 
@@ -129,6 +183,14 @@ export const UI_MESSAGE_DIRECTION: Record<UiMessageType, 'C→S' | 'S→C' | 'bo
   'live.ended': 'S→C',
   'live.inspect': 'C→S',
   'live.inspected': 'S→C',
+  'exploration.watch': 'C→S',
+  'exploration.unwatch': 'C→S',
+  'exploration.updated': 'S→C',
+  'exploration.step': 'S→C',
+  'exploration.screen': 'S→C',
+  'import.watch': 'C→S',
+  'import.unwatch': 'C→S',
+  'import.updated': 'S→C',
   error: 'both',
 }
 

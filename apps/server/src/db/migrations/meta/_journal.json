@@ -15,6 +15,27 @@
       "when": 1790680695318,
       "tag": "0001_phase2",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790817637417,
+      "tag": "0002_phase3",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790832706340,
+      "tag": "0003_phase3_trace",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790856685317,
+      "tag": "0004_phase3_writer_report",
+      "breakpoints": true
     }
   ]
 }

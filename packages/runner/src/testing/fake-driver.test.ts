@@ -62,6 +62,16 @@ describe('FakeDriver', () => {
     expect(d.current).toBe('login')
   })
 
+  it('names the screen as the foreground activity of the app window', async () => {
+    const d = driver()
+    d.show('dialog')
+    expect(await d.foregroundActivity()).toEqual({ package: PKG, activity: '.dialog' })
+    await d.launch(PKG)
+    expect(await d.foregroundActivity()).toEqual({ package: PKG, activity: '.login' })
+    // Asking does not count as a call of the test (tests compare `calls`).
+    expect(d.calls.map((c) => c.kind)).toEqual(['launch'])
+  })
+
   it('hits the top-most window first', async () => {
     const d = driver()
     d.show('dialog')

@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import expected from '../../../../fixtures/testcases/invalid/expected.json' with { type: 'json' }
 import { examples, fixtureRepoFiles, invalidFixtures, validFixtures } from '../testing/fixtures'
-import { imagePaths, isValidImagePath, validateTestCase, validateTestCaseSource } from './validate'
+import {
+  imagePaths,
+  isValidImagePath,
+  referencedScreens,
+  validateTestCase,
+  validateTestCaseSource,
+} from './validate'
 
-// fixtures/testcases/ plays the project repo: image locators must point at files there.
-const repo = { fileExists: (path: string) => fixtureRepoFiles.has(path) }
+// fixtures/testcases/ plays the project repo: image locators must point at files there, and its
+// app map has one screen, `catalog`.
+const repo = {
+  fileExists: (path: string) => fixtureRepoFiles.has(path),
+  screenExists: (id: string) => id === 'catalog',
+}
 
 describe('validateTestCaseSource', () => {
   it('loads every fixture', () => {
@@ -92,8 +102,19 @@ describe('validateTestCaseSource', () => {
       ['var_undeclared', 'steps[0].expect[1].visible_text'],
       ['platform_coverage', 'steps[0].expect[0].visible'],
       ['image_path_invalid', 'steps[1].target[0].rel.below.image'],
-      ['unsupported_in_phase', 'steps[1].expect[0].screen'],
     ])
+  })
+
+  it('accepts expect.screen and checks its id only when it knows the app map (D24)', () => {
+    const source = invalidFixtures['unknown-screen.yaml'] ?? ''
+    expect(validateTestCaseSource(source, 'x').valid).toBe(true)
+    expect(
+      validateTestCaseSource(source, 'x', { screenExists: (id) => id === 'login' }).valid,
+    ).toBe(true)
+    const unknown = validateTestCaseSource(source, 'x', { screenExists: () => false })
+    expect(unknown.errors[0]).toMatchObject({ code: 'unknown_screen', line: 8 })
+    const parsed = validateTestCaseSource(source, 'x').value
+    expect(parsed && referencedScreens(parsed)).toEqual([{ id: 'login', stepId: 's1' }])
   })
 
   it('reports YAML syntax errors with a position', () => {

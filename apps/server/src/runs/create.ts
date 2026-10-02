@@ -22,6 +22,8 @@ export async function createRun(
   s: TenantRepos & { auth: { userId: string } },
   input: api.CreateRun,
   deps: CreateRunDeps,
+  /** Set by the system only: the validation runs of an AI-written test case (research R13). */
+  extra: { trigger?: RunRow['trigger']; validationOf?: string } = {},
 ): Promise<{ run: RunRow; items: RunItemRow[] }> {
   await s.projects.get(input.project_id)
 
@@ -96,8 +98,14 @@ export async function createRun(
     popupsCommit: popups.headCommit,
     createdBy: s.auth.userId,
     items: ordered.map((row) => ({ testCaseId: row.id, commit: row.headCommit })),
+    ...extra,
   })
-  await s.audit({ actor: `user:${s.auth.userId}`, action: 'run.create', target: created.run.id })
+  await s.audit({
+    actor: `user:${s.auth.userId}`,
+    action: 'run.create',
+    target: created.run.id,
+    ...(extra.trigger ? { meta: { trigger: extra.trigger } } : {}),
+  })
   await deps.queue.enqueue(created.run.id)
   return created
 }

@@ -6,6 +6,7 @@ export const RUNNER_PACKAGE = '@coral/runner'
 
 export type {
   DeviceDriver,
+  ForegroundActivity,
   FrameOptions,
   FrameSource,
   LiveFrame,
@@ -16,6 +17,13 @@ export type {
   UiDriver,
 } from './core/driver'
 export { imageInfo, type ImageInfo } from './core/image/size'
+export {
+  AI_IMAGE_MAX_EDGE,
+  AI_JPEG_QUALITY,
+  downscaleRgb,
+  observedImagesFromPng,
+  type ObservedImages,
+} from './core/image/downscale'
 export { type ImageMatcher, type Match, type MatchOptions } from './core/image/matcher'
 export { openCvMatcher } from './core/image/opencv'
 export { realClock, AbortError, type Clock } from './core/clock'
@@ -25,7 +33,7 @@ export { checkHit, topNodeAt, touchTargetAt } from './core/hit-test'
 export { waitForStable, structureHash } from './core/stability'
 export { checkExpect, expectFailure } from './core/expect'
 export { createInterpolator, missingSecrets, referencedSecrets } from './core/interpolate'
-export { perform } from './core/actions'
+export { directionPath, perform } from './core/actions'
 export {
   nullSink,
   type ArtifactSink,
@@ -54,3 +62,15 @@ export { MAX_SUGGESTIONS, suggestExpects } from './core/recorder/suggest'
 export { snapshotFromPng, type ScreenSnapshot } from './core/recorder/crop'
 export { LocalDirSink } from './sinks/local-dir'
 export * as android from './drivers/android'
+export {
+  CRASH_LOG_WINDOW_MS,
+  LONG_PRESS_MS,
+  RecorderError,
+  SWIPE_MS,
+  crashExcerpt,
+  inspect,
+  observe,
+  prepare,
+  record,
+  type RecorderDeps,
+} from './commands/recorder'

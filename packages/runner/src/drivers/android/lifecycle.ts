@@ -1,6 +1,6 @@
 import { androidPermissions, type Permission } from '@coral/shared'
 import { realClock, type Clock } from '../../core/clock'
-import type { TargetLifecycle } from '../../core/driver'
+import type { ForegroundActivity, TargetLifecycle } from '../../core/driver'
 import { AdbError, type AdbDeviceClient } from './adb'
 
 const PACKAGE = /^[A-Za-z][\w]*(\.[A-Za-z_][\w]*)+$/
@@ -215,6 +215,11 @@ export class AndroidLifecycle implements TargetLifecycle {
     return undefined
   }
 
+  /** The resumed activity (`dumpsys activity activities`), for screen fingerprints (D24). */
+  async foregroundActivity(): Promise<ForegroundActivity | undefined> {
+    return parseResumedActivity(await this.device.shell(['dumpsys', 'activity', 'activities']))
+  }
+
   /** A crash of the app under test was logged since `sinceMs` (`logcat -b crash`). */
   async crashedSince(sinceMs: number): Promise<boolean> {
     const out = await this.device.shell([
@@ -226,5 +231,24 @@ export class AndroidLifecycle implements TargetLifecycle {
       (Math.max(0, sinceMs) / 1000).toFixed(3),
     ])
     return out.includes(`Process: ${this.app()}`)
+  }
+}
+
+const RESUMED =
+  /\b(?:topResumedActivity|mResumedActivity|ResumedActivity)\s*[=:]\s*ActivityRecord\{\S+ u\d+ ([A-Za-z][\w.]*)\/([\w.$]+)/
+
+/**
+ * The resumed activity from `dumpsys activity activities` (Android 10+: `topResumedActivity=` or
+ * `ResumedActivity:`; older: `mResumedActivity:`). The activity is relative to its package when
+ * it lives inside it, as dumpsys usually prints it, so both spellings give one fingerprint.
+ */
+export function parseResumedActivity(dumpsys: string): ForegroundActivity | undefined {
+  const match = RESUMED.exec(dumpsys)
+  if (!match) return undefined
+  const pkg = match[1] ?? ''
+  const activity = match[2] ?? ''
+  return {
+    package: pkg,
+    activity: activity.startsWith(`${pkg}.`) ? activity.slice(pkg.length) : activity,
   }
 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 🔌 Device checks on an Android emulator (.github/workflows/device.yml): Phase 1 T039, T041, T056,
-# T060, T063 and Phase 2 T046 (the Recorder). Every check runs even when an earlier one fails;
-# logs, a summary and the evidence (screenshots, trees, device logs) go to $CORAL_DEVICE_OUT.
+# T060, T063, Phase 2 T046 (the Recorder) and Phase 3 T036 (the Explorer, with the `fake` brain).
+# Every check runs even when an earlier one fails; logs, a summary and the evidence (screenshots,
+# trees, device logs) go to $CORAL_DEVICE_OUT.
 #
 # Needs: adb with exactly one device online, CORAL_TEST_APK (My Demo App), docker compose services
 # up and migrated, CORAL_SECRET_TEST_USER / CORAL_SECRET_TEST_PASSWORD in the environment.
@@ -13,6 +14,8 @@ APK=$(realpath "${CORAL_TEST_APK:?set CORAL_TEST_APK to the My Demo App APK}")
 SERVER=http://localhost:3000
 LOGIN=fixtures/testcases/mydemo-login.yaml
 CAMERA=fixtures/testcases/mydemo-camera-permission.yaml
+# The Explorer thinks with the scripted `fake` brain in CI: no network, no cost (T036).
+BRAINS=$(realpath examples/brains.fake.yaml)
 : "${CORAL_SECRET_TEST_USER:?}" "${CORAL_SECRET_TEST_PASSWORD:?}"
 export CORAL_SEED_EMAIL=ci@coral.test
 CORAL_SEED_PASSWORD="ci-$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')"
@@ -55,7 +58,8 @@ check T060-local 'coral run mydemo-camera-permission (popup guard)' \
 
 # Through the server (US3–US5): server + agent in the background, then the DoD script.
 pnpm -s --filter @coral/server db:seed
-(cd apps/server && CORAL_LOG_LEVEL=debug exec node --import tsx src/main.ts) >"$OUT/server.log" 2>&1 &
+(cd apps/server && CORAL_LOG_LEVEL=debug CORAL_BRAIN_FAKE=1 CORAL_BRAINS_DEFAULT="$BRAINS" \
+  exec node --import tsx src/main.ts) >"$OUT/server.log" 2>&1 &
 server_pid=$!
 for _ in $(seq 1 60); do curl -sf "$SERVER/health/ready" >/dev/null && break; sleep 1; done
 token=$(curl -sf "$SERVER/auth/login" -H 'content-type: application/json' \
@@ -77,6 +81,14 @@ check T060 'server: camera permission 5/5 with android_permission' \
 last_run=$(grep -oE 'run 5/5 [0-9a-f-]{36}' "$OUT/T056.log" | awk '{print $3}')
 check T063 "scan run ${last_run:-?} for secrets" \
   node scripts/phase1-e2e.mjs --scan-secrets --run "${last_run:-missing}"
+# Phase 3 US2 (T036): explore My Demo App for 25 steps — app map of ≥ 4 screens with their
+# activity, no step on a never_tap button (Log Out added to the project's list). US3: the test
+# cases the writer made from it and their two validation runs on the emulator are listed in
+# T036.log and kept under explore/testcases (reported, not yet required: SC-001 is checked on the
+# fake device by e2e/us3-writer.e2e.ts).
+check T036 'Explorer: 25 steps on My Demo App, ≥ 4 screens, never_tap untouched' \
+  node scripts/phase3-explore.mjs --apk "$APK" --steps 25 --never-tap 'Log Out' \
+  --download "$OUT/explore"
 
 kill "$agent_pid" "$server_pid" 2>/dev/null
 wait "$agent_pid" "$server_pid" 2>/dev/null

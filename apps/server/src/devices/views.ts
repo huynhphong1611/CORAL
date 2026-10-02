@@ -16,23 +16,24 @@ export const toDevice = (d: DeviceRow) =>
   }) satisfies api.Device
 
 const RUN_HOLDER = /^run:([0-9a-f-]{36})$/
+const EXPLORATION_HOLDER = /^exploration:([0-9a-f-]{36})$/
 
 /**
  * What a device is busy with (data-model §2): offline from its status, otherwise from its open
- * lease — a run (exploration counts as one until Phase 3 shows it), a person controlling it, or a
- * recording — and idle without one.
+ * lease — a run, an exploration, a person controlling it, or a recording — and idle without one.
  */
 export function activityOf(device: DeviceRow, lease?: OpenLease): api.DeviceActivity {
   if (device.status === 'offline') return { kind: 'offline' }
   if (!lease) return { kind: 'idle' }
-  const kind = lease.kind === 'exploration' ? 'run' : lease.kind
   const runId = RUN_HOLDER.exec(lease.holderRef)?.[1]
+  const explorationId = EXPLORATION_HOLDER.exec(lease.holderRef)?.[1]
   return {
-    kind,
+    kind: lease.kind,
     ...(lease.userId && lease.userName
       ? { by: { user_id: lease.userId, name: lease.userName } }
       : {}),
     ...(runId ? { run_id: runId } : {}),
+    ...(explorationId ? { exploration_id: explorationId } : {}),
     since: lease.acquiredAt.toISOString(),
   }
 }

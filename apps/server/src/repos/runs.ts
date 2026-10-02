@@ -14,6 +14,9 @@ export interface NewRun {
   popupsCommit: string
   createdBy: string
   items: { testCaseId: string; commit: string }[]
+  /** `validation` for the two runs that validate an AI-written test case (research R13). */
+  trigger?: RunRow['trigger']
+  validationOf?: string | null
 }
 
 /** Runs as the operator sees them, scoped to one tenant (P5). */
@@ -32,6 +35,8 @@ export function runsRepo(db: Db, tenantId: string) {
             deviceId: input.deviceId,
             popupsCommit: input.popupsCommit,
             createdBy: input.createdBy,
+            ...(input.trigger ? { trigger: input.trigger } : {}),
+            ...(input.validationOf ? { validationOf: input.validationOf } : {}),
           })
           .returning()
         if (!run) throw new Error('run not stored')

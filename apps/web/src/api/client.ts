@@ -28,6 +28,8 @@ export interface ApiClientOptions {
 
 interface RequestOptions<T> {
   body?: unknown
+  /** A body sent as it is, with its content type (a YAML file, comments kept). */
+  text?: { content: string; type: string }
   form?: FormData
   schema?: z.ZodType<T>
   /** Do not try a refresh on 401 (the auth routes themselves). */
@@ -115,6 +117,11 @@ export class ApiClient {
     return this.request('PUT', path, { body, ...(schema ? { schema } : {}) })
   }
 
+  /** PUT of a text body as written, e.g. `application/yaml`. */
+  putText<T>(path: string, content: string, type: string, schema?: z.ZodType<T>): Promise<T> {
+    return this.request('PUT', path, { text: { content, type }, ...(schema ? { schema } : {}) })
+  }
+
   patch<T>(path: string, body: unknown, schema?: z.ZodType<T>): Promise<T> {
     return this.request('PATCH', path, { body, ...(schema ? { schema } : {}) })
   }
@@ -173,6 +180,9 @@ export class ApiClient {
     let body: BodyInit | undefined
     if (options.form) {
       body = options.form
+    } else if (options.text) {
+      headers['content-type'] = options.text.type
+      body = options.text.content
     } else if (options.body !== undefined) {
       headers['content-type'] = 'application/json'
       body = JSON.stringify(options.body)

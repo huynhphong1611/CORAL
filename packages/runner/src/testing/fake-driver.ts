@@ -1,6 +1,7 @@
 import { walkTree, type ElementNode, type Permission, type Platform } from '@coral/shared'
 import type {
   DeviceDriver,
+  ForegroundActivity,
   FrameOptions,
   FrameSource,
   LiveFrame,
@@ -62,6 +63,11 @@ export interface FakeScreen {
   taps?: Record<string, string>
   /** Next screen after back(). */
   back?: string
+  /**
+   * A tap of this key (as in `taps`) goes to its `taps` screen only when the field typed into on
+   * this screen holds `equals`; otherwise to `otherwise` (a code to verify).
+   */
+  checks?: Record<string, { field: string; equals: string; otherwise: string }>
 }
 
 export type FakeCall =
@@ -176,14 +182,24 @@ export class FakeDriver implements DeviceDriver, FrameSource, RemoteControl {
   }
 
   private follow(node: ElementNode | undefined): void {
-    const taps = this.screen().taps ?? {}
+    const { taps = {}, checks = {} } = this.screen()
     for (let n: ElementNode | undefined = node; n; n = this.parent(n)) {
-      const next = taps[n.platform_id] ?? taps[n.text] ?? taps[n.desc]
-      if (next) {
-        this.show(next)
-        return
-      }
+      const key = [n.platform_id, n.text, n.desc].find((k) => k && taps[k] !== undefined)
+      if (key === undefined) continue
+      const check = checks[key]
+      const next = taps[key] ?? ''
+      this.show(check && this.typedIn(check.field) !== check.equals ? check.otherwise : next)
+      return
     }
+  }
+
+  /** What was typed into the field with this platform id on the current screen. */
+  private typedIn(platformId: string): string | undefined {
+    const field = [...walkTree(this.screen().frames.at(-1) ?? [])].find(
+      (n) => n.platform_id === platformId,
+    )
+    if (!field || this.typedOn.get(field.ref) !== this.current) return undefined
+    return this.typed.get(field.ref)
   }
 
   private parent(node: ElementNode): ElementNode | undefined {
@@ -259,7 +275,9 @@ export class FakeDriver implements DeviceDriver, FrameSource, RemoteControl {
   type(text: string): Promise<void> {
     this.calls.push({ kind: 'type', text })
     const ref = this.focusedHere()
-    if (ref) this.typedInto(ref, (this.typed.get(ref) ?? '') + text)
+    // Refs are index paths: text typed on another screen is not in this field.
+    const before = ref && this.typedOn.get(ref) === this.current ? this.typed.get(ref) : undefined
+    if (ref) this.typedInto(ref, (before ?? '') + text)
     return Promise.resolve()
   }
 
@@ -310,9 +328,13 @@ export class FakeDriver implements DeviceDriver, FrameSource, RemoteControl {
     return Promise.resolve()
   }
 
+  /** Starts the app afresh: its first screen, the fields empty (text typed before is gone). */
   launch(appId: string): Promise<void> {
     this.calls.push({ kind: 'launch', appId })
     this.appRunning = true
+    this.typed.clear()
+    this.typedOn.clear()
+    this.focused = undefined
     this.show(this.options.start)
     return Promise.resolve()
   }
@@ -350,4 +372,16 @@ export class FakeDriver implements DeviceDriver, FrameSource, RemoteControl {
   deviceLogs(): Promise<string> {
     return Promise.resolve(this.options.logs ?? '')
   }
+
+  /** The app window's package and the fake screen's name as its activity (`.catalog`). */
+  foregroundActivity(): Promise<ForegroundActivity | undefined> {
+    const app = this.currentTree().find((window) => !SYSTEM_PACKAGES.test(window.package_or_bundle))
+    return Promise.resolve(
+      app ? { package: app.package_or_bundle, activity: `.${this.current}` } : undefined,
+    )
+  }
 }
+
+/** Windows that are never the app's own (status bar, keyboards, permission dialogs). */
+const SYSTEM_PACKAGES =
+  /^(com\.android\.systemui|android)$|inputmethod|\.ime$|keyboard|permissioncontroller/i

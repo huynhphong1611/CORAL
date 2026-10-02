@@ -46,9 +46,9 @@
       "path": "steps[2].id"
     }
   ],
-  "unsupported-in-phase.yaml": [
+  "unknown-screen.yaml": [
     {
-      "code": "unsupported_in_phase",
+      "code": "unknown_screen",
       "step_id": "s1",
       "path": "steps[0].expect[0].screen"
     }

@@ -40,8 +40,16 @@ export interface ArtifactStore {
   presignGet(key: string): Promise<PresignedUrl>
   /** Streams an object of unknown length (multipart upload); aborts when the stream fails. */
   putStream(key: string, body: Readable, contentType: string): Promise<void>
-  /** Stores small bytes (image assets) in one request. */
-  putBytes(key: string, body: Uint8Array, contentType: string): Promise<void>
+  /**
+   * Stores small bytes in one request. `runArtifact` adds the 30-day retention tag (run
+   * artifacts, exploration traces, AI call content).
+   */
+  putBytes(
+    key: string,
+    body: Uint8Array,
+    contentType: string,
+    opts?: { runArtifact?: boolean },
+  ): Promise<void>
   /** The object's bytes, or undefined when it does not exist. */
   getBytes(key: string): Promise<Uint8Array | undefined>
   /** Size in bytes, or undefined when the object does not exist. */
@@ -62,6 +70,7 @@ export function createArtifactStore(config: ServerConfig['s3']): ArtifactStore {
     credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
   })
   const Bucket = config.bucket
+  const retentionTag = `${RUN_ARTIFACT_TAG.key}=${RUN_ARTIFACT_TAG.value}`
   const expiry = (ttlSec: number) => new Date(Date.now() + ttlSec * 1000)
 
   return {
@@ -99,9 +108,7 @@ export function createArtifactStore(config: ServerConfig['s3']): ArtifactStore {
         Bucket,
         Key: key,
         ContentType: contentType,
-        ...(opts.runArtifact
-          ? { Tagging: `${RUN_ARTIFACT_TAG.key}=${RUN_ARTIFACT_TAG.value}` }
-          : {}),
+        ...(opts.runArtifact ? { Tagging: retentionTag } : {}),
       })
       // Signed into the query string, so the uploader only sends Content-Type.
       const url = await getSignedUrl(client, command, {
@@ -119,9 +126,15 @@ export function createArtifactStore(config: ServerConfig['s3']): ArtifactStore {
       }).done()
     },
 
-    async putBytes(key, body, contentType) {
+    async putBytes(key, body, contentType, opts = {}) {
       await client.send(
-        new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType }),
+        new PutObjectCommand({
+          Bucket,
+          Key: key,
+          Body: body,
+          ContentType: contentType,
+          ...(opts.runArtifact ? { Tagging: retentionTag } : {}),
+        }),
       )
     },
 

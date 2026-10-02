@@ -1,0 +1,7 @@
+ID,Title,Preconditions,Steps,Expected Result,Priority
+TC-01,Log in with the demo account,The app is open on the catalog,"1. Open the menu
+2. Tap Log In
+3. Type the demo username and password, tap Login","1. The menu opens
+2. The Login screen shows
+3. The catalog shows again",High
+TC-02,Open the cart,,Tap the cart icon,My Cart shows,Low

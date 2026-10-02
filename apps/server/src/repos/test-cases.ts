@@ -29,13 +29,62 @@ export function testCasesRepo(
   const inTenant = eq(testCases.tenantId, tenantId)
 
   return {
-    async list(projectId: string) {
+    async list(
+      projectId: string,
+      filter: {
+        source?: TestCaseRow['source']
+        status?: TestCaseRow['status']
+        /** `exploration:<id>` / `import_item:<id>`: what an AI activity wrote. */
+        sourceRef?: string
+      } = {},
+    ) {
       await projects.get(projectId)
       return db
         .select()
         .from(testCases)
-        .where(and(inTenant, eq(testCases.projectId, projectId)))
+        .where(
+          and(
+            inTenant,
+            eq(testCases.projectId, projectId),
+            filter.source ? eq(testCases.source, filter.source) : undefined,
+            filter.status ? eq(testCases.status, filter.status) : undefined,
+            filter.sourceRef ? eq(testCases.sourceRef, filter.sourceRef) : undefined,
+          ),
+        )
         .orderBy(asc(testCases.slug))
+    },
+
+    /**
+     * Status and its reasons, which live only in the DB (D15): a person's PATCH, or the result of
+     * the validation runs of an AI-written test case (D41).
+     */
+    async setStatus(
+      id: string,
+      patch: {
+        status: TestCaseRow['status']
+        draftReason?: TestCaseRow['draftReason']
+        flags?: TestCaseRow['flags']
+        validation?: TestCaseRow['validation']
+        validatedAt?: Date | null
+        userId?: string
+      },
+    ): Promise<TestCaseRow> {
+      const { userId, ...columns } = patch
+      const [row] = await db
+        .update(testCases)
+        .set({
+          ...columns,
+          // Leaving draft clears why it was a draft.
+          ...(patch.status !== 'draft' && patch.draftReason === undefined
+            ? { draftReason: null }
+            : {}),
+          ...(userId ? { updatedBy: userId } : {}),
+          updatedAt: new Date(),
+        })
+        .where(and(inTenant, eq(testCases.id, id)))
+        .returning()
+      if (!row) throw notFound('test case')
+      return row
     },
 
     async get(id: string): Promise<TestCaseRow> {
@@ -212,6 +261,71 @@ export function testCasesRepo(
             .returning()
           if (!row) throw new Error('test case not stored')
           const commit = await commitAll()
+          const [saved] = await tx
+            .update(testCases)
+            .set({ headCommit: commit })
+            .where(eq(testCases.id, row.id))
+            .returning()
+          if (!saved) throw new Error('test case not stored')
+          return saved
+        })
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          throw conflict('slug_exists', `test case "${testCase.id}" already exists`)
+        }
+        throw error
+      }
+    },
+
+    /**
+     * A test case the Test writer made (US3, research R12): one commit with its YAML and the
+     * snapshots copied from the trace, `draft` until its validation runs pass.
+     */
+    async saveGenerated(
+      projectId: string,
+      input: {
+        testCase: TestCase
+        yaml: string
+        snapshots: Record<string, Uint8Array | string>
+        author: GitAuthor
+        userId: string
+        source: Extract<TestCaseRow['source'], 'ai_explore' | 'ai_prompt' | 'ai_import'>
+        sourceRef: string
+        flags: TestCaseRow['flags']
+        draftReason: TestCaseRow['draftReason']
+      },
+    ): Promise<TestCaseRow> {
+      await projects.get(projectId)
+      const { testCase } = input
+      const pathInRepo = testCasePath(testCase.id)
+      try {
+        return await db.transaction(async (tx) => {
+          const [row] = await tx
+            .insert(testCases)
+            .values({
+              tenantId,
+              projectId,
+              slug: testCase.id,
+              pathInRepo,
+              headCommit: PENDING_COMMIT,
+              intent: testCase.intent,
+              tags: testCase.tags ?? [],
+              platforms: [...testCase.platforms],
+              source: input.source,
+              sourceRef: input.sourceRef,
+              status: 'draft',
+              draftReason: input.draftReason,
+              flags: input.flags,
+              updatedBy: input.userId,
+            })
+            .returning()
+          if (!row) throw new Error('test case not stored')
+          const commit = await store.commitFiles(tenantId, projectId, {
+            files: { [pathInRepo]: input.yaml, ...input.snapshots },
+            removeDirs: [snapshotDir(testCase.id)],
+            author: input.author,
+            message: `testcase: ${testCase.id} (${input.source}, ${input.sourceRef})`,
+          })
           const [saved] = await tx
             .update(testCases)
             .set({ headCommit: commit })

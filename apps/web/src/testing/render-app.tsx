@@ -23,6 +23,7 @@ export interface FakeRequest {
   method: string
   url: URL
   body: unknown
+  contentType?: string | undefined
 }
 
 /** A canned answer: a Response, a JSON body, or a function of the request returning either. */
@@ -50,8 +51,15 @@ export async function renderApp(path: string, options: RenderOptions = {}) {
     const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     const url = new URL(href, 'http://coral.test')
     const method = init.method ?? 'GET'
-    const body: unknown = typeof init.body === 'string' ? JSON.parse(init.body) : undefined
-    const request = { method, url, body }
+    const headers = new Headers(init.headers)
+    // JSON bodies parsed; other text (a YAML file) kept as sent.
+    const body: unknown =
+      typeof init.body !== 'string'
+        ? undefined
+        : headers.get('content-type')?.includes('json')
+          ? JSON.parse(init.body)
+          : init.body
+    const request = { method, url, body, contentType: headers.get('content-type') ?? undefined }
     requests.push(request)
     const apiPath = url.origin === 'http://coral.test' ? url.pathname.replace(/^\/api/, '') : ''
     const key = apiPath ? `${method} ${apiPath}` : `${method} ${url.href}`

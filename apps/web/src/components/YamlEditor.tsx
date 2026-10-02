@@ -1,4 +1,5 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { markdown } from '@codemirror/lang-markdown'
 import { yaml } from '@codemirror/lang-yaml'
 import { defaultHighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language'
 import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint'
@@ -44,6 +45,19 @@ export function issueRange(
   return { from, to }
 }
 
+/** Languages the editor highlights: YAML files and Markdown (AGENTS.md, SKILL.md — Phase 3). */
+export type EditorLanguage = 'yaml' | 'markdown'
+
+export interface YamlEditorProps {
+  value: string
+  onChange: (value: string) => void
+  issues: readonly EditorIssue[]
+  readOnly?: boolean
+  label: string
+  language?: EditorLanguage
+  ref?: Ref<YamlEditorHandle>
+}
+
 /**
  * The YAML editor (US5, research R1): CodeMirror 6 with YAML highlighting, undo history and the
  * given problems marked in the gutter and under the text. The caller validates (so the same
@@ -55,15 +69,9 @@ export function YamlEditor({
   issues,
   readOnly = false,
   label,
+  language = 'yaml',
   ref,
-}: {
-  value: string
-  onChange: (value: string) => void
-  issues: readonly EditorIssue[]
-  readOnly?: boolean
-  label: string
-  ref?: Ref<YamlEditorHandle>
-}) {
+}: YamlEditorProps) {
   const parent = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | undefined>(undefined)
   const changed = useRef(onChange)
@@ -100,7 +108,7 @@ export function YamlEditor({
           history(),
           indentOnInput(),
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
-          yaml(),
+          language === 'markdown' ? markdown() : yaml(),
           syntaxHighlighting(defaultHighlightStyle),
           lintGutter(),
           theme,
@@ -152,6 +160,11 @@ export function YamlEditor({
       className="h-[32rem] overflow-hidden rounded-md border border-slate-300 focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-200"
     />
   )
+}
+
+/** The same editor for Markdown files of the project knowledge (Phase 3, FR-041). */
+export function MarkdownEditor(props: Omit<YamlEditorProps, 'language'>) {
+  return <YamlEditor {...props} language="markdown" />
 }
 
 const readOnlyExtensions = (readOnly: boolean) =>

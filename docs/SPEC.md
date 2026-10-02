@@ -6,9 +6,9 @@
 | | |
 |---|---|
 | Phiên bản | 0.2 (draft) |
-| Ngày | 2026-09-28 |
+| Ngày | 2026-10-01 |
 | Chủ dự án | Huynh |
-| Trạng thái | Phase 0 xong; chuẩn bị Phase 1. Đã chốt tech stack (§19) và làm rõ SPEC (§21, D07–D27) |
+| Trạng thái | Phase 0–2 xong; đang làm Phase 3 (Brain layer, Explorer, Test writer — D41–D46). Tech stack chốt ở §19 (D07) |
 
 Tài liệu này là **nguồn sự thật** về kiến trúc và hành vi của coral. Kế hoạch triển khai theo giai đoạn nằm ở `docs/ROADMAP.md`. Quy ước code và cách làm việc nằm ở `CLAUDE.md`. Khi có quyết định lệch khỏi tài liệu này, cập nhật mục liên quan và ghi vào §21 Decision log. Ký hiệu `(Dxx)` trỏ tới dòng tương ứng trong Decision log.
 
@@ -180,16 +180,19 @@ Mọi bảng nghiệp vụ có `tenant_id` và bật Row-Level Security (§17). 
 | `agents` | id, tenant_id, name, token_hash, os, capabilities (jsonb), last_seen_at, status | |
 | `devices` | id, tenant_id, agent_id, platform, kind (real/emulator/simulator), model, os_version, udid, status | status ∈ idle/leased/offline. Unique (agent_id, udid). |
 | `leases` | id, tenant_id, device_id, kind, holder_ref, acquired_at, expires_at, released_at | kind ∈ run/exploration/live. Tối đa một lease mở trên mỗi thiết bị (D16). |
-| `test_cases` | id, tenant_id, project_id, slug, path_in_repo, intent, tags, status, head_commit, source, source_ref | status ∈ draft/active/quarantined. source ∈ manual/recorder/ai_prompt/ai_import. Là **chỉ mục** của file trong git; `status` chỉ lưu ở DB (D15, D31). |
-| `import_jobs` | id, tenant_id, project_id, source_format, status, budget (jsonb), stats (jsonb), created_by, created_at | Một lần import test case thủ công (§11.3). |
-| `runs` | id, tenant_id, project_id, build_id, device_id, trigger, status, started_at, finished_at | trigger ∈ manual/schedule/ci/validation |
+| `test_cases` | id, tenant_id, project_id, slug, path_in_repo, intent, tags, status, head_commit, source, source_ref, validation (jsonb), draft_reason, flags, validated_at | status ∈ draft/active/quarantined. source ∈ manual/recorder/ai_explore/ai_prompt/ai_import. Là **chỉ mục** của file trong git; `status` chỉ lưu ở DB (D15, D31). Test case AI sinh: `validation` = 2 run xác thực, `draft_reason` ∈ validation_failed/changed_during_validation/needs_human/ambiguous/app_mismatch, `flags` ∈ needs_review_never_tap (D41). |
+| `import_jobs` | id, tenant_id, project_id, app_id, build_id, device_id, source_format, file_name, mapping (jsonb), status, budget (jsonb), stats (jsonb), report (jsonb), manual_commit, created_by, created_at | Một lần import test case thủ công (§11.3). source_format ∈ csv/xlsx/gherkin; status ∈ preview/running/done/cancelled/failed. |
+| `import_items` | id, tenant_id, import_job_id, n, manual_path, title, status, reason, evidence (jsonb), exploration_id, test_case_id, cost_usd | Một test case thủ công trong job. status ∈ pending/running/active/draft/not_processed; reason ∈ needs_human/ambiguous/app_mismatch/validation_failed/duplicate. Ghi ngay khi xong để job chạy tiếp sau khi server khởi động lại (D41). |
+| `runs` | id, tenant_id, project_id, build_id, device_id, trigger, status, started_at, finished_at, validation_of? | trigger ∈ manual/schedule/ci/validation; `validation_of` = test case đang được xác thực (§11.2). |
 | `run_items` | id, tenant_id, run_id, test_case_id, commit, status, failure_code | Một test case trong một run. |
 | `run_steps` | id, tenant_id, run_item_id, step_id, status, locator_used_index, degraded, duration_ms, artifact_prefix | `degraded` = tìm thấy bằng locator ưu tiên thấp. |
-| `explorations` | id, tenant_id, project_id, build_id, device_id, goal, budget (jsonb), status, stats (jsonb) | |
+| `explorations` | id, tenant_id, project_id, app_id, build_id, device_id, user_id, lease_id, kind, goal, budget (jsonb), max_tests, status, stop_reason, stats (jsonb), appmap_commit, writer_report (jsonb), import_item_id? | kind ∈ explore/prompt/import. status ∈ queued/running/writing/validating/done/stopped/failed/interrupted (D41). writer_report: flow bị Test writer bỏ (trùng / sai định dạng / không có bước) và lỗi của nó (D48). |
+| `exploration_steps` | id, tenant_id, exploration_id, n, segment, fingerprint, screen_id, decision (jsonb), status, refusal, step (jsonb), flags, artifact_prefix, brain_call_id, cost_usd | Trace của Explorer (§10); ảnh và cây trên object storage, giữ 30 ngày. status ∈ done/refused/failed/popup/restart. |
+| `findings` | id, tenant_id, project_id, exploration_id, step_n, kind, log_excerpt, artifact_prefix | Crash/ANR gặp khi khám phá (kind ∈ crashed/not_responding); ứng viên bug của Phase 4. |
 | `heal_proposals` | id, tenant_id, project_id, kind, run_item_id?, test_case_id?, target_path, classification?, confidence, brain, reasoning, diff, verify_status, status, rejection_outcome?, reviewer_id, decided_at | kind ∈ locator_refresh/ai_heal/popup_rule. status ∈ pending/approved/rejected/superseded. rejection_outcome ∈ bug/wontfix (D17). |
 | `bugs` | id, tenant_id, project_id, run_item_id, title, description, evidence_prefix, status | status ∈ open/confirmed/fixed/wontfix |
-| `brain_calls` | id, tenant_id, role, provider, model, tokens_in, tokens_out, cost_usd, latency_ms, ok, ref_type, ref_id | Theo dõi chi phí. |
-| `tool_calls` | id, tenant_id, brain_call_id, mcp_server, tool, args_redacted, ok, latency_ms, created_at | Mọi lần Brain gọi tool MCP (§14.5, D29). |
+| `brain_calls` | id, tenant_id, role, provider, model, attempt, tokens_in, tokens_out, tokens_cached, cost_usd, latency_ms, ok, error, ref_type, ref_id, content_key | Theo dõi chi phí. Mỗi lần thử (dự phòng, hỏi lại) một dòng. `content_key`: nội dung đã che secret trên object storage, giữ 30 ngày (D41). |
+| `tool_calls` | id, tenant_id, brain_call_id, mcp_server, tool, args_redacted, ok, blocked, error, latency_ms, created_at | Mọi lần Brain gọi tool MCP (§14.5, D29), kể cả lần bị chặn (`blocked`, error ∈ not_allowed/side_effects_disabled/timeout/server_error). |
 | `secrets` | id, tenant_id, project_id?, name, ciphertext, created_by | `project_id` rỗng = secret cấp tenant (ví dụ API key của provider AI). Secret cấp project đè secret cấp tenant cùng tên. Mã hóa envelope (§17, D19). |
 | `audit_log` | id, tenant_id, actor, action, target, meta, created_at | |
 
@@ -486,14 +489,17 @@ Tỷ lệ heal đúng, **tỷ lệ heal sai** (sửa test làm che bug), thời 
 <project-repo>/
 ├── AGENTS.md              # luật chung cho mọi brain (ngôn ngữ app, quy ước, cảnh báo)
 ├── skills/
-│   └── <skill-name>/SKILL.md   # chuẩn Agent Skills: name + description + nội dung
+│   └── <skill-name>/
+│       ├── SKILL.md            # chuẩn Agent Skills: name + description + nội dung
+│       └── rules.yaml          # coral/skill-rules@1: never_tap, forbidden, test_data, allow_submit (máy đọc — D42)
 ├── testcases/*.yaml
 ├── snap/                  # snapshot mốc của test case
 ├── popups.yaml
 ├── mcp.yaml               # MCP server + tool được phép cho các vai trò AI (§14.5)
-└── appmap/
-    ├── screens.json
-    └── snap/
+├── appmap/
+│   ├── screens.json        # coral/appmap@1
+│   └── snap/
+└── imports/<job_id>/*.yaml # coral/manualcase@1 — test case thủ công đã import (§11.3)
 ```
 
 - Prompt builder chỉ nạp `AGENTS.md` + skill có `description` khớp nhiệm vụ (progressive disclosure), và **chỉ** từ repo của project đang chạy.
@@ -529,7 +535,7 @@ interface Brain {
 |---|---|---|
 | `claude` | `@anthropic-ai/sdk` | Tọa độ (nếu có) là pixel theo ảnh đã gửi → adapter quy đổi sang `point_pct`. |
 | `gemini` | `@google/genai` | Bounding box chuẩn hóa thang 0–1000 → adapter quy đổi sang `point_pct`. |
-| `copilot` | `@github/copilot-sdk` | Agent runtime của Copilot. Cần subscription Copilot hoặc BYOK; mỗi prompt tính vào hạn mức. Không dùng proxy không chính thức. Làm **sau cùng** trong Phase 3, bật bằng cờ cấu hình, dùng token Copilot của chính tenant (D20, R7). |
+| `copilot` | `@github/copilot-sdk` | Agent runtime của Copilot (runtime CLI đi kèm SDK theo nền tảng, không cài riêng). Nhận ảnh (attachment base64) nên dùng được cho mọi vai trò. Adapter tắt toàn bộ công cụ có sẵn của Copilot (shell, sửa file), chạy trong thư mục tạm rỗng; AI chỉ thấy công cụ của coral (MCP allowlist, `read_skill`). Cần subscription Copilot; mỗi lời gọi tính một premium request. Không dùng proxy không chính thức. Bật bằng `CORAL_COPILOT_ENABLED=1` **và** `providers.copilot.enabled: true`; token của tenant (`token_secret`) hoặc của nền tảng (`CORAL_COPILOT_TOKEN`). Làm cùng Claude và Gemini trong US1 (D20, D47, R7). |
 
 ### 14.3 Định tuyến theo vai trò (`brains.yaml`, theo tenant)
 ```yaml
@@ -544,6 +550,8 @@ limits:
   max_cost_usd_per_exploration: 3
 ```
 Đây là cấu hình khởi đầu, sẽ được điều chỉnh theo kết quả benchmark (§14.4). Tên model không hard-code trong code.
+
+Thêm từ Phase 3 (D43): `providers.<id>` (model mặc định khi dự phòng, `api_key_secret` = tên secret của key riêng tenant); `limits.max_cost_usd_per_import`; `prices:` (USD / 1 triệu token theo model, ghi đè bảng đơn giá của nền tảng `apps/server/ai-prices.yaml`; model tính tiền theo lời gọi như Copilot dùng thêm `per_request`, USD mỗi lời gọi — D47). Model không có đơn giá thì không được gọi. Provider `fake` / `fake-alt` (adapter có kịch bản, không mạng) chỉ nhận khi server chạy với `CORAL_BRAIN_FAKE=1` (test, CI).
 
 **Lưu trữ (D20):** cấu hình lưu ở `tenants.settings` (jsonb), validate bằng cùng Zod schema với `brains.yaml`; `GET/PUT /brains/config` nhận/trả YAML hoặc JSON. API key của provider là secret cấp tenant (BYOK); server có thể có key mặc định của nền tảng qua biến môi trường. Ví dụ: `examples/brains.example.yaml`.
 
@@ -583,7 +591,7 @@ Mỗi message có `{ v: 1, type, id, ts, payload }` và trường tùy chọn `r
 |---|---|---|
 | A→S | `agent.hello` | phiên bản, OS, capabilities, danh sách thiết bị |
 | A→S | `device.update` | thiết bị thêm / bớt / đổi trạng thái |
-| S→A | `job.assign` | run id, thiết bị, build, test cases (YAML + commit), popups.yaml, giá trị secret đã giải mã mà test case tham chiếu, fingerprint màn hình khi có `expect.screen`; mỗi test case kèm `assets: [{ path, sha256, download_url }]` — ảnh của locator `image`, lưu theo nội dung `<tenant>/assets/<sha256>`, agent cache theo sha256, sai sha → item `error` (Phase 2) |
+| S→A | `job.assign` | run id, thiết bị, build, test cases (YAML + commit), popups.yaml, giá trị secret đã giải mã mà test case tham chiếu, fingerprint màn hình khi có `expect.screen` (`items[].screens: { <screen_id>: <fingerprint> }` lấy từ app map tại commit của item — Phase 3); mỗi test case kèm `assets: [{ path, sha256, download_url }]` — ảnh của locator `image`, lưu theo nội dung `<tenant>/assets/<sha256>`, agent cache theo sha256, sai sha → item `error` (Phase 2) |
 | A→S | `job.ack` / `job.reject` | |
 | A→S | `step.result` | kết quả từng step, locator đã dùng, degraded |
 | A→S | `artifact.request_upload` | xin presigned URL |
@@ -591,7 +599,7 @@ Mỗi message có `{ v: 1, type, id, ts, payload }` và trường tùy chọn `r
 | A→S | `job.done` | tổng kết, mã lỗi (nếu có) |
 | A→S | `popup.unknown` | snapshot để server gọi Popup resolver |
 | S→A | `popup.decision` | nút cần bấm hoặc "không xử lý được" |
-| S→A | `device.command` | `{ command_id, udid, command }`: lệnh đơn khi điều khiển (`tap`, `long_press`, `swipe`, `type`, `back`, `home`, `hide_keyboard`, `restart_app`) và của Recorder (`prepare`, `record`, `inspect` — chọn element, chuỗi locator, snapshot tải lên presigned URL); lệnh chạy lần lượt theo thiết bị, không khi thiết bị đang chạy run |
+| S→A | `device.command` | `{ command_id, udid, command }`: lệnh đơn khi điều khiển (`tap`, `long_press`, `swipe`, `type`, `back`, `home`, `hide_keyboard`, `restart_app`) và của Recorder (`prepare`, `record`, `inspect` — chọn element, chuỗi locator, snapshot tải lên presigned URL), của Explorer (`observe` — chờ ổn định, popup guard, ảnh `screen.jpg` + `ai.jpg` ≤ 1024 px + `tree.json` tải lên, trả cây, activity, app còn chạy, crash — D44); lệnh chạy lần lượt theo thiết bị, không khi thiết bị đang chạy run |
 | A→S | `device.command_result` | `{ command_id, ok, error?: { code, message }, result? }` (`re` bắt buộc) |
 | S→A | `stream.start` / `stream.stop` | bật / tắt live view (`fps` 2–5, `max_edge`, `quality`) |
 | A→S | `stream.frame` | khung hình JPEG/PNG, binary frame (xem trên) |
@@ -623,20 +631,22 @@ POST   /devices/:id/control        DELETE /devices/:id/control   GET /devices/:i
 POST   /recordings                 GET  /recordings   GET /recordings/:id   PATCH /recordings/:id   DELETE /recordings/:id
 POST   /recordings/:id/stop | /resume | /save   GET /recordings/:id/yaml   (Recorder, lease `recording`; save = một commit gồm YAML + snap/<slug>/)
 GET    /projects/:id/testcases     POST /projects/:id/testcases
-POST   /projects/:id/testcases/generate   (từ prompt, §11.3)
-POST   /projects/:id/testcases/import     GET  /imports/:id
+POST   /projects/:id/imports   (tải file → xem trước)   PATCH /imports/:id   POST /imports/:id/start | /cancel   GET /imports   GET /imports/:id   DELETE /imports/:id   (§11.3)
 GET    /testcases/:id              PUT  /testcases/:id
 GET    /testcases/:id/history      (các commit đã sửa test case, mới nhất trước — D31)
 GET    /testcases/:id/snapshots    GET /testcases/:id/files/*path   (chỉ trong snap/<slug>/)   GET /testcases/:id/last-run-steps   (ảnh cho editor)
 POST   /runs                       GET  /runs   GET /runs/:id   POST /runs/:id/cancel
 GET    /runs/:id/items/:itemId/steps
-POST   /explorations               GET  /explorations/:id
+POST   /explorations   (có `goal` = tạo test case từ prompt, §11.3)   GET /explorations   GET /explorations/:id   GET /explorations/:id/steps   POST /explorations/:id/stop
+GET    /projects/:id/appmap        GET  /projects/:id/files/*path   (chỉ appmap/snap/, imports/)
+PATCH  /testcases/:id              (status draft/active/quarantined)
 GET    /heals                      POST /heals/:id/approve   POST /heals/:id/reject
 GET    /projects/:id/popups        PUT  /projects/:id/popups
-GET    /projects/:id/skills        PUT  /projects/:id/skills/:name
+GET    /projects/:id/agents-md     PUT  /projects/:id/agents-md
+GET    /projects/:id/skills        GET|PUT|DELETE /projects/:id/skills/:name   (SKILL.md + rules.yaml)
 GET    /brains/config              PUT  /brains/config
 GET    /projects/:id/mcp           PUT  /projects/:id/mcp   (mcp.yaml, §14.5)
-GET    /usage/ai
+GET    /usage/ai                   GET  /brain-calls/:id   (nội dung lời gọi AI, 30 ngày)
 WS     /ws/ui      (sự kiện run, live view, lệnh điều khiển/ghi; xác thực trong băng: message đầu `ui.auth { access_token }` — D38)
 WS     /ws/agent   (§15)
 POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
@@ -706,7 +716,7 @@ POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
 | R4 | OTP, captcha, thanh toán | Hook / skill do user cung cấp (ví dụ API lấy OTP từ backend test). |
 | R5 | Test oracle: AI không tự biết "đúng nghiệp vụ" | `intent` + `expect` do người xác nhận; Explorer chủ yếu bắt crash và luồng cơ bản. |
 | R6 | Chi phí AI | Runner không AI; giới hạn ngân sách; model rẻ cho Explorer. |
-| R7 | Copilot SDK là agent runtime (chạy Copilot CLI), còn ở giai đoạn preview; khả năng nhận ảnh và điều khoản dùng trong server multi-tenant chưa rõ | Làm adapter Copilot sau cùng, sau cờ cấu hình, dùng token của chính tenant; DoD Phase 3 không phụ thuộc Copilot. |
+| R7 | Copilot SDK là agent runtime (chạy Copilot CLI); câu trả lời có cấu trúc còn preview; điều khoản dùng trong server multi-tenant cần tenant tự chịu (token của chính họ) | SDK 1.0.16 đã nhận ảnh và mang sẵn runtime (kiểm 2026-10-01, D47). Adapter sau hai cờ (server + tenant), tắt công cụ có sẵn của Copilot; JSON sai vẫn qua hỏi lại / dự phòng như provider khác; DoD Phase 3 không phụ thuộc Copilot. |
 | R8 | MinIO ngừng phát hành bản community; repo `minio/minio` đã bị gỡ khỏi Docker Hub (xác nhận 2026-09-28) | Dùng fork cộng đồng `pgsty/minio` (D26), ghim tag; chỉ dùng S3 API chuẩn nên thay được bằng RustFS/SeaweedFS/Garage mà không đổi code. |
 | R9 | Snapshot (PNG) trong git repo project làm repo phình to | Chấp nhận ở MVP; cân nhắc Git LFS hoặc lưu ảnh theo content hash trên object storage. |
 | R10 | Server chỉ chạy một instance (WS agent + git repo cục bộ) | Đủ cho Phase 1–5; mở rộng theo §17. |
@@ -763,3 +773,12 @@ POST   /mcp        (coral làm MCP server, Streamable HTTP — §14.5, D32)
 | D38 | 2026-09-30 | `WS /ws/ui` xác thực trong băng: message đầu tiên là `ui.auth { access_token }` trong 5 s (sai → đóng `4401`), token mới gửi lại trên cùng kết nối; quyền theo vai trò (`viewer` chỉ xem, FR-002a) | Trình duyệt không đặt được header `Authorization` cho WebSocket; token không nằm trong URL (log, lịch sử) — phù hợp D23 (Phase 2, research R2). |
 | D39 | 2026-09-30 | Recorder: chạm vào **tâm element** được chọn (không phải điểm click), ghi chuỗi locator đã kiểm tra lại (id, text, desc, `rel`, `class_index`, ảnh; `point_pct` chỉ khi không có gì khác) + snapshot; bản ghi dở ở server (bảng `recordings`, snapshot trên S3, hết hạn 7 ngày); lưu = một commit gồm YAML + `snap/<slug>/`; chữ trùng giá trị secret được ghi thành `${secret:NAME}` (server thay trong step, đề xuất, inspect; agent che trong `tree.json` và log) | Theo P2 (lưu cách tìm element, chạm tâm bounds); bản ghi không mất khi tải lại trang (FR-016); SC-008 trên emulator cho thấy đề xuất kỳ vọng có thể mang giá trị secret đọc trên màn hình. |
 | D40 | 2026-09-30 | Locator `image`: so toàn ảnh mẫu rồi kiểm lại **phần ruột** (bỏ 10 % mép) tại chỗ tìm được, điểm = số nhỏ hơn; ảnh mẫu/ruột phẳng không bao giờ khớp; co một lần theo `screen_width`, không dò nhiều tỉ lệ; kiểm "bị che" ở mức cửa sổ; ảnh đi theo job bằng nội dung (`<tenant>/assets/<sha256>`), `coral run --project-root` đọc từ đĩa | Nút cùng kiểu khác chữ đạt 0,865 khi chỉ so toàn ảnh (viền + nền lấn át) → khớp nhầm, trái SC-005; không chạm bừa quan trọng hơn khớp được khi mật độ màn hình khác (research R12). |
+| D41 | 2026-10-01 | Dữ liệu Phase 3: `test_cases.source` thêm `ai_explore` (khám phá tự do) + `validation`/`draft_reason`/`flags`/`validated_at`; bảng `exploration_steps`, `findings`, `import_items`; `brain_calls` mỗi lần thử một dòng (`attempt`, `error`, `content_key` — nội dung đã che secret giữ 30 ngày); `tool_calls.blocked`; exploration bị gián đoạn khi server khởi động lại, job import tự chạy tiếp | Huynh duyệt plan Phase 3 (research R19, clarify Q2/Q5 của spec): cần trace để Test writer làm việc, nội dung AI để gỡ lỗi, lưu từng case để resume. |
+| D42 | 2026-10-01 | Luật máy đọc của skill ở `skills/<name>/rules.yaml` (`coral/skill-rules@1`: `never_tap`, `forbidden`, `test_data`, `allow_submit`), tách khỏi `SKILL.md`; luật của mọi skill hợp nhất cho kiểm an toàn của Explorer; test case thủ công đã import ở `imports/<job_id>/*.yaml` (`coral/manualcase@1`) | Giữ `SKILL.md` đúng chuẩn Agent Skills; kiểm an toàn phải tất định, không phụ thuộc AI đọc skill nào (P6). |
+| D43 | 2026-10-01 | `brains.yaml` thêm `providers` (model mặc định, `api_key_secret`), `limits.max_cost_usd_per_import`, `prices`; bảng đơn giá nền tảng là file dữ liệu `apps/server/ai-prices.yaml`; model thiếu đơn giá không được gọi; provider `fake`/`fake-alt` chỉ khi `CORAL_BRAIN_FAKE=1` | Giới hạn chi phí luôn có hiệu lực mà không hard-code tên model; CI chạy không cần key AI (clarify Q1). |
+| D44 | 2026-10-01 | Lệnh agent `observe` (cây + `screen.jpg` + `ai.jpg` ≤ 1024 px, activity, crash); Explorer thao tác bằng `record` của Recorder (chuỗi locator lấy từ cây, AI chỉ chọn số element); `expect.screen` dùng `screenFingerprint` (D24) với `job.assign.items[].screens` từ app map | Locator trong test case AI sinh do mã Recorder tạo (P2); "nhìn" tách khỏi "làm" để server có cây + ảnh sau mỗi thao tác. |
+| D45 | 2026-10-01 | Phụ thuộc: chỉ `@coral/brain` được dùng MCP SDK (`@modelcontextprotocol/*`, kiểm cả lockfile — bổ sung D08); `apps/server` dùng hàm thuần của `@coral/runner` (hit-test, trích locator, kiểm kỳ vọng trên cây tĩnh) | §14.5 (router là MCP client); bản nháp test case trên server phải giống hệt lúc chạy lại. |
+| D46 | 2026-10-01 | Route Phase 3: tạo test case từ prompt = `POST /explorations` có `goal`; import qua `POST /projects/:id/imports` (xem trước) → `POST /imports/:id/start`; tri thức project `/projects/:id/agents-md`, `/skills/:name`, `/mcp`; `GET /brain-calls/:id`; `PATCH /testcases/:id` đổi trạng thái | Thay `testcases/generate` và `testcases/import` của bản phác thảo §16: prompt dùng chung máy Explorer, import cần bước xem trước và chọn cột (specs/004 contracts). |
+| D47 | 2026-10-01 | GitHub Copilot là provider đầy đủ của Phase 3: `vision: true` (SDK 1.0.16 nhận ảnh base64) nên dùng được cả `explorer`; runtime CLI đi kèm SDK, adapter tắt mọi công cụ có sẵn của Copilot và chạy trong thư mục tạm rỗng, chỉ đưa công cụ của coral (vẫn ≤ 5 lượt); token tenant `providers.copilot.token_secret` hoặc nền tảng `CORAL_COPILOT_TOKEN`; đơn giá thêm `per_request` (USD mỗi lời gọi, Copilot tính theo premium request); adapter làm trong US1 cùng Claude và Gemini, không để cuối | Huynh yêu cầu hỗ trợ cả Copilot (2026-10-01); kiểm SDK thấy giả định `vision: false` của research R2 đã lỗi thời; giới hạn chi phí phải áp dụng cả cho provider không tính theo token. |
+| D48 | 2026-10-01 | `explorations.writer_report` jsonb (migration 0004): Test writer ghi lại số flow AI chọn, các flow không thành test case (`duplicate` kèm `duplicate_of`, `invalid`, `no_steps` kèm lý do) và lỗi khiến nó không viết được gì (`budget`, `ai_unavailable`, `invalid_output`); `GET /explorations/:id` trả về, tab Test cases hiển thị | Kịch bản 6–7 của US3 (spec 004) đòi báo flow "đã có" và test case sai định dạng; data-model chưa có chỗ lưu. Huynh duyệt tại checkpoint US3. |
+| D49 | 2026-10-02 | Explorer cho AI gõ một secret khi tên đó có trong `test_data` của skill **hoặc** chính mục tiêu ghi `${secret:NAME}` (goal người dùng viết, case thủ công đã import — giá trị trùng secret trong file được thay bằng tên trước khi gửi AI); app giả My Demo App kiểm mật khẩu demo (sai → lỗi của app thật) và hiện "Log Out" khi đã đăng nhập | Case thủ công "đăng nhập bằng tài khoản demo" ghi thẳng tài khoản; không có luật này AI bị chặn dù chính case nêu secret. App giả cần phân biệt đăng nhập đúng/sai để kiểm DoD import (SC-004) trên thiết bị giả. Huynh duyệt tại checkpoint US6. |

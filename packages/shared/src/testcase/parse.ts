@@ -1,4 +1,4 @@
-import { LineCounter, isMap, isScalar, isSeq, parseDocument, type Node } from 'yaml'
+import { LineCounter, isMap, isScalar, isSeq, parseDocument, stringify, type Node } from 'yaml'
 
 export interface SourcePosition {
   /** 1-based. */
@@ -62,4 +62,9 @@ export function parseYaml(source: string): ParsedYaml {
     errors,
     positionOf,
   }
+}
+
+/** A value as YAML text (a JSON body stored the way people edit it). */
+export function toYaml(value: unknown): string {
+  return stringify(value)
 }

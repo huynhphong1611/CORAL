@@ -183,7 +183,14 @@ describe('secrets in agent outputs (SC-008)', () => {
           sha256: createHash('sha256').update(APK).digest('hex'),
         },
         items: [
-          { run_item_id: ITEM, test_case_id: RUN, commit: 'a1b2c3d', yaml: TEST_CASE, assets: [] },
+          {
+            run_item_id: ITEM,
+            test_case_id: RUN,
+            commit: 'a1b2c3d',
+            yaml: TEST_CASE,
+            assets: [],
+            screens: {},
+          },
         ],
         popups_yaml: 'schema: coral/popups@1\n',
         secrets: { TEST_USER: USER, API_KEY },

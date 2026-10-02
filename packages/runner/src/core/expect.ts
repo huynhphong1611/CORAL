@@ -1,12 +1,14 @@
 import {
   STEP_DEFAULTS,
+  fingerprintContext,
+  screenFingerprint,
   walkTree,
   type ElementNode,
   type ExpectCondition,
   type Locator,
 } from '@coral/shared'
 import { throwIfAborted, type Clock } from './clock'
-import type { UiDriver } from './driver'
+import type { TargetLifecycle, UiDriver } from './driver'
 import { intersectsScreen } from './locator/geometry'
 import { resolve, type ResolveContext } from './locator/resolve'
 
@@ -41,7 +43,18 @@ export function conditionFailure(
     const found = resolve(asList(condition.not_visible), tree, ctx)
     return found ? `element ${JSON.stringify(condition.not_visible)} is still visible` : undefined
   }
-  return 'expect.screen is not supported in Phase 1'
+  if (condition.screen !== undefined) {
+    const expected = ctx.screens?.[condition.screen]
+    if (!expected) return `screen "${condition.screen}" is not in the app map`
+    const actual = screenFingerprint(
+      tree,
+      ctx.appId ? { package: ctx.appId, ...(ctx.activity ? { activity: ctx.activity } : {}) } : {},
+    )
+    return actual === expected
+      ? undefined
+      : `screen "${condition.screen}" is not shown (fingerprint ${actual}, expected ${expected})`
+  }
+  return 'unknown expectation'
 }
 
 /** First failing condition of a list; all must hold on the same tree. */
@@ -70,17 +83,25 @@ export interface ExpectOutcome {
  */
 export async function checkExpect(
   conditions: readonly ExpectCondition[],
-  driver: Pick<UiDriver, 'tree'>,
+  driver: Pick<UiDriver, 'tree'> & Partial<Pick<TargetLifecycle, 'foregroundActivity'>>,
   clock: Clock,
   ctx: ResolveContext,
   options: { pollMs?: number; signal?: AbortSignal } = {},
 ): Promise<ExpectOutcome> {
   const timeout = Math.max(...conditions.map((c) => c.timeout_ms ?? STEP_DEFAULTS.expectTimeoutMs))
+  const wantsScreen = conditions.some((c) => c.screen !== undefined)
   const start = clock.now()
   for (;;) {
     throwIfAborted(options.signal)
     const tree = await driver.tree()
-    const message = expectFailure(conditions, tree, ctx)
+    // The activity is read with the tree: a screen's fingerprint includes it (D24).
+    let at = ctx
+    if (wantsScreen) {
+      const foreground = await driver.foregroundActivity?.().catch(() => undefined)
+      const { activity } = fingerprintContext(ctx.appId ?? '', foreground)
+      at = { ...ctx, ...(activity ? { activity } : {}) }
+    }
+    const message = expectFailure(conditions, tree, at)
     if (!message) return { ok: true, tree }
     if (clock.now() - start >= timeout) return { ok: false, tree, message }
     await clock.sleep(options.pollMs ?? EXPECT_POLL_MS, options.signal)

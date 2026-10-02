@@ -160,7 +160,8 @@ describe('the test case editor (T048)', () => {
     const errors = await screen.findByRole('list', { name: 'Errors' }, { timeout: 1000 })
     expect(within(errors).getByText(/^Line 14:/)).toBeDefined()
     expect(within(errors).getByText(/s3/)).toBeDefined()
-    expect(errorLines()).toEqual([14])
+    // The markers follow the list in an effect, right after it renders (not in the same check).
+    await waitFor(() => expect(errorLines()).toEqual([14]))
     // The problem's place takes the cursor there.
     await userEvent.click(within(errors).getByRole('button', { name: /^Line 14:/ }))
     const { head } = view().state.selection.main
@@ -170,11 +171,11 @@ describe('the test case editor (T048)', () => {
 
     edit(YAML.replace('id: login', 'id: logout'))
     expect(await screen.findByText(/id must stay "login"/)).toBeDefined()
-    expect(errorLines()).toEqual([2])
+    await waitFor(() => expect(errorLines()).toEqual([2]))
 
     edit(YAML.replace('Log in', 'Log in with the demo account'))
     await waitFor(() => expect(saveButton()).toHaveProperty('disabled', false))
-    expect(errorLines()).toEqual([])
+    await waitFor(() => expect(errorLines()).toEqual([]))
     expect(screen.getByText('Unsaved changes')).toBeDefined()
   })
 
@@ -262,7 +263,7 @@ describe('the test case editor (T048)', () => {
     await waitFor(() => expect(saveButton()).toHaveProperty('disabled', false))
     await userEvent.click(saveButton())
     expect(await screen.findByText(/image_not_found/)).toBeDefined()
-    expect(errorLines()).toEqual([13])
+    await waitFor(() => expect(errorLines()).toEqual([13]))
     expect(saveButton()).toHaveProperty('disabled', true)
     edit(YAML.replace('Log in', 'Log in once more'))
     await waitFor(() => expect(screen.queryByText(/image_not_found/)).toBeNull())

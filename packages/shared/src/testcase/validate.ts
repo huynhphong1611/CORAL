@@ -27,8 +27,18 @@ export const VALIDATION_ERROR_CODES = [
   'image_path_invalid',
   'image_in_expect',
   'image_not_found',
+  // expect.screen names a screen the app map does not have (Phase 3, D24)
+  'unknown_screen',
+  // brains.yaml (Phase 3, contracts/brains-yaml.md)
+  'unknown_provider',
+  'provider_disabled',
+  'vision_required',
+  'price_missing',
+  'invalid_limit',
+  // mcp.yaml (§14.5)
+  'stdio_not_allowed',
 ] as const
-export const VALIDATION_WARNING_CODES = ['no_expect_after_tap'] as const
+export const VALIDATION_WARNING_CODES = ['no_expect_after_tap', 'inline_credential'] as const
 export type ValidationCode =
   (typeof VALIDATION_ERROR_CODES)[number] | (typeof VALIDATION_WARNING_CODES)[number]
 
@@ -66,6 +76,11 @@ export interface TestCaseCheckOptions {
    * project root). Without it, `image_not_found` is not checked.
    */
   fileExists?: (path: string) => boolean
+  /**
+   * Whether the app map (`appmap/screens.json`) has a screen of that id. Without it,
+   * `unknown_screen` is not checked.
+   */
+  screenExists?: (id: string) => boolean
 }
 
 /** Validates YAML source text; errors carry line/column. */
@@ -95,6 +110,19 @@ export function isValidImagePath(path: string): boolean {
     !path.split('/').some((segment) => segment === '..' || segment === '') &&
     /\.png$/i.test(path)
   )
+}
+
+/** The app map screens `expect.screen` names, with the first step naming each (D24). */
+export function referencedScreens(testCase: TestCase): { id: string; stepId: string }[] {
+  const found = new Map<string, string>()
+  testCase.steps.forEach((step, i) => {
+    for (const [condition] of conditions(step, ['steps', i])) {
+      if (condition.screen !== undefined && !found.has(condition.screen)) {
+        found.set(condition.screen, step.id)
+      }
+    }
+  })
+  return [...found].map(([id, stepId]) => ({ id, stepId }))
 }
 
 /** Paths of every image an `image` locator of the test case refers to (sorted, unique). */
@@ -280,11 +308,11 @@ function semanticIssues(tc: TestCase, options: TestCaseCheckOptions): RawIssue[]
     }
 
     for (const [condition, path] of conditions(step, at)) {
-      if (condition.screen !== undefined) {
+      if (condition.screen !== undefined && options.screenExists?.(condition.screen) === false) {
         issues.push({
           path: [...path, 'screen'],
-          code: 'unsupported_in_phase',
-          message: 'expect.screen needs the app map (Phase 3)',
+          code: 'unknown_screen',
+          message: `screen "${condition.screen}" is not in the app map (appmap/screens.json)`,
         })
       }
     }

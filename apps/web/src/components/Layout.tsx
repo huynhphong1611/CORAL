@@ -6,9 +6,10 @@ const navItems = [
   { to: '/projects', label: en.nav.projects },
   { to: '/devices', label: en.nav.devices },
   { to: '/runs', label: en.nav.runs },
+  { to: '/settings/brains', label: en.nav.brains },
 ] as const
 
-/** Top bar (brand, Projects · Devices · Runs, user, role, Sign out) around every signed-in page. */
+/** Top bar (brand, Projects · Devices · Runs · AI, user, role, Sign out) around every signed-in page. */
 export function Layout() {
   const { client, session } = useRouteContext({ from: '/_app' })
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot)

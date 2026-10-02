@@ -65,7 +65,49 @@ export function recordingStepKey(
   return `${recordingPrefix(tenantId, recordingId)}${step}/${file}`
 }
 
+/**
+ * Files of trace step `n` (data-model §5): `screen.jpg`, `ai.jpg` and `tree.json` are what
+ * `observe` saw before it; `step.jpg`, `step.json` and `element.png` are the snapshot `record` took
+ * right before acting — the step's snapshot in a test case. Step 0 holds what `prepare` saw.
+ */
+export const EXPLORATION_FILES = [
+  'screen.jpg',
+  'ai.jpg',
+  'tree.json',
+  'step.jpg',
+  'step.json',
+  'element.png',
+] as const
+export type ExplorationFile = (typeof EXPLORATION_FILES)[number]
+
+/** The trace of an exploration (data-model §5), kept 30 days by the retention tag. */
+export function explorationPrefix(tenantId: string, explorationId: string): string {
+  return `${tenantPrefix(tenantId)}explorations/${uuid.parse(explorationId)}/`
+}
+
+/** One file of trace step `n` (0: `prepare`). */
+export function explorationStepKey(
+  tenantId: string,
+  explorationId: string,
+  n: number,
+  file: ExplorationFile,
+): string {
+  const step = z.number().int().nonnegative().parse(n)
+  return `${explorationPrefix(tenantId, explorationId)}${step}/${file}`
+}
+
 /** True when `key` belongs to `tenantId`; check before presigning any key that came from outside. */
 export function keyBelongsTo(key: string, tenantId: string): boolean {
   return key.startsWith(tenantPrefix(tenantId)) && !key.includes('..')
+}
+
+const IMPORT_EXTENSIONS = { csv: 'csv', xlsx: 'xlsx', gherkin: 'feature' } as const
+
+/** The file a person uploaded to import (data-model §5); removed once the job ends. */
+export function importSourceKey(
+  tenantId: string,
+  jobId: string,
+  format: keyof typeof IMPORT_EXTENSIONS,
+): string {
+  return `${tenantPrefix(tenantId)}imports/${uuid.parse(jobId)}/source.${IMPORT_EXTENSIONS[format]}`
 }

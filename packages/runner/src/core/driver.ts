@@ -48,6 +48,17 @@ export interface TargetLifecycle {
    * (Android: the focused system window's title). Undefined when unknown.
    */
   systemDialogOwner?(): Promise<string | undefined>
+  /**
+   * The activity in the foreground, when the platform tells (Android `dumpsys activity`): part of
+   * a screen's fingerprint (D24). Undefined when unknown.
+   */
+  foregroundActivity?(): Promise<ForegroundActivity | undefined>
+}
+
+export interface ForegroundActivity {
+  package: string
+  /** `.view.activities.MainActivity` when inside `package`, else the full class name. */
+  activity: string
 }
 
 export interface DeviceDriver extends UiDriver, TargetLifecycle {}

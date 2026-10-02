@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { newId } from '../ids'
 import { MAX_MESSAGE_BYTES, envelope } from './envelope'
-import { parseMessage, payloadSchemas, type MessageType } from './messages'
+import {
+  MAX_LOG_EXCERPT,
+  MAX_OBSERVE_TREE_BYTES,
+  commandResultSchemas,
+  parseMessage,
+  payloadSchemas,
+  type MessageType,
+} from './messages'
 
 const runId = newId()
 const itemId = newId()
@@ -262,5 +269,92 @@ describe('Phase 2 agent messages (contracts/agent-ws-phase2.md)', () => {
     for (const bad of ['../secrets.png', '/etc/passwd', 'snap/../../x.png', 'snap\\x.png']) {
       expect(parse('job.assign', withAsset(bad)).ok, bad).toBe(false)
     }
+  })
+})
+
+describe('Phase 3 agent messages (contracts/agent-ws-phase3.md)', () => {
+  const parse = (type: MessageType, payload: unknown, re?: string) =>
+    parseMessage(JSON.stringify(envelope(type, payload, re)))
+  const command = (command: unknown) =>
+    parse('device.command', { command_id: newId(), udid: 'emulator-5554', command })
+  const upload = (keys: string[]) =>
+    Object.fromEntries(keys.map((k) => [k, `http://localhost:9000/b/${k}?X-Amz-Signature=s`]))
+  const pkg = 'com.saucelabs.mydemoapp.android'
+  const node = {
+    ref: '0',
+    platform_id: `${pkg}:id/menuIV`,
+    text: '',
+    desc: 'View menu',
+    class: 'android.widget.ImageView',
+    bounds: { x: 32, y: 154, w: 79, h: 79 },
+    clickable: true,
+    enabled: true,
+    visible: true,
+    package_or_bundle: pkg,
+    children: [],
+  }
+  const observed = {
+    screen_width: 1080,
+    screen_height: 2400,
+    package: pkg,
+    activity: '.view.activities.MainActivity',
+    app_running: true,
+    crash: null,
+    popups_handled: ['android_permission'],
+    tree: [node],
+  }
+
+  it('sends observe with three presigned uploads and the values to mask', () => {
+    const observe = {
+      kind: 'observe',
+      package: pkg,
+      popups_yaml: 'schema: coral/popups@1',
+      upload: upload(['screen', 'ai', 'tree']),
+      redact: ['10203040'],
+    }
+    expect(command(observe).ok).toBe(true)
+    expect(command({ ...observe, upload: upload(['screen', 'tree']) }).ok).toBe(false)
+    expect(command({ ...observe, package: 'rm -rf /' }).ok).toBe(false)
+    expect(command({ ...observe, x: 1 }).ok).toBe(false)
+  })
+
+  it('validates the observe result: crash kinds, a bounded log excerpt, the inline tree', () => {
+    const schema = commandResultSchemas.observe
+    expect(schema.safeParse(observed).success).toBe(true)
+    expect(schema.safeParse({ ...observed, activity: undefined }).success).toBe(true)
+    const crash = (kind: string, log: string) => ({
+      ...observed,
+      crash: { kind, log_excerpt: log },
+    })
+    expect(schema.safeParse(crash('crashed', 'FATAL EXCEPTION: main')).success).toBe(true)
+    expect(schema.safeParse(crash('not_responding', 'ANR in com.x')).success).toBe(true)
+    expect(schema.safeParse(crash('frozen', '')).success).toBe(false)
+    expect(schema.safeParse(crash('crashed', 'x'.repeat(MAX_LOG_EXCERPT + 1))).success).toBe(false)
+    expect(schema.safeParse({ ...observed, tree: [{ ...node, bounds: null }] }).success).toBe(false)
+  })
+
+  it('fits an observe result with a 2 MB tree in one message', () => {
+    const filler = { ...node, text: 'x'.repeat(1000) }
+    const count = Math.floor((MAX_OBSERVE_TREE_BYTES - 2) / (JSON.stringify(filler).length + 1))
+    const result = { ...observed, tree: Array.from({ length: count }, () => filler) }
+    expect(JSON.stringify(result.tree).length).toBeLessThanOrEqual(MAX_OBSERVE_TREE_BYTES)
+    const reply = { command_id: newId(), ok: true, result }
+    expect(parse('device.command_result', reply, newId()).ok).toBe(true)
+  })
+
+  it('gives job.assign items the fingerprints of the screens they expect (D24)', () => {
+    const assign = valid['job.assign'] as { items: Record<string, unknown>[] }
+    const parsed = parse('job.assign', assign)
+    expect(
+      parsed.ok && parsed.message.type === 'job.assign' && parsed.message.payload.items[0]?.screens,
+    ).toEqual({})
+    const withScreens = (screens: Record<string, string>) => ({
+      ...assign,
+      items: [{ ...assign.items[0], screens }],
+    })
+    expect(parse('job.assign', withScreens({ catalog: '9f2c4e71a0b3d5e8' })).ok).toBe(true)
+    expect(parse('job.assign', withScreens({ catalog: '9F2C4E71A0B3D5E8' })).ok).toBe(false)
+    expect(parse('job.assign', withScreens({ catalog: '9f2c' })).ok).toBe(false)
+    expect(parse('job.assign', withScreens({ 'Not An Id': '9f2c4e71a0b3d5e8' })).ok).toBe(false)
   })
 })

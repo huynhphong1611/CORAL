@@ -1,0 +1,1 @@
+ALTER TABLE "explorations" ADD COLUMN "writer_report" jsonb;

@@ -13,6 +13,7 @@ import { YamlEditor, type EditorIssue, type YamlEditorHandle } from '../../compo
 import { en } from '../../i18n/en'
 import { CHECK_MS, checkTestCase, useDebounced, type Problem } from './check'
 import { HistoryPanel } from './HistoryPanel'
+import { StatusPanel } from './StatusPanel'
 import { StepPictures } from './StepPictures'
 
 const savedSchema = z.object({
@@ -149,7 +150,6 @@ function Editor({ projectId, testCase }: { projectId: string; testCase: api.Test
       </nav>
       <PageHeader title={testCase.slug}>
         <div className="flex items-center gap-2">
-          <Badge tone="slate">{testCase.source}</Badge>
           <button
             type="button"
             className={buttonClass.secondary}
@@ -179,6 +179,7 @@ function Editor({ projectId, testCase }: { projectId: string; testCase: api.Test
           )}
         </div>
       </PageHeader>
+      <StatusPanel projectId={projectId} testCase={testCase} />
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1 space-y-3 lg:sticky lg:top-4">

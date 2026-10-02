@@ -130,6 +130,16 @@ describe('DeviceCommands (US3, FR-008)', () => {
       ok: false,
       error: { code: 'device_busy' },
     })
+    const url = 'http://s3.test/x?X-Amz-Signature=s'
+    expect(
+      await busy.run({
+        kind: 'observe',
+        package: SAMPLE_APP,
+        popups_yaml: '',
+        upload: { screen: url, ai: url, tree: url },
+        redact: [],
+      }),
+    ).toMatchObject({ ok: false, error: { code: 'device_busy' } })
     expect(busy.driver.calls).toEqual([])
   })
 
