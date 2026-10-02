@@ -5,10 +5,10 @@
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FakeDriver, sampleApp } from '@coral/runner/testing'
 import { startAgent } from '../apps/agent/src/agent'
 import { loadConfig } from '../apps/agent/src/config'
 import { SecretValues, createAgentLogger } from '../apps/agent/src/log'
+import { sampleAppDriver } from './fake-device-agent'
 
 const config = loadConfig(process.env)
 const secrets = new SecretValues()
@@ -38,20 +38,7 @@ const agent = startAgent({
         emulator: true,
       }),
   },
-  createDriver: () => {
-    const driver = new FakeDriver({
-      ...sampleApp(),
-      showTyped: true,
-      renderScreens: { scale: 0.5 },
-    })
-    return Promise.resolve(
-      Object.assign(driver, {
-        open: () => Promise.resolve(),
-        close: () => Promise.resolve(),
-        forApp: () => driver,
-      }),
-    )
-  },
+  createDriver: () => Promise.resolve(sampleAppDriver()),
   onUnauthorized: () => {
     log.error('the server refused CORAL_AGENT_TOKEN; exiting')
     process.exit(2)

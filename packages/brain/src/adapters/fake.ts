@@ -124,15 +124,29 @@ export interface FakeKnowledge {
 const mcpTools = (knowledge: FakeKnowledge) =>
   (knowledge.tools ?? []).filter((t) => t.includes('__'))
 
-/** An MCP tool whose name shares a word with a field: `otp__get_otp` for a field `otpET`. */
-export function toolForField(element: ScreenElement, tools: readonly string[]): string | undefined {
+/**
+ * The MCP tool for a field: one whose name shares a word with it (`otp__get_otp` for `otpET`), or
+ * one a skill names for it ("the password is read with otp__get_otp" for `passwordET`).
+ */
+export function toolForField(
+  element: ScreenElement,
+  tools: readonly string[],
+  skills: FakeKnowledge['skills'] = [],
+): string | undefined {
   const words = fieldWords(element)
-  return tools.find((tool) =>
+  const named = tools.find((tool) =>
     tool
       .toLowerCase()
       .split(/[^a-z0-9]+/)
       .some((w) => w.length >= 3 && w !== 'get' && words.includes(w)),
   )
+  if (named) return named
+  for (const skill of skills) {
+    const said = lower(skill.description)
+    const tool = tools.find((t) => said.includes(t.toLowerCase()))
+    if (tool && words.some((w) => said.split(/[^a-z0-9]+/).includes(w))) return tool
+  }
+  return undefined
 }
 
 /** A goal or a manual case the fake cannot do alone: a code sent to a phone, a fingerprint. */
@@ -473,7 +487,7 @@ function mcpCall(request: ChatRequest, round: number) {
   const decision = fakeDecide(task.input, knowledge)
   if (decision.action !== 'type') return undefined
   const field = task.input.screen.elements.find((e) => e.n === decision.element)
-  const tool = field ? toolForField(field, mcpTools(knowledge)) : undefined
+  const tool = field ? toolForField(field, mcpTools(knowledge), knowledge.skills) : undefined
   return tool ? [{ name: tool, args: {} }] : undefined
 }
 

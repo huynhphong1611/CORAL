@@ -510,7 +510,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `scripts/phase1-e2e.mjs --scan-secrets` quét thêm test case AI, `appmap/`, nội dung lời gọi AI (`--exploration <id>`, `--import <id>`);
   - test tích hợp cô lập tenant cho mọi route và message WS mới;
   - test `scripts/phase1-e2e.int.test.ts` ca mới.
-- [ ] T063 `scripts/phase3-dod.mjs` (quickstart §8), mỗi bước in ✅/❌ và chi phí:
+- [x] T063 `scripts/phase3-dod.mjs` (quickstart §8), mỗi bước in ✅/❌ và chi phí:
   - chuẩn bị: đăng nhập, project, app, build, cấu hình `brains.yaml` thật (`max_cost_usd_per_day: 15`);
   - SC-002: đổi provider `explorer` bằng API, hai exploration ngắn, so `usage` theo provider;
   - SC-001: exploration đầy đủ, đếm màn và `active`, chạy lại mỗi test 3 lần;

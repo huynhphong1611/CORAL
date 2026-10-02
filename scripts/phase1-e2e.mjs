@@ -451,6 +451,22 @@ function countSecrets(texts) {
   const hits = secrets.map(({ name, value }) => ({
     name,
     count: texts.reduce((n, t) => n + t.split(value).length - 1, 0),
+    // Where the first ones are, the value itself shown by its name.
+    seen: texts
+      .flatMap((t) => {
+        /** @type {string[]} */
+        const around = []
+        for (
+          let at = t.indexOf(value);
+          at >= 0 && around.length < 3;
+          at = t.indexOf(value, at + 1)
+        ) {
+          around.push(t.slice(Math.max(0, at - 80), at + value.length + 80))
+        }
+        return around
+      })
+      .slice(0, 3)
+      .map((text) => text.split(value).join(`<${name}>`).replace(/\s+/g, ' ')),
   }))
   return {
     hits,
@@ -498,7 +514,10 @@ if (scanOnly) {
   console.log(
     `scanned ${scan.files} documents of ${what.join(', ')} for ${scan.secrets} secrets: ${scan.total} hits`,
   )
-  for (const h of scan.hits.filter((x) => x.count > 0)) console.log(`  ${h.name}: ${h.count}`)
+  for (const h of scan.hits.filter((x) => x.count > 0)) {
+    console.log(`  ${h.name}: ${h.count}`)
+    for (const text of h.seen) console.log(`    … ${text} …`)
+  }
   process.exit(scan.total === 0 ? 0 : 1)
 }
 
