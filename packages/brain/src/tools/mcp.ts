@@ -111,6 +111,23 @@ function maskSecrets(text: string, secrets: Readonly<Record<string, string>>): s
   return masked
 }
 
+/** `promise`, or a rejection once `ms` went by. */
+function within<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${what} timed out after ${ms} ms`)), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error: unknown) => {
+        clearTimeout(timer)
+        reject(error instanceof Error ? error : new Error(String(error)))
+      },
+    )
+  })
+}
+
 const outcome = (ok: boolean, result: string, extra: Partial<ToolOutcome> = {}): ToolOutcome => ({
   ok,
   result,
@@ -131,25 +148,44 @@ export async function openMcp(options: McpSessionOptions): Promise<McpSession> {
   const timeoutMs = options.timeoutMs ?? MCP_TIMEOUT_MS
   const servers = new Map<
     string,
-    { connection: McpConnection; tools: Map<string, McpListedTool> }
+    { name: string; connection: McpConnection; tools: Map<string, McpListedTool> }
   >()
-  for (const [name, server] of Object.entries(options.config.servers)) {
-    // Local (stdio) servers are not run in Phase 3 (research R5).
-    if (!server.url) continue
-    try {
+  // Every server at once, each given the same time as a call: one out of reach delays nothing.
+  // They are kept in the file's order, so the AI sees its tools in the same order every time.
+  const reached = await Promise.all(
+    Object.entries(options.config.servers).map(async ([name, server]) => {
+      // Local (stdio) servers are not run in Phase 3 (research R5).
+      if (!server.url) return undefined
       const headers = Object.fromEntries(
         Object.entries(server.headers).map(([k, v]) => [
           k,
           resolveSecrets(v, options.secrets) as string,
         ]),
       )
-      const connection = await connect({ name, url: server.url, headers })
-      const listed = await connection.listTools()
-      servers.set(name, { connection, tools: new Map(listed.map((t) => [t.name, t])) })
-    } catch (error) {
-      options.onError?.(name, error)
-    }
-  }
+      const connecting = connect({ name, url: server.url, headers })
+      let connection: McpConnection
+      try {
+        connection = await within(connecting, timeoutMs, `connecting to ${name}`)
+      } catch (error) {
+        // A connection that comes after its time is closed at once.
+        void connecting.then(
+          (late) => late.close(),
+          () => undefined,
+        )
+        options.onError?.(name, error)
+        return undefined
+      }
+      try {
+        const listed = await within(connection.listTools(), timeoutMs, `listing ${name}`)
+        return { name, connection, tools: new Map(listed.map((t) => [t.name, t])) }
+      } catch (error) {
+        void connection.close().catch(() => undefined)
+        options.onError?.(name, error)
+        return undefined
+      }
+    }),
+  )
+  for (const server of reached) if (server) servers.set(server.name, server)
 
   /** Why `role` may not call `server__tool`; undefined when it may. */
   function refusal(role: BrainRole, server: string, tool: string) {

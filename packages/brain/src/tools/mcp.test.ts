@@ -2,7 +2,7 @@ import { mcpConfigSchema } from '@coral/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { FAKE_OTP, startOtpServer } from '../testing/otp-server'
 import { MAX_TOOL_RESULT } from './skills'
-import { openMcp, type McpConnection } from './mcp'
+import { httpConnect, openMcp, type McpConnection } from './mcp'
 
 // US7 (T057, research R5): the MCP client of an activity — only the tools mcp.yaml allows are
 // offered, a side effect only when the file says so, a server's roles respected; every call is
@@ -130,6 +130,47 @@ describe('MCP client (T057)', () => {
       error: 'server_error',
       result: 'boom',
     })
+  })
+
+  it('gives up a server that does not answer in time, keeping the others', async () => {
+    const errors: string[] = []
+    let closed = 0
+    let late: (connection: McpConnection) => void = () => undefined
+    const twoServers = mcpConfigSchema.parse({
+      schema: 'coral/mcp@1',
+      servers: {
+        slow: { url: 'http://slow.test/mcp', tools: { get_otp: {} } },
+        otp: {
+          url: otp.url,
+          headers: { Authorization: `Bearer ${TOKEN}` },
+          tools: { get_otp: {} },
+        },
+      },
+    })
+    const started = Date.now()
+    const session = await openMcp({
+      config: twoServers,
+      secrets,
+      timeoutMs: 100,
+      onError: (server) => errors.push(server),
+      connect: (server) =>
+        server.name === 'slow' ? new Promise((resolve) => (late = resolve)) : httpConnect(server),
+    })
+    expect(Date.now() - started).toBeLessThan(2_000)
+    expect(errors).toEqual(['slow'])
+    expect(session.toolsFor('explorer').specs.map((s) => s.name)).toEqual(['otp__get_otp'])
+    // The slow server answering afterwards is let go.
+    late({
+      listTools: () => Promise.resolve([]),
+      callTool: () => Promise.resolve({ text: '', isError: false }),
+      close: () => {
+        closed += 1
+        return Promise.resolve()
+      },
+    })
+    await new Promise((r) => setTimeout(r, 10))
+    expect(closed).toBe(1)
+    await session.close()
   })
 
   it('gives no tools from a server it cannot reach (wrong token, nobody listening)', async () => {
