@@ -381,6 +381,56 @@ describe('fake adapter through structuredChat', () => {
     expect(typed.attempts[0]?.usage.input).toBeGreaterThan(0)
   })
 
+  it('heads for the label sharing the most words with the goal when places tie', () => {
+    const menu = screen([
+      el(1, ['new'], { text: 'QR Code Scanner' }),
+      el(2, ['new'], { text: 'Verify Code' }),
+    ])
+    const goal = 'Open the menu, then Verify Code: type the code, until "Code verified"'
+    expect(fakeDecide(decide(menu, { goal }))).toMatchObject({ action: 'tap', element: 2 })
+  })
+
+  it('unscripted, reads a field with the MCP tool named like it and types the result (US7)', async () => {
+    const adapter = createFakeAdapter('fake')
+    const calls: string[] = []
+    const tools: ToolSet = {
+      specs: [
+        { name: 'read_skill', description: 'Read a skill', inputSchema: { type: 'object' } },
+        { name: 'otp__get_otp', description: 'Latest OTP', inputSchema: { type: 'object' } },
+      ],
+      call: (name) => {
+        calls.push(name)
+        return Promise.resolve({ result: '482913', ok: true })
+      },
+    }
+    const goal =
+      'Open "Verify Code", type the code sent by SMS and tap "Verify" until "Code verified"'
+    const otp = screen([
+      el(1, ['new'], { text: 'Verify' }),
+      el(2, ['new', 'field'], { id: 'otpET' }),
+    ])
+    const { value } = await structuredChat({
+      adapter,
+      model: 'fake',
+      prompt: decidePrompt(decide(otp, { goal }), EMPTY_KNOWLEDGE),
+      tools,
+    })
+    // The goal speaks of an SMS code: with a tool to read it, it is no longer a person's job.
+    expect(value).toMatchObject({ action: 'type', element: 2, text: '482913' })
+    expect(calls).toEqual(['otp__get_otp'])
+
+    // No MCP tool: a code sent by SMS is a person's job, and no tool is called for a field.
+    calls.length = 0
+    const alone = await structuredChat({
+      adapter,
+      model: 'fake',
+      prompt: decidePrompt(decide(otp, { goal }), EMPTY_KNOWLEDGE),
+      tools: { ...tools, specs: tools.specs.slice(0, 1) },
+    })
+    expect(alone.value).toMatchObject({ action: 'done', goal_reached: false })
+    expect(calls).toEqual([])
+  })
+
   it('calls the tools its script names, then types what they returned', async () => {
     const adapter = createFakeAdapter('fake', {
       tools: (task, round) =>

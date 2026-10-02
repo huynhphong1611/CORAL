@@ -157,13 +157,13 @@ export class WriterService {
     }))
     const steps = this.traceInput(exploration, writerRows, trees, appPackage, secrets, rows)
 
+    const manualCase = await this.manualCaseOf(exploration)
     const brain = await this.options.ai.projectBrain({
       tenantId,
       projectId,
       ref: { type: 'exploration', id: exploration.id },
       maxCostUsd: exploration.budget.max_cost_usd,
     })
-    const manualCase = await this.manualCaseOf(exploration)
     let plan
     try {
       plan = await brain.brain.writeTest(
@@ -186,6 +186,8 @@ export class WriterService {
       written.report.error = code
       await repo.update(exploration.id, { writerReport: written.report })
       return written
+    } finally {
+      await brain.close()
     }
 
     // An imported case: how it went; one the writer could not turn into a test has no flow.

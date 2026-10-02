@@ -1,11 +1,18 @@
 import {
+  MCP_SEPARATOR,
+  combineTools,
   createBrain,
   createFakeAdapter,
+  openMcp,
   skillTools,
   type Brain,
   type BrainCallRole,
   type CallContext,
+  type FakeScript,
+  type McpConnect,
+  type McpSession,
   type ProviderAdapter,
+  type ToolSet,
 } from '@coral/brain'
 import {
   DEFAULT_PROVIDER_CAPABILITIES,
@@ -36,6 +43,22 @@ export interface ProjectBrain {
   context(role: BrainCallRole): CallContext
   /** The brain call that answered last (an exploration step links to it). */
   lastCallId(): string | undefined
+  /** Lets go of the activity's MCP servers; the activity calls it once it is over. */
+  close(): Promise<void>
+}
+
+/**
+ * `read_skill` and the MCP tools a role may call (US7). A call to an MCP tool not offered still
+ * reaches the MCP session, which says why it is blocked (`side_effects_disabled`, `not_allowed`).
+ */
+function activityTools(skills: ToolSet, mcp: ToolSet | undefined): ToolSet {
+  if (!mcp) return skills
+  const offered = combineTools(skills, mcp)
+  return {
+    specs: offered.specs,
+    call: (name, args) =>
+      name.includes(MCP_SEPARATOR) ? mcp.call(name, args) : offered.call(name, args),
+  }
 }
 
 /**
@@ -56,6 +79,10 @@ export class AiService {
       stdioAllowlist: readonly string[]
       /** The real providers (claude, gemini, copilot), built per call from the tenant's key. */
       adapters?: Partial<Record<BrainProviderId, AdapterFactory>>
+      /** Tool calls of the `fake` provider (tests). */
+      fakeScript?: FakeScript
+      /** How MCP servers are reached (tests); Streamable HTTP by default. */
+      mcpConnect?: McpConnect
       log?: FastifyBaseLogger
     },
   ) {
@@ -70,8 +97,8 @@ export class AiService {
   private adaptersFor(config: BrainsConfig): Partial<Record<string, ProviderAdapter>> {
     const adapters: Partial<Record<string, ProviderAdapter>> = {}
     if (this.deps.fakeBrains) {
-      adapters.fake = createFakeAdapter('fake')
-      adapters['fake-alt'] = createFakeAdapter('fake-alt')
+      adapters.fake = createFakeAdapter('fake', this.deps.fakeScript)
+      adapters['fake-alt'] = createFakeAdapter('fake-alt', this.deps.fakeScript)
     }
     for (const [id, factory] of Object.entries(this.deps.adapters ?? {})) {
       // A provider the tenant turned off is never called, fallback included; one that needs
@@ -131,7 +158,21 @@ export class AiService {
       secrets: () => this.secretValues(),
       ...(this.deps.log ? { log: this.deps.log } : {}),
     })
-    const tools = skillTools(loaded.skillBodies)
+    const skills = skillTools(loaded.skillBodies)
+    // The MCP servers of mcp.yaml, reached once for the whole activity (research R5).
+    const mcp: McpSession | undefined =
+      loaded.mcp && Object.keys(loaded.mcp.servers).length > 0
+        ? await openMcp({
+            config: loaded.mcp,
+            secrets: this.secretValues(),
+            ...(this.deps.mcpConnect ? { connect: this.deps.mcpConnect } : {}),
+            onError: (server, error) =>
+              this.deps.log?.warn(
+                { err: error, server, project: input.projectId },
+                'MCP server not reachable: its tools are not offered',
+              ),
+          })
+        : undefined
     const brain = createBrain({
       config,
       adapters: this.adaptersFor(config),
@@ -144,6 +185,9 @@ export class AiService {
       config,
       loaded,
       lastCallId: recorder.lastCallId,
+      close: async () => {
+        await mcp?.close()
+      },
       context: (role) => ({
         tenantId: input.tenantId,
         role,
@@ -153,8 +197,8 @@ export class AiService {
           spentUsd: () => repos.brainCalls.costOf(input.ref.type, input.ref.id),
         },
         knowledge: loaded.knowledge,
-        // read_skill over this project's skills; the MCP allowlist joins here in US7.
-        tools,
+        // read_skill over this project's skills, and the MCP tools the role may call.
+        tools: activityTools(skills, mcp?.toolsFor(role)),
       }),
     }
   }

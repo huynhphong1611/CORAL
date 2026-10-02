@@ -116,6 +116,23 @@ function fieldValue(
 export interface FakeKnowledge {
   testData: { name: string; value?: string; secret?: string }[]
   skills?: { name: string; description: string }[]
+  /** Names of the tools offered (`otp__get_otp` for an MCP tool, US7). */
+  tools?: readonly string[]
+}
+
+/** The MCP tools offered (`<server>__<tool>`), not the internal ones such as `read_skill`. */
+const mcpTools = (knowledge: FakeKnowledge) =>
+  (knowledge.tools ?? []).filter((t) => t.includes('__'))
+
+/** An MCP tool whose name shares a word with a field: `otp__get_otp` for a field `otpET`. */
+export function toolForField(element: ScreenElement, tools: readonly string[]): string | undefined {
+  const words = fieldWords(element)
+  return tools.find((tool) =>
+    tool
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .some((w) => w.length >= 3 && w !== 'get' && words.includes(w)),
+  )
 }
 
 /** A goal or a manual case the fake cannot do alone: a code sent to a phone, a fingerprint. */
@@ -167,19 +184,20 @@ function planOf(goal: string): GoalPlan {
 
 /**
  * How far along the goal an element is: a label the goal quotes ("Log In") before one sharing a
- * word with it ("… in your cart" for a cart), each by the last place the goal names it.
+ * word with it ("… in your cart" for a cart), each by the last place the goal names it, then by
+ * how many of its words the goal says ("Verify Code" before "QR Code Scanner").
  */
-function goalRank(element: ScreenElement, plan: GoalPlan): [number, number] | undefined {
+function goalRank(element: ScreenElement, plan: GoalPlan): [number, number, number] | undefined {
   const label = lower([element.text, element.desc].filter(Boolean).join(' ')).trim()
   if (!label) return undefined
   const strong = plan.quoted.filter((q) => q === label).map((q) => plan.text.lastIndexOf(`"${q}"`))
-  if (strong.length > 0) return [2, Math.max(...strong)]
+  if (strong.length > 0) return [2, Math.max(...strong), 0]
   const words = label.split(/[^a-z0-9]+/)
   const compact = label.replace(/[^a-z0-9]/g, '')
-  const weak = plan.words
-    .filter((w) => words.includes(w) || compact === w)
-    .map((w) => plan.text.lastIndexOf(w))
-  return weak.length > 0 ? [1, Math.max(...weak)] : undefined
+  const shared = [...new Set(plan.words)].filter((w) => words.includes(w) || compact === w)
+  return shared.length > 0
+    ? [1, Math.max(...shared.map((w) => plan.text.lastIndexOf(w))), shared.length]
+    : undefined
 }
 
 /** The element furthest along the goal, a new one before one tried; dead ones never. */
@@ -196,6 +214,7 @@ function towardGoal(elements: readonly ScreenElement[], goal: string | undefined
       (a, b) =>
         b.rank[0] - a.rank[0] ||
         b.rank[1] - a.rank[1] ||
+        b.rank[2] - a.rank[2] ||
         Number(b.e.flags.includes('new')) - Number(a.e.flags.includes('new')),
     )[0]?.e
 }
@@ -241,9 +260,9 @@ export function fakeDecide(
       reason: reason(`The goal needs a forbidden action: ${input.refused}`),
     }
   }
-  // A goal it cannot follow alone ends at once (US6): a person has to give a code, or the steps
-  // say too little.
-  if (input.goal && NEEDS_HUMAN.test(input.goal)) {
+  // A goal it cannot follow alone ends at once (US6): a person has to give a code — unless an MCP
+  // tool may read it (US7) — or the steps say too little.
+  if (input.goal && NEEDS_HUMAN.test(input.goal) && mcpTools(knowledge).length === 0) {
     return { action: 'done', goal_reached: false, reason: 'A person has to give a code (OTP, SMS)' }
   }
   if (input.goal && AMBIGUOUS.test(input.goal)) {
@@ -256,10 +275,13 @@ export function fakeDecide(
     return { action: 'tap_point', point_pct: [0.5, 0.5], reason: 'The screen says to tap it' }
   }
   const fresh = screen.elements.filter((e) => e.flags.includes('new') && !e.flags.includes('dead'))
-  // Following the project (US4): with test data (or secrets the goal names), fill a form before
-  // leaving it; then what the goal speaks of, furthest first (US5, US6); then what a skill
-  // speaks of; then the first element not tried yet.
-  const fill = knowledge.testData.length > 0 || goalSecrets(input.goal).length > 0
+  // Following the project (US4): with test data (or secrets the goal names, or MCP tools), fill a
+  // form before leaving it; then what the goal speaks of, furthest first (US5, US6); then what a
+  // skill speaks of; then the first element not tried yet.
+  const fill =
+    knowledge.testData.length > 0 ||
+    goalSecrets(input.goal).length > 0 ||
+    mcpTools(knowledge).length > 0
   const next =
     (fill ? fresh.find((e) => e.flags.includes('field')) : undefined) ??
     towardGoal(screen.elements, input.goal) ??
@@ -413,7 +435,7 @@ export function createFakeAdapter(
       const toolMessages = request.messages.filter((m) => m.role === 'tool')
       const round = toolMessages.length + 1
       if (request.toolChoice === 'auto' && request.tools.length > 0) {
-        const calls = script.tools?.(request.task, round, request.tools)
+        const calls = script.tools?.(request.task, round, request.tools) ?? mcpCall(request, round)
         if (calls && calls.length > 0) {
           return Promise.resolve({
             kind: 'tool_calls',
@@ -440,13 +462,28 @@ export function createFakeAdapter(
   }
 }
 
+/**
+ * Unscripted, the fake reads a field's value with an MCP tool named like the field (US7): on the
+ * first round it calls the tool, on the next it types what came back.
+ */
+function mcpCall(request: ChatRequest, round: number) {
+  const { task } = request
+  if (task.kind !== 'next_action' || round !== 1) return undefined
+  const knowledge = knowledgeOf(request)
+  const decision = fakeDecide(task.input, knowledge)
+  if (decision.action !== 'type') return undefined
+  const field = task.input.screen.elements.find((e) => e.n === decision.element)
+  const tool = field ? toolForField(field, mcpTools(knowledge)) : undefined
+  return tool ? [{ name: tool, args: {} }] : undefined
+}
+
 function answerOf(request: ChatRequest, toolResult: string | undefined): unknown {
   const { task } = request
   switch (task.kind) {
     case 'describe_screen':
       return fakeDescribe(task.input)
     case 'next_action':
-      return fakeDecide(task.input, knowledgeOf(request.system.stable), toolResult)
+      return fakeDecide(task.input, knowledgeOf(request), toolResult)
     case 'write_test':
       return fakeWrite(task.input)
   }
@@ -454,9 +491,10 @@ function answerOf(request: ChatRequest, toolResult: string | undefined): unknown
 
 /**
  * The fake reads the project back from the stable prompt: named test data (`- NAME: secret X` /
- * `- NAME: "v"`) and the skills listed (`- name: description`).
+ * `- NAME: "v"`) and the skills listed (`- name: description`); the tools from the request.
  */
-function knowledgeOf(stable: string): FakeKnowledge {
+function knowledgeOf(request: ChatRequest): FakeKnowledge {
+  const stable = request.system.stable
   const skills = (/## Skills[^\n]*\n([\s\S]*?)(?:\n## |$)/.exec(stable)?.[1] ?? '')
     .split('\n')
     .map((line) => /^- ([a-z0-9][a-z0-9-]*): (.*)$/.exec(line))
@@ -474,5 +512,5 @@ function knowledgeOf(stable: string): FakeKnowledge {
         ? { name: m[1] ?? '', secret: m[2] }
         : { name: m[1] ?? '', value: JSON.parse(m[3] ?? '""') as string },
     )
-  return { testData, skills }
+  return { testData, skills, tools: request.tools.map((t) => t.name) }
 }

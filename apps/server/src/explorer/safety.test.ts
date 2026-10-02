@@ -81,6 +81,35 @@ describe('checkDecision (research R10, FR-022, FR-022a)', () => {
     )
   })
 
+  it('flags text an MCP tool gave as mcp_value, not made up: the form may be sent (US7)', () => {
+    const otp = context('otp', { toolResults: ['482913', 'Your code: 771204'] })
+    const field = otp.n('otpET')
+    for (const text of ['482913', ' 482913 ', '771204']) {
+      expect(
+        checkDecision({ action: 'type', element: field, text, reason }, otp.ctx),
+        text,
+      ).toMatchObject({ ok: true, flags: ['mcp_value'] })
+    }
+    // Text no tool gave stays made up; so does a scrap of a result.
+    for (const text of ['123456', 'You']) {
+      expect(
+        checkDecision({ action: 'type', element: field, text, reason }, otp.ctx),
+        text,
+      ).toMatchObject({ ok: true, flags: ['invented_text'] })
+    }
+    expect(
+      checkDecision({ action: 'type', element: field, text: '482913', reason }, context('otp').ctx),
+    ).toMatchObject({ ok: true, flags: ['invented_text'] })
+    // A tool's text is still checked for secret values.
+    const leaking = context('otp', { toolResults: ['bod@example.com'] })
+    expect(
+      checkDecision(
+        { action: 'type', element: field, text: 'bod@example.com', reason },
+        leaking.ctx,
+      ),
+    ).toMatchObject({ ok: false, refusal: 'invalid_text' })
+  })
+
   it('lets a search be typed and its results tapped', () => {
     const search = context('search')
     const field = search.screen.elements.find((e) => e.node.platform_id.endsWith(':id/searchET'))

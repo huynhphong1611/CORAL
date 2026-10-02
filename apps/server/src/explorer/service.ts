@@ -3,10 +3,12 @@ import {
   BrainUnavailableError,
   BudgetExceededError,
   MAX_HISTORY,
+  MCP_SEPARATOR,
   type Brain,
   type CallContext,
   type DecideInput,
   type ImageInput,
+  type ToolSet,
 } from '@coral/brain'
 import { directionPath } from '@coral/runner'
 import {
@@ -520,6 +522,20 @@ export class ExplorationService {
         if (error instanceof HttpError && error.status === 409) throw new Stopped('ai_unavailable')
         throw error
       })
+    try {
+      return await this.exploreWith(s, build, brain)
+    } finally {
+      // The activity's MCP servers are let go however it ends.
+      await brain.close()
+    }
+  }
+
+  private async exploreWith(
+    s: Session,
+    build: { buildKey: string; sha256: string; maxCostUsd: number },
+    brain: ProjectBrain,
+  ): Promise<StopReason> {
+    const { row } = s
     const { db, store } = this.options
     const projects = projectsRepo(db, row.tenantId, store)
     const popupsYaml = (
@@ -662,23 +678,27 @@ export class ExplorationService {
 
     const input = { ...serialized.input, ...(screen ? { knownAs: screen.name } : {}) }
     const budget = s.row.budget
-    const decision = await this.ask(run, (brain, ctx) =>
-      brain.nextAction(
-        {
-          screen: input,
-          ...(s.row.goal ? { goal: s.row.goal } : {}),
-          history: s.history.slice(-MAX_HISTORY),
-          budget: {
-            stepsLeft: Math.max(0, budget.max_steps - s.stats.steps),
-            depth: s.frontier.depth,
-            maxDepth: budget.max_depth,
-            costUsd: s.stats.cost_usd,
-            maxCostUsd: budget.max_cost_usd,
+    const toolResults: string[] = []
+    const decision = await this.ask(
+      run,
+      (brain, ctx) =>
+        brain.nextAction(
+          {
+            screen: input,
+            ...(s.row.goal ? { goal: s.row.goal } : {}),
+            history: s.history.slice(-MAX_HISTORY),
+            budget: {
+              stepsLeft: Math.max(0, budget.max_steps - s.stats.steps),
+              depth: s.frontier.depth,
+              maxDepth: budget.max_depth,
+              costUsd: s.stats.cost_usd,
+              maxCostUsd: budget.max_cost_usd,
+            },
+            ...(s.refused ? { refused: s.refused } : {}),
           },
-          ...(s.refused ? { refused: s.refused } : {}),
-        },
-        ctx,
-      ),
+          ctx,
+        ),
+      toolResults,
     )
     const callId = run.brain.lastCallId() ?? null
     if (!decision) {
@@ -696,6 +716,7 @@ export class ExplorationService {
       secrets: run.secrets,
       allowSubmit: run.brain.loaded.rules.allowSubmit,
       inventedFields: s.invented.get(fingerprint) ?? new Set(),
+      toolResults,
     })
     const element =
       'element' in decision ? serialized.elements.find((e) => e.n === decision.element) : undefined
@@ -1079,12 +1100,23 @@ export class ExplorationService {
    * One AI call, raced with a stop. Budget and availability end the exploration; an answer that
    * stays invalid after the re-asks is a failed step.
    */
+  /** Asks the AI; what MCP tools give it on the way is added to `toolResults` (US7). */
   private async ask<T>(
     run: Run,
     call: (brain: Brain, ctx: CallContext) => Promise<T>,
+    toolResults?: string[],
   ): Promise<T | undefined> {
+    const ctx = run.brain.context('explorer')
+    const tools: ToolSet = {
+      specs: ctx.tools.specs,
+      call: async (name, args) => {
+        const outcome = await ctx.tools.call(name, args)
+        if (outcome.ok && name.includes(MCP_SEPARATOR)) toolResults?.push(outcome.result)
+        return outcome
+      },
+    }
     try {
-      return await run.s.race(call(run.brain.brain, run.brain.context('explorer')))
+      return await run.s.race(call(run.brain.brain, { ...ctx, tools }))
     } catch (error) {
       if (error instanceof BudgetExceededError) {
         throw new Stopped(error.scope === 'daily' ? 'daily_limit' : 'budget')

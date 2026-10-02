@@ -31,6 +31,8 @@ export interface SafetyContext {
   allowSubmit: readonly { screen_text: string }[]
   /** Fields of this screen that received made-up text (not search boxes), by element key. */
   inventedFields: ReadonlySet<string>
+  /** What the MCP tools gave the AI for this decision: typing one of them is not made up (US7). */
+  toolResults?: readonly string[]
 }
 
 export type SafetyVerdict =
@@ -155,9 +157,17 @@ function checkTyping(
     (value) => value.length >= 4 && text.includes(value),
   )
   if (leaks) return refuse('invalid_text', 'made-up text may not contain a secret value')
+  if (fromTool(text, ctx.toolResults ?? [])) return { ok: true, element, flags: ['mcp_value'] }
   return {
     ok: true,
     element,
     flags: isSearchField(element.node) ? [] : ['invented_text'],
   }
+}
+
+/** Text an MCP tool gave: the whole result, or a part of it (`482913` of "Your code: 482913"). */
+function fromTool(text: string, results: readonly string[]): boolean {
+  const typed = text.trim()
+  if (!typed) return false
+  return results.some((r) => r.trim() === typed || (typed.length >= 4 && r.includes(typed)))
 }

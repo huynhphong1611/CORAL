@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import type { FakeScript } from '@coral/brain'
 import { api, newId, type LogLevel } from '@coral/shared'
 import { eq } from 'drizzle-orm'
 import { AgentGateway } from '../agents/gateway'
@@ -51,6 +52,8 @@ export interface RunServerOptions {
     write?: boolean
     /** false: test cases are written but not validated. */
     validate?: boolean
+    /** Tool calls the `fake` brains make (US7). */
+    fakeScript?: FakeScript
   }
 }
 
@@ -177,6 +180,7 @@ export async function startRunServer(options: RunServerOptions = {}) {
         secrets,
         fakeBrains: true,
         stdioAllowlist: [],
+        ...(options.explorer.fakeScript ? { fakeScript: options.explorer.fakeScript } : {}),
       })
       const writer =
         options.explorer.write === false
