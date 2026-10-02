@@ -52,6 +52,11 @@ export interface ScreenInput {
   elements: ScreenElement[]
   /** Text visible on the screen with its height in pixels (titles stand out), reading order. */
   visibleTexts: { text: string; height: number }[]
+  /**
+   * Labels of what is on this screen but never to be tapped (never_tap, forbidden by a skill):
+   * left out of `elements`, named so that a goal needing one can be told unreachable (US5).
+   */
+  forbidden?: string[]
   /** The downscaled screenshot (long edge ≤ 1024 px); omitted for providers without vision. */
   image?: ImageInput
 }

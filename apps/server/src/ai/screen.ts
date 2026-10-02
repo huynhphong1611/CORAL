@@ -11,6 +11,8 @@ import {
 /** Elements listed to the AI for one screen (research R6). */
 export const MAX_LISTED = 80
 const MAX_TEXTS = 50
+/** never_tap and forbidden labels named to the AI. */
+const MAX_FORBIDDEN = 10
 const MAX_LABEL = 80
 
 /** Windows that are never part of what the AI may touch: status bar, keyboards. */
@@ -160,6 +162,11 @@ export function serializeScreen(
     flags,
   }))
 
+  // What may not be tapped here, by label (the elements themselves are left out).
+  const untouchable = [
+    ...new Set(excluded.map(({ node }) => masked(labelOf(node).trim())).filter(Boolean)),
+  ].slice(0, MAX_FORBIDDEN)
+
   const visibleTexts: ScreenInput['visibleTexts'] = []
   const texts = [...walkTree(windows)]
     .filter((n) => n.visible && n.text.trim() && onScreen(n, ctx.screen))
@@ -176,6 +183,7 @@ export function serializeScreen(
       ...(ctx.knownAs ? { knownAs: ctx.knownAs } : {}),
       elements: screenElements,
       visibleTexts,
+      ...(untouchable.length > 0 ? { forbidden: untouchable } : {}),
       ...(ctx.image ? { image: ctx.image } : {}),
     },
     elements,

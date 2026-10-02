@@ -60,6 +60,8 @@ describe('serializeScreen (research R6, contracts/brain.md §2)', () => {
       ['Mua', 'never_tap'],
       ['Thanh toán', 'never_tap'],
     ])
+    // Named to the AI, so that a goal needing one is known unreachable (US5).
+    expect(dialog.input.forbidden).toEqual(['Mua', 'Thanh toán'])
     const login = serializeScreen(androidTree('login'), {
       ...ctx,
       forbidden: [{ android_id: 'id/loginBtn' }],

@@ -223,6 +223,16 @@ export function fakeDecide(
       return { action: 'done', goal_reached: true, reason: reason(`"${target}" is on the screen`) }
     }
   }
+  // The goal needs a button the project never taps (it is named, not listed): unreachable (US5).
+  const plan = input.goal ? planOf(input.goal) : undefined
+  const needed = (screen.forbidden ?? []).find((label) => plan?.text.includes(lower(label)))
+  if (needed) {
+    return {
+      action: 'done',
+      goal_reached: false,
+      reason: reason(`The goal needs a forbidden action: "${needed}" is never tapped`),
+    }
+  }
   // The way to the goal was refused (a never_tap button): it cannot be reached (US5).
   if (input.goal && input.refused) {
     return {

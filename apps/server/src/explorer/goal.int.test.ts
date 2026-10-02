@@ -89,11 +89,11 @@ describe('test case from a goal (US5, T048)', { timeout: 120_000 }, () => {
       `${PLACE_ORDER} for the cart until "Your order has been placed"`,
     )
     expect(row).toMatchObject({ status: 'done', stopReason: 'goal_not_reached' })
-    expect(steps.filter((s) => s.status === 'refused').map((s) => s.refusal)).toEqual(['never_tap'])
+    // On the cart the AI is told Place Order is never to be tapped: it gives the goal up there.
     expect(steps.at(-1)?.decision).toMatchObject({
       action: 'done',
       goal_reached: false,
-      reason: expect.stringContaining('forbidden') as string,
+      reason: expect.stringContaining(`forbidden action: "${PLACE_ORDER}"`) as string,
     })
     for (const step of steps) expect(JSON.stringify(step.step)).not.toContain(PLACE_ORDER)
     expect(written).toEqual([])

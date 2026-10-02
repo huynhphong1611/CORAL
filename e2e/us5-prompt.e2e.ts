@@ -88,7 +88,7 @@ test('writes a test case from a goal it reaches, none for a goal behind never_ta
   await expect(page.getByTestId('testcase-status')).toContainText('AI from a prompt')
   await page.screenshot({ path: 'e2e-results/us5-prompt-testcase.png', fullPage: true })
 
-  // 2. A goal behind Place Order: refused, so not reached — and no test case.
+  // 2. A goal behind Place Order (never_tap): given up on the cart, never tapped, no test case.
   const forbiddenId = await exploreWithGoal(
     page,
     seeded.projectId,
@@ -104,11 +104,13 @@ test('writes a test case from a goal it reaches, none for a goal behind never_ta
   await page.screenshot({ path: 'e2e-results/us5-prompt-not-reached.png', fullPage: true })
 
   const trace = await api<StepView[]>(`/explorations/${forbiddenId}/steps?limit=200`, { token })
-  expect(trace.filter((s) => s.status === 'refused').map((s) => s.refusal)).toEqual(['never_tap'])
   for (const step of trace) expect(JSON.stringify(step.step)).not.toContain('Place Order')
   await page.getByRole('tab', { name: 'Trace' }).click()
   await expect(
-    page.getByRole('table', { name: 'Trace' }).getByRole('row').filter({ hasText: 'refused' }),
+    page
+      .getByRole('table', { name: 'Trace' })
+      .getByRole('row')
+      .filter({ hasText: 'goal not reachable' }),
   ).toHaveCount(1)
   await page.screenshot({ path: 'e2e-results/us5-prompt-trace.png', fullPage: true })
   expect(

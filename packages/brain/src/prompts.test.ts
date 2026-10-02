@@ -58,6 +58,11 @@ describe('prompts (research R6, contracts/brain.md §2)', () => {
       '#4 EditText id="passwordET" [60,860,960,120] field password',
       'Visible text: "Products"',
     ])
+    expect(
+      screenText({ ...screen, forbidden: ['Place Order'] })
+        .split('\n')
+        .at(-1),
+    ).toBe('Never to be tapped here (project rules): "Place Order"')
     expect(screenText({ ...screen, knownAs: undefined, elements: [] })).toContain('new screen')
     expect(screenText({ ...screen, elements: [] })).toContain('tap_point only')
     const many = Array.from({ length: 100 }, (_, i) => ({ ...screen.elements[0]!, n: i + 1 }))

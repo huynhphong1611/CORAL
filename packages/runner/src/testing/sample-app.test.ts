@@ -95,6 +95,12 @@ describe('sample app (My Demo App look-alike)', () => {
     expect(decode(after).width).toBe(540)
     await driver.resetApp(SAMPLE_APP)
     expect(driver.typed.size).toBe(0)
+    // A launch starts the app afresh too: no text left in the fields from a run before.
+    driver.show('login')
+    await driver.tapAt({ x: (field?.bounds.x ?? 0) + 10, y: (field?.bounds.y ?? 0) + 10 })
+    await driver.type('old')
+    await driver.launch(SAMPLE_APP)
+    expect(driver.typed.size).toBe(0)
   })
 
   it('streams the drawn screen as live-view frames without recording a call', async () => {

@@ -328,9 +328,13 @@ export class FakeDriver implements DeviceDriver, FrameSource, RemoteControl {
     return Promise.resolve()
   }
 
+  /** Starts the app afresh: its first screen, the fields empty (text typed before is gone). */
   launch(appId: string): Promise<void> {
     this.calls.push({ kind: 'launch', appId })
     this.appRunning = true
+    this.typed.clear()
+    this.typedOn.clear()
+    this.focused = undefined
     this.show(this.options.start)
     return Promise.resolve()
   }

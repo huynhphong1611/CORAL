@@ -211,6 +211,14 @@ describe('fake adapter scenario (research R2)', () => {
     expect(fakeDecide(decide(catalog, { goal: 'Open your profile' }))).toMatchObject({
       element: 1,
     })
+    // Told a button needed is never to be tapped here: it gives up before trying.
+    const cart = { ...catalog, forbidden: ['Place Order'] }
+    expect(fakeDecide(decide(cart, { goal: 'Place Order for the cart' }))).toEqual({
+      action: 'done',
+      goal_reached: false,
+      reason: 'The goal needs a forbidden action: "Place Order" is never tapped',
+    })
+    expect(fakeDecide(decide(cart, { goal: 'Open the cart' }))).toMatchObject({ action: 'tap' })
     expect(
       fakeDecide(decide(catalog, { goal: 'Place the order', refused: 'never_tap: Place Order' })),
     ).toEqual({

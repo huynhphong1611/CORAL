@@ -65,10 +65,14 @@ export function screenText(screen: ScreenInput): string {
   }`
   const elements = screen.elements.slice(0, MAX_ELEMENTS).map(elementLine)
   const texts = screen.visibleTexts.slice(0, MAX_VISIBLE_TEXTS).map((t) => t.text)
+  const forbidden = screen.forbidden ?? []
   return [
     header,
     elements.length > 0 ? elements.join('\n') : '(no element can be used: tap_point only)',
     texts.length > 0 ? `Visible text: ${texts.map(quote).join(', ')}` : '',
+    forbidden.length > 0
+      ? `Never to be tapped here (project rules): ${forbidden.map(quote).join(', ')}`
+      : '',
   ]
     .filter(Boolean)
     .join('\n')
