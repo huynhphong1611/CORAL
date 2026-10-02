@@ -438,7 +438,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - **Khởi động server**: job `running` tiếp từ item `pending`; item `running` → `pending`.
 
   Test `imports.int.test.ts` (brain `fake` trả các `outcome` theo kịch bản; restart giả lập giữa job không làm lại item đã xong; hủy → `not_processed`).
-- [ ] T055 [US6] Web `apps/web/src/features/imports/`:
+- [x] T055 [US6] Web `apps/web/src/features/imports/`:
   - tab **Imports** trong trang project;
   - `/projects/$projectId/imports/new`: chọn file → chọn cột → xem trước + lỗi theo dòng → app/build/thiết bị/ngân sách → Start;
   - `/imports/$importId`: tiến độ trực tiếp, Cancel, bảng case (trạng thái, lý do, bằng chứng, link test case), báo cáo.

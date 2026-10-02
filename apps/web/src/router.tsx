@@ -19,6 +19,8 @@ import {
   type ExplorationTab,
 } from './features/explorations/ExplorationPage'
 import { StartExplorationPage } from './features/explorations/StartExplorationPage'
+import { ImportPage } from './features/imports/ImportPage'
+import { NewImportPage } from './features/imports/NewImportPage'
 import { RecorderPage } from './features/recorder/RecorderPage'
 import { StartRecordingPage } from './features/recorder/StartRecordingPage'
 import { BrainsPage } from './routes/settings/brains'
@@ -128,6 +130,18 @@ const explorationRoute = createRoute({
   component: ExplorationPage,
 })
 
+const newImportRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/projects/$projectId/imports/new',
+  component: NewImportPage,
+})
+
+const importRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/imports/$importId',
+  component: ImportPage,
+})
+
 const recordingRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/recordings/$recordingId',
@@ -186,6 +200,8 @@ const routeTree = rootRoute.addChildren([
     recordingRoute,
     exploreRoute,
     explorationRoute,
+    newImportRoute,
+    importRoute,
     devicesRoute,
     deviceRoute,
     runsRoute,

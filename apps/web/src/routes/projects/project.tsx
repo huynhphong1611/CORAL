@@ -18,6 +18,7 @@ import {
   Th,
 } from '../../components/ui'
 import { ExploreButton, ExplorationsTab } from '../../features/explorations/ExplorationsTab'
+import { ImportsTab } from '../../features/imports/ImportsTab'
 import { KnowledgeTab } from '../../features/knowledge/KnowledgeTab'
 import { SOURCE_TONES, TEST_CASE_TONES } from '../../features/editor/StatusPanel'
 import { NewAppForm, UploadBuild } from '../../features/setup/AppForms'
@@ -28,6 +29,7 @@ export const PROJECT_TABS = [
   'runs',
   'recordings',
   'explorations',
+  'imports',
   'knowledge',
   'apps',
 ] as const
@@ -70,6 +72,7 @@ export function ProjectPage() {
             {tab === 'runs' && <RunsTable filters={{ project_id: projectId }} />}
             {tab === 'recordings' && <RecordingsTab projectId={projectId} />}
             {tab === 'explorations' && <ExplorationsTab projectId={projectId} />}
+            {tab === 'imports' && <ImportsTab projectId={projectId} />}
             {tab === 'knowledge' && <KnowledgeTab projectId={projectId} />}
             {tab === 'apps' && <AppsTab projectId={projectId} />}
           </>
