@@ -5,11 +5,15 @@
 //     --runs 5 --expect-popup android_permission
 //   node scripts/phase1-e2e.mjs --scan-secrets --run <run_id>
 //   node scripts/phase1-e2e.mjs --scan-secrets --test-case <id> [--recording <id>]   (Recorder, T058)
+//   node scripts/phase1-e2e.mjs --scan-secrets --exploration <id> [--import <id>]   (Phase 3, T062)
 // Logs in, creates (or reuses) project + app, uploads the build, saves the test case, waits for an
 // idle device, then runs it N times one after another and checks every run: passed, < 60 s, and
 // every step's screenshot + tree downloadable (and, with --expect-popup, that the popup guard
 // handled that rule in the run, SC-003). --download <dir> keeps every step's artifacts as
 // <dir>/<run_id>/<slug>/<index>-<step_id>/{screenshot.png,tree.json,device.log}.
+// --scan-secrets of an exploration reads what the AI was sent and answered (every step's brain
+// call, its tool calls), the trace, the app map with each screen's tree and the test cases it
+// wrote; of an import, the job and every case's exploration and test case (SC-007).
 // Exit code 0 only when every check passed.
 import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -58,6 +62,8 @@ const { values: opts } = parseArgs({
     run: { type: 'string' },
     'test-case': { type: 'string' },
     recording: { type: 'string' },
+    exploration: { type: 'string', multiple: true },
+    import: { type: 'string', multiple: true },
     help: { type: 'boolean', default: false },
   },
 })
@@ -67,6 +73,7 @@ const usage = `usage:
       [--expect-popup <popup rule>] [--download <dir>]
   node scripts/phase1-e2e.mjs --scan-secrets --run <run_id>
   node scripts/phase1-e2e.mjs --scan-secrets [--test-case <id>] [--recording <id>]
+      [--exploration <id>]... [--import <id>]...
 login: --email/--password or CORAL_SEED_EMAIL/CORAL_SEED_PASSWORD; server: --server or CORAL_SERVER_URL`
 
 /**
@@ -84,7 +91,10 @@ if (opts.help) {
   process.exit(0)
 }
 if (!opts.email || !opts.password) fail(2, `missing login\n${usage}`)
-if (!opts.run && !opts['test-case'] && !opts.recording && (!opts.apk || !opts.testcase)) {
+const scanOnly = Boolean(
+  opts.run || opts['test-case'] || opts.recording || opts.exploration || opts.import,
+)
+if (!scanOnly && (!opts.apk || !opts.testcase)) {
   fail(2, `need --apk and --testcase (or --run)\n${usage}`)
 }
 
@@ -361,6 +371,78 @@ async function recordingTexts(id) {
 }
 
 /**
+ * An exploration (Phase 3, SC-007): what it shows, its trace, what the AI was sent and answered
+ * at each step (and its tool calls), its screens in the project's app map with their trees, and
+ * the test cases it wrote. Brain calls and test cases already read (`seen`) are skipped.
+ * @param {string} id
+ * @param {Set<string>} seen
+ */
+async function explorationTexts(id, seen) {
+  const exploration = /** @type {{ project_id: string, test_cases: { id: string }[] }} */ (
+    await api('GET', `/explorations/${id}`)
+  )
+  const texts = [JSON.stringify(exploration)]
+  /** @type {{ n: number, brain_call_id: string | null }[]} */
+  const steps = []
+  for (;;) {
+    const after = steps.at(-1)?.n ?? 0
+    const page = /** @type {{ n: number, brain_call_id: string | null }[]} */ (
+      await api('GET', `/explorations/${id}/steps?after=${after}&limit=200`)
+    )
+    steps.push(...page)
+    if (page.length < 200) break
+  }
+  texts.push(JSON.stringify(steps))
+  for (const step of steps) {
+    const callId = step.brain_call_id
+    if (!callId || seen.has(callId)) continue
+    seen.add(callId)
+    texts.push(JSON.stringify(await api('GET', `/brain-calls/${callId}`)))
+  }
+  const map = /** @type {{ screens: { snapshot: string, seen_in: string[] }[] }} */ (
+    await api('GET', `/projects/${exploration.project_id}/appmap`)
+  )
+  texts.push(JSON.stringify(map))
+  for (const screen of map.screens.filter((s) => s.seen_in.includes(id))) {
+    const text = await fetchText(
+      `/projects/${exploration.project_id}/files/${screen.snapshot}/tree.json`,
+    )
+    if (text !== undefined) texts.push(text)
+  }
+  for (const testCase of exploration.test_cases) {
+    if (seen.has(testCase.id)) continue
+    seen.add(testCase.id)
+    texts.push(...(await testCaseTexts(testCase.id)))
+  }
+  return texts
+}
+
+/**
+ * An import job (Phase 3, SC-007): the job and its report, and each case's exploration and test
+ * case. The manual cases as the person wrote them are not scanned: they are the input.
+ * @param {string} id
+ * @param {Set<string>} seen
+ */
+async function importTexts(id, seen) {
+  const job =
+    /** @type {{ items: { exploration_id: string | null, test_case_id: string | null }[] }} */ (
+      await api('GET', `/imports/${id}`)
+    )
+  const texts = [JSON.stringify(job)]
+  for (const item of job.items) {
+    if (item.exploration_id && !seen.has(item.exploration_id)) {
+      seen.add(item.exploration_id)
+      texts.push(...(await explorationTexts(item.exploration_id, seen)))
+    }
+    if (item.test_case_id && !seen.has(item.test_case_id)) {
+      seen.add(item.test_case_id)
+      texts.push(...(await testCaseTexts(item.test_case_id)))
+    }
+  }
+  return texts
+}
+
+/**
  * Counts CORAL_SECRET_* values in documents (SC-008).
  * @param {string[]} texts
  */
@@ -383,9 +465,11 @@ const scanSecrets = async (runId) => countSecrets(await runTexts(runId))
 
 await login()
 
-if (opts.run || opts['test-case'] || opts.recording) {
+if (scanOnly) {
   /** @type {string[]} */
   const texts = []
+  /** @type {Set<string>} */
+  const seen = new Set()
   /** @type {string[]} */
   const what = []
   if (opts.run) {
@@ -399,6 +483,16 @@ if (opts.run || opts['test-case'] || opts.recording) {
   if (opts.recording) {
     texts.push(...(await recordingTexts(opts.recording)))
     what.push(`recording ${opts.recording}`)
+  }
+  for (const id of opts.exploration ?? []) {
+    if (seen.has(id)) continue
+    seen.add(id)
+    texts.push(...(await explorationTexts(id, seen)))
+    what.push(`exploration ${id}`)
+  }
+  for (const id of opts.import ?? []) {
+    texts.push(...(await importTexts(id, seen)))
+    what.push(`import ${id}`)
   }
   const scan = countSecrets(texts)
   console.log(

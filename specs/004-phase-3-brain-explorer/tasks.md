@@ -506,7 +506,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
     - CLAUDE.md "Lệnh thường dùng": `pnpm mcp:otp`, `node scripts/phase3-dod.mjs`, biến `.env`;
     - README mục AI;
     - `examples/brains.example.yaml` (writer không mặc định Copilot) + `examples/skills/`, `examples/mcp.example.yaml`.
-- [ ] T062 SC-007/SC-008:
+- [x] T062 SC-007/SC-008:
   - `scripts/phase1-e2e.mjs --scan-secrets` quét thêm test case AI, `appmap/`, nội dung lời gọi AI (`--exploration <id>`, `--import <id>`);
   - test tích hợp cô lập tenant cho mọi route và message WS mới;
   - test `scripts/phase1-e2e.int.test.ts` ca mới.
