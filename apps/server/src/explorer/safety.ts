@@ -152,6 +152,14 @@ function checkTyping(
     }
     return { ok: true, element, flags: [] }
   }
+  // A password is only ever typed by its secret's name, never as text in a test case (FR-014):
+  // refused here, the AI hears why instead of the device failing the step.
+  if (element.node.android?.password === true) {
+    return refuse(
+      'invalid_text',
+      `element #${element.n} is a password field: type a secret by name`,
+    )
+  }
   const text = decision.text ?? ''
   const leaks = Object.values(ctx.secrets).some(
     (value) => value.length >= 4 && text.includes(value),
