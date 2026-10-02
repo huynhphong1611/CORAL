@@ -476,12 +476,12 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - chạy: `--port`, Streamable HTTP tại `/mcp`; script `pnpm mcp:otp`.
 
   Test `otp-server.test.ts` (liệt kê công cụ, gọi `get_otp`).
-- [ ] T059 [US7] Nối MCP vào server:
+- [x] T059 [US7] Nối MCP vào server:
   - `ai/knowledge.ts` đọc `mcp.yaml`; `createProjectBrain` mở client theo hoạt động, lọc `roles`; `CORAL_MCP_STDIO_ALLOWLIST`; `tool_calls` qua repo.
   - Chữ gõ lấy từ kết quả công cụ (so khớp giá trị) → cờ `mcp_value` trên bước → test case `draft` `needs_human`.
 
   Test `mcp-server.int.test.ts` (brain `fake` kịch bản gọi `get_otp`, `send_sms`, `delete_user` → 1 ok + 2 blocked; màn OTP của app mẫu giả qua được; test case sinh ra `needs_human`).
-- [ ] T060 [US7] E2E `e2e/us7-mcp.e2e.ts`:
+- [x] T060 [US7] E2E `e2e/us7-mcp.e2e.ts`:
   - chạy `otp-server`, sửa `mcp.yaml` trên tab Knowledge;
   - khám phá với Goal qua màn OTP → trace có lượt `otp__get_otp`;
   - test case `needs_human`;

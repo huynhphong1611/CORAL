@@ -2,7 +2,7 @@
 
 Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definition of Done (DoD)** đã đạt. Chi tiết kỹ thuật tham chiếu `docs/SPEC.md` (ký hiệu §, quyết định ký hiệu D). Mỗi phase là một feature Spec Kit trong `specs/` (D22).
 
-**Phase hiện tại:** Phase 3 — đang làm (`specs/004-phase-3-brain-explorer`): xong Setup + Foundational, US1 Bộ não AI (adapter Claude/Gemini/Copilot, Brain config, Usage), US2 Explorer, US3 Test writer + xác thực, US4 Tri thức project, US5 Test case từ prompt, US6 Import test case thủ công (10 case → 7 `active` trên thiết bị giả); còn US7 (MCP) và Polish. Phase 2 đạt DoD ngày 2026-09-30 (Recorder ghi, lưu và chạy lại 3/3 trên emulator Android 14 của CI — Device run 36686819869). Phase 1 đạt DoD ngày 2026-09-29 (các task 🔌 chạy trên emulator Android 14 trong CI — D37). Phase 0 đạt DoD ngày 2026-09-28.
+**Phase hiện tại:** Phase 3 — đang làm (`specs/004-phase-3-brain-explorer`): xong Setup + Foundational, US1 Bộ não AI (adapter Claude/Gemini/Copilot, Brain config, Usage), US2 Explorer, US3 Test writer + xác thực, US4 Tri thức project, US5 Test case từ prompt, US6 Import test case thủ công (10 case → 7 `active` trên thiết bị giả), US7 Công cụ MCP (OTP qua `otp__get_otp` trên thiết bị giả, công cụ ngoài allowlist bị chặn và ghi `tool_calls`); còn Polish. Phase 2 đạt DoD ngày 2026-09-30 (Recorder ghi, lưu và chạy lại 3/3 trên emulator Android 14 của CI — Device run 36686819869). Phase 1 đạt DoD ngày 2026-09-29 (các task 🔌 chạy trên emulator Android 14 trong CI — D37). Phase 0 đạt DoD ngày 2026-09-28.
 
 ---
 
@@ -88,7 +88,7 @@ Làm lần lượt từng phase. Chỉ chuyển phase khi mọi mục **Definiti
 
 - [x] `packages/brain`: interface (§14.1), adapter `claude`, `gemini`, `copilot` (§14.2; Copilot làm sau cùng, sau cờ — D20), Zod validate output, retry khi JSON sai.
 - [x] Router theo `brains.yaml` (§14.3), fallback, giới hạn chi phí, ghi `brain_calls`.
-- [ ] MCP client (§14.5, D29): nạp `mcp.yaml` của project, allowlist tool, vòng gọi tool tối đa 5 lượt, ghi `tool_calls`; thêm MCP SDK vào kiểm tra D08.
+- [x] MCP client (§14.5, D29): nạp `mcp.yaml` của project, allowlist tool, vòng gọi tool tối đa 5 lượt, ghi `tool_calls`; thêm MCP SDK vào kiểm tra D08.
 - [x] Bộ tuần tự hóa màn hình: danh sách element đánh số + screenshot resize.
 - [x] Prompt builder: nạp `AGENTS.md` + skill phù hợp của **đúng project** (§13).
 - [x] Explorer (§10): fingerprint màn hình (`packages/shared`, D24), app map, frontier, ngân sách, kiểm tra `never_tap`.

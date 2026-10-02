@@ -28,7 +28,14 @@ import {
 } from '../../components/ui'
 import { en } from '../../i18n/en'
 import { describeRun, TEST_CASE_TONES } from '../editor/StatusPanel'
-import { costOfBudget, describeStep, EXPLORATION_TONES, STEP_TONES, usd } from './describe'
+import {
+  costOfBudget,
+  describeStep,
+  EXPLORATION_TONES,
+  STEP_FLAG_TONES,
+  STEP_TONES,
+  usd,
+} from './describe'
 import { StepDetail } from './StepDetail'
 
 const t = en.exploration
@@ -393,6 +400,15 @@ function Trace({ steps }: { steps: api.ExplorationStepView[] }) {
                 {step.decision && 'reason' in step.decision && (
                   <div className="max-w-64 truncate text-xs text-slate-500">
                     {step.decision.reason}
+                  </div>
+                )}
+                {step.flags.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {step.flags.map((flag) => (
+                      <Badge key={flag} tone={STEP_FLAG_TONES[flag]}>
+                        {t.trace.flags[flag]}
+                      </Badge>
+                    ))}
                   </div>
                 )}
               </Td>

@@ -83,17 +83,29 @@ Kỳ vọng:
 ## 7. Công cụ MCP (US7 — SC-003)
 
 ```bash
-pnpm tsx fixtures/mcp/otp-server.ts --port 8765   # get_otp (chỉ đọc), send_sms (tác dụng phụ), delete_user
+pnpm mcp:otp --port 8765 --token <token>   # get_otp (chỉ đọc), send_sms (tác dụng phụ), delete_user
 ```
 
-Tab Knowledge → `mcp.yaml` với server `otp` (`url: http://localhost:8765/mcp`), `tools: { get_otp: {} }`.
+`.env` của server: `CORAL_SECRET_OTP_TOKEN=<token>`. Tab Knowledge → `mcp.yaml`:
 
-- Thiết bị giả: app mẫu giả có thêm màn nhập OTP (Phase 3).
+```yaml
+schema: coral/mcp@1
+servers:
+  otp:
+    url: http://localhost:8765/mcp
+    headers:
+      Authorization: 'Bearer ${secret:OTP_TOKEN}'
+    tools:
+      get_otp: {}
+      send_sms: {}        # không có side_effects: true → AI không được gọi
+```
+
+- Thiết bị giả (`pnpm dev:fake-device`): app mẫu giả có màn "Verify Code" nhận mã `482913` (mã server giả trả). Goal: `Open the menu, then Verify Code: type the code sent by SMS, tap Verify, until "Code verified"` (e2e/us7-mcp.e2e.ts).
 - My Demo App thật: không có màn OTP. Server giả trả mật khẩu demo làm "OTP", và một skill ghi "mật khẩu lấy bằng công cụ otp__get_otp". Goal: "Đăng nhập".
 
 Kỳ vọng:
-- Trace có lượt gọi `otp__get_otp` thành công.
-- Lời gọi `otp__send_sms` / `otp__delete_user` (nếu AI thử) bị chặn, có trong nhật ký công cụ.
+- Trace có lượt gọi `otp__get_otp` thành công; bước gõ mã mang nhãn "value from an MCP tool" (cờ `mcp_value`).
+- Lời gọi `otp__send_sms` (`side_effects_disabled`) / `otp__delete_user` (`not_allowed`), nếu AI thử, bị chặn trước khi tới server và có trong `tool_calls` (kiểm bằng `apps/server/src/explorer/mcp-server.int.test.ts`).
 - Test case dùng OTP ở `draft` với lý do `needs_human`.
 
 ## 8. DoD với AI thật — Huynh chạy trên máy (clarify Q1)

@@ -1,5 +1,11 @@
 import { defineConfig, devices } from '@playwright/test'
-import { E2E_SERVER_PORT, E2E_SERVER_URL, PREVIEW_PORT } from './e2e/env'
+import {
+  E2E_OTP_PORT,
+  E2E_OTP_TOKEN,
+  E2E_SERVER_PORT,
+  E2E_SERVER_URL,
+  PREVIEW_PORT,
+} from './e2e/env'
 
 // Browser E2E (Phase 2, research R14): `e2e/*.e2e.ts`, run with `pnpm test:e2e`. Chromium comes
 // from PLAYWRIGHT_BROWSERS_PATH (preinstalled in the dev container) or `playwright install
@@ -41,9 +47,18 @@ export default defineConfig({
         // The Explorer's E2E (US2) thinks with the scripted `fake` brain: no network, no cost.
         CORAL_BRAIN_FAKE: '1',
         CORAL_BRAINS_DEFAULT: 'examples/brains.fake.yaml',
+        // mcp.yaml of the US7 test reaches the fake OTP server with this token.
+        CORAL_SECRET_OTP_TOKEN: E2E_OTP_TOKEN,
       },
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
+    },
+    // The fake OTP MCP server (US7, SC-003): get_otp, send_sms, delete_user.
+    {
+      command: `pnpm mcp:otp --port ${E2E_OTP_PORT} --token ${E2E_OTP_TOKEN}`,
+      url: `http://127.0.0.1:${E2E_OTP_PORT}/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
     },
     // The built SPA, served the way a deployment would (vite preview keeps the /api proxy).
     {

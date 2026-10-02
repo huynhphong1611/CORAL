@@ -164,6 +164,11 @@ export const en = {
       cost: 'Cost',
       empty: 'No step yet.',
       system: 'system',
+      flags: {
+        mcp_value: 'value from an MCP tool',
+        invented_text: 'made-up text',
+        never_tap: 'tapped never_tap',
+      },
     },
     saw: 'What the AI saw',
     answered: 'What the AI answered',

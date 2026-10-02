@@ -191,6 +191,37 @@ describe('exploration page (T034)', () => {
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
   })
 
+  it('marks a value typed from an MCP tool and lists the tool calls of the step (US7)', async () => {
+    const detail = exploration()
+    const typed = step(1, {
+      screen: { id: 'verify-code', name: 'Verify Code', fingerprint: 'fedcba9876543210' },
+      decision: { action: 'type', element: 2, text: '482913', reason: 'Value from a tool' },
+      step: { id: 's1', action: 'type', target: [{ android_id: 'id/otpET' }], value: '482913' },
+      flags: ['mcp_value'],
+    })
+    const { calls: answers } = await open(detail, 'trace', [typed])
+    const sms = '{"error":"side_effects_disabled"}'
+    answers[typed.brain_call_id ?? ''] = brainCall(typed.brain_call_id ?? '', {
+      ...content,
+      rounds: [
+        {
+          tool_calls: [
+            { name: 'otp__get_otp', args: {}, result: '482913' },
+            { name: 'otp__send_sms', args: { text: 'hi' }, result: sms },
+          ],
+        },
+      ],
+      decision: typed.decision ?? undefined,
+    })
+
+    const table = await screen.findByRole('table', { name: 'Trace' })
+    expect(within(table).getByText('value from an MCP tool')).toBeTruthy()
+    await userEvent.click(within(table).getByText('Value from a tool'))
+    expect(await screen.findByText('Tool calls')).toBeTruthy()
+    expect(screen.getByText('otp__get_otp({}) → 482913')).toBeTruthy()
+    expect(screen.getByText(`otp__send_sms({"text":"hi"}) → ${sms}`)).toBeTruthy()
+  })
+
   it('shows the trace, adds steps as they come and opens what the AI saw and answered', async () => {
     const detail = exploration()
     const first = step(1)

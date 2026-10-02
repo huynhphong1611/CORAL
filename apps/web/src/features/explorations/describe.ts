@@ -55,6 +55,13 @@ export const STEP_TONES: Record<api.ExplorationStepStatus, Tone> = {
   restart: 'slate',
 }
 
+/** What a step's flag says to whoever reads the trace (a value from a tool, made-up text). */
+export const STEP_FLAG_TONES: Record<api.StepFlag, Tone> = {
+  mcp_value: 'blue',
+  invented_text: 'slate',
+  never_tap: 'amber',
+}
+
 export const usd = (value: number) => `$${value.toFixed(2)}`
 
 /** Cost always shown with its limit (`$0.82 / $3.00`). */
