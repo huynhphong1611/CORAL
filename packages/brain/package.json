@@ -5,7 +5,8 @@
   "description": "Brain interface and provider adapters (claude, gemini, copilot). Server-only — SPEC P1, §14.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

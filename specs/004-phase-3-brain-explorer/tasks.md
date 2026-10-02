@@ -464,14 +464,14 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 **Independent Test**: MCP server giả trả OTP; `get_otp` được gọi thành công; `send_sms` (tác dụng phụ chưa bật) và `delete_user` (ngoài allowlist) bị chặn; cả ba có trong `tool_calls` (quickstart §7, SC-003).
 
-- [ ] T057 [US7] MCP client `packages/brain/src/tools/mcp.ts` (research R5):
+- [x] T057 [US7] MCP client `packages/brain/src/tools/mcp.ts` (research R5):
   - Kết nối: `Client` + `StreamableHTTPClientTransport`; header từ `${secret:NAME}` qua resolver.
   - Công cụ đưa AI: lọc theo `tools`; không có `readOnlyHint: true` và thiếu `side_effects: true` → không đưa; tên `<server>__<tool>`.
   - Thực thi: kiểm lại allowlist lúc gọi (`not_allowed` / `side_effects_disabled`); timeout 20 s; kết quả cắt 8 KB, che secret.
   - Ghi: callback `record(toolCall)`.
 
   Test `mcp.test.ts` với MCP server trong tiến trình (SDK `McpServer`).
-- [ ] T058 [P] [US7] MCP server giả `fixtures/mcp/otp-server.ts`:
+- [x] T058 [P] [US7] MCP server giả `fixtures/mcp/otp-server.ts`:
   - công cụ: `get_otp` (`readOnlyHint: true`, trả mã cố định hoặc theo `--code`), `send_sms` (tác dụng phụ), `delete_user`;
   - chạy: `--port`, Streamable HTTP tại `/mcp`; script `pnpm mcp:otp`.
 

@@ -13,6 +13,7 @@
     "scripts/**/*.ts",
     "scripts/**/*.mjs",
     "e2e/**/*.ts",
+    "fixtures/**/*.ts",
     "apps/*/*.config.ts",
     "packages/*/*.config.ts"
   ]
