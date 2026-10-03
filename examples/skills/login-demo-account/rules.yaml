@@ -1,0 +1,15 @@
+# Rules of the login-demo-account skill (coral/skill-rules@1, specs/004 contracts/project-knowledge.md):
+# test data the AI types by name, labels never tapped, elements never touched, forms it may send.
+schema: coral/skill-rules@1
+
+test_data:
+  username: '${secret:TEST_USER}'
+  password: '${secret:TEST_PASSWORD}'
+
+never_tap: ['Log Out'] # the exploration would lose its session
+
+forbidden:
+  - text: Reset App State
+
+allow_submit:
+  - screen_text: Login # the demo account may be sent: it is the app's own

@@ -7,7 +7,7 @@ import { AgentConnection } from './connection'
 import { DeviceWatcher, type DeviceSource } from './devices'
 import { DeviceSessions, type SessionDriver } from './device-sessions'
 import { JobManager } from './jobs'
-import type { SecretValues } from './log'
+import { SecretValues } from './log'
 import { Streamer } from './streamer'
 
 export interface AgentOptions {
@@ -20,7 +20,10 @@ export interface AgentOptions {
   sessionIdleMs?: number
   cacheDir: string
   log?: Pick<Logger, 'info' | 'warn' | 'error' | 'debug'>
-  /** Secrets of the jobs, for the redacting logger (createAgentLogger). */
+  /**
+   * Secrets of the jobs and commands, for the redacting logger (createAgentLogger). Without it the
+   * agent keeps its own: snapshots and trees are masked whoever starts it.
+   */
   secrets?: SecretValues
   fetch?: typeof fetch
   clock?: Clock
@@ -37,6 +40,7 @@ export const SHUTDOWN_GRACE_MS = 10_000
  * the live-view streamer and remote commands, wired together. No AI here (P1).
  */
 export function startAgent(options: AgentOptions) {
+  const secrets = options.secrets ?? new SecretValues()
   const holder: { jobs?: JobManager; streamer?: Streamer; commands?: DeviceCommands } = {}
   const watcher = new DeviceWatcher({
     source: options.source,
@@ -87,7 +91,7 @@ export function startAgent(options: AgentOptions) {
     ...(options.fetch ? { fetch: options.fetch } : {}),
     ...(options.clock ? { clock: options.clock } : {}),
     ...(options.log ? { log: options.log } : {}),
-    ...(options.secrets ? { secrets: options.secrets } : {}),
+    secrets,
   })
   const streamer = new Streamer({
     sessions,
@@ -102,7 +106,7 @@ export function startAgent(options: AgentOptions) {
     cacheDir: options.cacheDir,
     ...(options.fetch ? { fetch: options.fetch } : {}),
     ...(options.clock ? { recorder: { clock: options.clock } } : {}),
-    ...(options.secrets ? { secrets: options.secrets } : {}),
+    secrets,
     ...(options.log ? { log: options.log } : {}),
   })
   holder.jobs = jobs

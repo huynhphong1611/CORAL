@@ -431,6 +431,39 @@ describe('fake adapter through structuredChat', () => {
     expect(calls).toEqual([])
   })
 
+  it('reads a field with the MCP tool a skill names for it', async () => {
+    const adapter = createFakeAdapter('fake')
+    const calls: string[] = []
+    const tools: ToolSet = {
+      specs: [
+        { name: 'read_skill', description: 'Read a skill', inputSchema: { type: 'object' } },
+        { name: 'otp__get_otp', description: 'Latest OTP', inputSchema: { type: 'object' } },
+      ],
+      call: (name) => {
+        calls.push(name)
+        return Promise.resolve({ result: '10203040', ok: true })
+      },
+    }
+    const knowledge = {
+      ...EMPTY_KNOWLEDGE,
+      skills: [
+        {
+          name: 'login-otp',
+          description: 'Log in with the demo account; the password is read with otp__get_otp',
+        },
+      ],
+    }
+    const login = screen([el(1, ['new', 'field', 'password'], { id: 'passwordET' })])
+    const { value } = await structuredChat({
+      adapter,
+      model: 'fake',
+      prompt: decidePrompt(decide(login), knowledge),
+      tools,
+    })
+    expect(value).toMatchObject({ action: 'type', element: 1, text: '10203040' })
+    expect(calls).toEqual(['otp__get_otp'])
+  })
+
   it('calls the tools its script names, then types what they returned', async () => {
     const adapter = createFakeAdapter('fake', {
       tools: (task, round) =>

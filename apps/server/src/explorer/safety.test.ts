@@ -110,6 +110,27 @@ describe('checkDecision (research R10, FR-022, FR-022a)', () => {
     ).toMatchObject({ ok: false, refusal: 'invalid_text' })
   })
 
+  it('refuses text in a password field: a password is typed by its secret only (FR-014)', () => {
+    const login = context('login', {
+      testData: { password: '${secret:TEST_PASSWORD}' },
+      secrets: { TEST_PASSWORD: '10203040' },
+      toolResults: ['10203040'],
+    })
+    const password = login.n('passwordET')
+    for (const text of ['10203040', 'coral']) {
+      expect(
+        checkDecision({ action: 'type', element: password, text, reason }, login.ctx),
+        text,
+      ).toMatchObject({ ok: false, refusal: 'invalid_text' })
+    }
+    expect(
+      checkDecision(
+        { action: 'type', element: password, test_data: 'password', reason },
+        login.ctx,
+      ),
+    ).toMatchObject({ ok: true, flags: [] })
+  })
+
   it('lets a search be typed and its results tapped', () => {
     const search = context('search')
     const field = search.screen.elements.find((e) => e.node.platform_id.endsWith(':id/searchET'))
