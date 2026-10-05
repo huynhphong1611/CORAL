@@ -51,6 +51,18 @@ Secrets used by test cases (`${secret:NAME}`) come from `CORAL_SECRET_<NAME>` in
 
 An `image` locator (the element's picture) is tried in its place in the chain when the others miss: the step passes `degraded`, and nothing is tapped when no place looks alike. `coral run --project-root <dir>` reads those pictures from a project checkout. Browser checks: `pnpm test:e2e` (Playwright, Chromium). Step-by-step checks: [`specs/003-phase-2-web-recorder/quickstart.md`](specs/003-phase-2-web-recorder/quickstart.md).
 
+## The AI (Phase 3)
+
+The AI explores the app and writes test cases; the test cases still replay without AI. Configure it on the web (**AI › Brain config**, a `coral/brains@1` document: a provider and model per role, fallback, cost limits — see `examples/brains.example.yaml`) with keys in `.env` (`CORAL_ANTHROPIC_API_KEY`, `CORAL_GEMINI_API_KEY`; GitHub Copilot with `CORAL_COPILOT_ENABLED=true` and `CORAL_COPILOT_TOKEN`). No key at hand? `CORAL_BRAIN_FAKE=true` with `CORAL_BRAINS_DEFAULT=examples/brains.fake.yaml` runs a scripted brain at no cost.
+
+- **Explore** (a project's **Explore**): the AI walks the app within a budget (steps, depth, minutes, USD) and never taps a `never_tap` button; follow it live — progress, the app map, the trace (what the AI saw and answered, its tool calls) and what it found. It then writes test cases, each validated by two runs in a row: `active`, else a `draft` saying why.
+- **From a goal**: give the exploration a goal (`Open the cart until "My Cart"`) and get one test case of the way there.
+- **Import** manual test cases (CSV, Excel, Gherkin): preview, choose the columns, and each case becomes an `active` test case or a `draft` with its reason (`needs_human`, `ambiguous`, `app_mismatch`).
+- **Knowledge** tab: the project's `AGENTS.md`, skills (`SKILL.md` + `rules.yaml` with test data as `${secret:NAME}`) and `mcp.yaml` (MCP servers whose allowed tools the AI may call — see `examples/`). Secret values never reach the AI.
+- **AI usage**: every call's cost, per day, role and provider, against the daily limit.
+
+Checks with real AI on your own device: `node scripts/phase3-dod.mjs --help` ([`specs/004-phase-3-brain-explorer/quickstart.md`](specs/004-phase-3-brain-explorer/quickstart.md) §8).
+
 ## Layout
 
 | Path | Package | Role |

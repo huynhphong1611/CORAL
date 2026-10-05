@@ -111,28 +111,32 @@ Kỳ vọng:
 ## 8. DoD với AI thật — Huynh chạy trên máy (clarify Q1)
 
 **Chuẩn bị**:
-- emulator Android 14 có My Demo App 2.3.0;
-- key Claude và Gemini trong `.env`;
-- `docker compose up -d --wait && pnpm --filter @coral/server db:migrate && pnpm dev`.
+- thiết bị Android thật (USB debugging) hoặc emulator Android 14 có My Demo App 2.3.0, thấy được bằng `pnpm coral devices`;
+- `.env`: key của các provider dùng tới (`CORAL_ANTHROPIC_API_KEY`, `CORAL_GEMINI_API_KEY`, hoặc Copilot: `CORAL_COPILOT_ENABLED=true` + `CORAL_COPILOT_TOKEN`), `CORAL_SECRET_TEST_PASSWORD=10203040` (mật khẩu demo), `CORAL_AGENT_TOKEN`;
+- `docker compose up -d --wait && pnpm --filter @coral/server db:migrate && pnpm dev`;
+- một file `brains.yaml` thật (mẫu: `examples/brains.example.yaml`, thay tên model; Copilot thêm `providers.copilot: { enabled: true, model: … }`).
 
 ```bash
 node scripts/phase3-dod.mjs \
   --server http://localhost:3000 --email <owner> --password <…> \
+  --brains my-brains.yaml --switch gemini,copilot \
   --apk <đường dẫn My Demo App 2.3.0> --device <udid> \
   --out dod-phase3/
 ```
 
-Script làm lần lượt và in bảng ✅/❌:
+Script tạo một project mới, rồi làm lần lượt và in ✅/❌ kèm chi phí (`--only sc002,sc001,…` để chạy một phần):
 
 | Tiêu chí | Script làm gì |
 |---|---|
-| **SC-002** | đặt `roles.explorer` = Gemini, khám phá ngắn (10 bước); đổi sang Claude **chỉ qua `PUT /brains/config`**, khám phá ngắn lần nữa; so provider trong `GET /usage/ai?group=provider` |
-| **SC-001** | khám phá đầy đủ trong giới hạn chi phí → đếm màn hình (≥ 5) và test `active` (≥ 3) → chạy lại mỗi test `active` 3 lần qua server → 3/3 |
-| **SC-003** | chạy `fixtures/mcp/otp-server.ts` (trả mật khẩu demo làm "OTP"), ghi `mcp.yaml` chỉ cho phép `get_otp`, thêm skill "mật khẩu lấy bằng công cụ otp__get_otp", chạy Goal "Đăng nhập" → kiểm `tool_calls` có ≥ 1 lần `get_otp` `ok`, và nội dung lời gọi AI cho thấy chỉ `get_otp` được đưa cho AI. Việc chặn công cụ ngoài allowlist đã có test tích hợp tự động (AI thật hiếm khi gọi tên không được đưa) |
+| **SC-002** | đặt `roles.explorer` = provider thứ nhất của `--switch`, khám phá ngắn (10 bước); đổi sang provider thứ hai **chỉ qua `PUT /brains/config`**, khám phá ngắn lần nữa; kiểm mỗi exploration do đúng provider trả lời (`GET /brain-calls/:id`), in `GET /usage/ai?group=provider` |
+| **SC-001** | khám phá đầy đủ (60 bước) → đếm màn hình (≥ 5) và test `active` (≥ 3) → chạy lại mỗi test `active` 3 lần qua server → 3/3 |
+| **SC-003** | chạy `fixtures/mcp/otp-server.ts` (trả **tên người dùng** demo — ô mật khẩu chỉ nhận secret theo tên, FR-014), ghi `mcp.yaml` chỉ cho phép `get_otp`, thêm skill `login-otp` ("tên người dùng lấy bằng otp__get_otp", mật khẩu là test data `${secret:TEST_PASSWORD}`), chạy Goal đăng nhập → kiểm `tool_calls` có ≥ 1 lần `get_otp` `ok` và không lời gọi nào khác lọt qua. Việc chặn công cụ ngoài allowlist đã có test tích hợp tự động (`mcp-server.int.test.ts`; AI thật hiếm khi gọi tên không được đưa). Nếu tên người dùng trùng một secret của server (ví dụ `CORAL_SECRET_TEST_USER`), AI chỉ thấy `${secret:…}` (FR-013) — script ghi chú điều này; đổi `--otp-code` để thấy giá trị được gõ |
 | **SC-004** | import `fixtures/manual/mydemo-10.csv` → đợi xong → ≥ 7 `active`, còn lại có lý do |
-| **SC-007** | quét secret (`phase1-e2e.mjs --scan-secrets`) trên test case, app map, nội dung lời gọi AI |
+| **SC-007** | `phase1-e2e.mjs --scan-secrets --exploration … --import …` trên mọi exploration và import ở trên: lời gọi AI và công cụ, trace, app map, test case |
 
-Thư mục `--out` chứa `report.md` (bảng kết quả, chi phí từng phần) và ảnh chụp trang (app map, trace, báo cáo import). **Gửi lại thư mục này** để đóng Phase 3. Tổng chi phí ước tính vài USD, bị chặn bởi giới hạn trong `brains.yaml` của script (`max_cost_usd_per_day: 15`).
+Thư mục `--out` chứa `report.md` (bảng kết quả, chi phí từng phần, id), `results.json` và ảnh chụp trang trong `pages/` (Playwright Chromium đăng nhập ở `--web`, mặc định `http://localhost:5173`; `--no-screenshots` để bỏ). **Gửi lại thư mục này** để đóng Phase 3. Tổng chi phí ước tính vài USD, bị chặn bởi `max_cost_usd_per_day` của file (tối đa `--max-cost-day`, mặc định 15).
+
+Bản chạy với brain giả (không tốn tiền) là test tự động `scripts/phase3-dod.int.test.ts`.
 
 ## Checklist DoD Phase 3
 

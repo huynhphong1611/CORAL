@@ -83,8 +83,11 @@ pnpm coral run <tc.yaml> --app <package> [--device <udid>] [--apk <file>] [--pro
 pnpm --filter @coral/server db:migrate   # áp migration Drizzle
 pnpm --filter @coral/server db:seed      # tạo owner từ CORAL_SEED_EMAIL / CORAL_SEED_PASSWORD
 pnpm --filter @coral/server test          # test một gói
-node scripts/phase1-e2e.mjs --help       # kiểm DoD Phase 1 qua REST API (5 run, artifact, --scan-secrets)
+node scripts/phase1-e2e.mjs --help       # kiểm DoD Phase 1 qua REST API (5 run, artifact, --scan-secrets; --exploration/--import quét secret Phase 3)
+node scripts/phase3-explore.mjs --help   # một exploration qua REST API (màn hình, never_tap, test case active)
+node scripts/phase3-dod.mjs --help       # DoD Phase 3 với AI thật trên thiết bị (SC-001…SC-004, SC-007) → report.md
+pnpm mcp:otp --port 3333                 # MCP server giả trả OTP (get_otp, send_sms, delete_user) để thử mcp.yaml
 docker compose up -d --wait  # postgres :5432, redis :6379, minio :9000 (console :9001)
 docker compose down          # dừng; thêm -v để xóa dữ liệu
 ```
-Cấu hình: chép `.env.example` thành `.env` ở gốc repo; server và agent tự đọc file này khi `pnpm dev`. Agent cần `CORAL_AGENT_TOKEN` (tạo bằng `POST /agents`); secret cho test case đặt dạng `CORAL_SECRET_<NAME>` (chỉ dev, D19).
+Cấu hình: chép `.env.example` thành `.env` ở gốc repo; server và agent tự đọc file này khi `pnpm dev`. Agent cần `CORAL_AGENT_TOKEN` (tạo bằng `POST /agents`); secret cho test case đặt dạng `CORAL_SECRET_<NAME>` (chỉ dev, D19). AI (Phase 3): `CORAL_ANTHROPIC_API_KEY`, `CORAL_GEMINI_API_KEY`, Copilot `CORAL_COPILOT_ENABLED=true` + `CORAL_COPILOT_TOKEN`; không có key thì `CORAL_BRAIN_FAKE=true` + `CORAL_BRAINS_DEFAULT=examples/brains.fake.yaml`.

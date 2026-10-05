@@ -408,7 +408,7 @@ export const en = {
       platform: 'The platform default applies until you save your own.',
       none: 'Explorations cannot start until a config is saved.',
     },
-    placeholder: 'Paste a coral/brains@1 document (see examples/brains.yaml).',
+    placeholder: 'Paste a coral/brains@1 document (see examples/brains.example.yaml).',
     providers: 'Providers on this server',
     provider: 'Provider',
     enabled: 'Enabled',

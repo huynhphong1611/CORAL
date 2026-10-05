@@ -493,7 +493,7 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
 
 ## Phase 10: Polish & Cross-Cutting Concerns
 
-- [ ] T061 Cập nhật tài liệu **sau khi Huynh duyệt** research R19 (đã duyệt 2026-10-01; phần SPEC xong sớm — D41–D46, còn CLAUDE.md/README/examples):
+- [x] T061 Cập nhật tài liệu **sau khi Huynh duyệt** research R19 (đã duyệt 2026-10-01; phần SPEC xong sớm — D41–D46, còn CLAUDE.md/README/examples):
   - SPEC:
     - §6: bảng mới, cột mới, `ai_explore`;
     - §13: `rules.yaml`, `imports/`;
@@ -506,11 +506,11 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
     - CLAUDE.md "Lệnh thường dùng": `pnpm mcp:otp`, `node scripts/phase3-dod.mjs`, biến `.env`;
     - README mục AI;
     - `examples/brains.example.yaml` (writer không mặc định Copilot) + `examples/skills/`, `examples/mcp.example.yaml`.
-- [ ] T062 SC-007/SC-008:
+- [x] T062 SC-007/SC-008:
   - `scripts/phase1-e2e.mjs --scan-secrets` quét thêm test case AI, `appmap/`, nội dung lời gọi AI (`--exploration <id>`, `--import <id>`);
   - test tích hợp cô lập tenant cho mọi route và message WS mới;
   - test `scripts/phase1-e2e.int.test.ts` ca mới.
-- [ ] T063 `scripts/phase3-dod.mjs` (quickstart §8), mỗi bước in ✅/❌ và chi phí:
+- [x] T063 `scripts/phase3-dod.mjs` (quickstart §8), mỗi bước in ✅/❌ và chi phí:
   - chuẩn bị: đăng nhập, project, app, build, cấu hình `brains.yaml` thật (`max_cost_usd_per_day: 15`);
   - SC-002: đổi provider `explorer` bằng API, hai exploration ngắn, so `usage` theo provider;
   - SC-001: exploration đầy đủ, đếm màn và `active`, chạy lại mỗi test 3 lần;
@@ -520,8 +520,8 @@ Monorepo (plan.md → Project Structure): `packages/shared/src/`, `packages/brai
   - `--out`: `report.md` + ảnh chụp trang bằng Playwright.
 
   Test `scripts/phase3-dod.int.test.ts` chạy cả script với brain `fake` + agent giả (không tốn tiền).
-- [ ] T064 Chạy đủ cổng chất lượng (format, lint, boundaries, typecheck, test, test:int, test:e2e, build) + quickstart §1; push; CI xanh mọi job (`checks`, `infra`, `integration`, `e2e`, `Device`).
-- [ ] T065 🧑‍💻 Huynh chạy `scripts/phase3-dod.mjs` trên máy (emulator + key Claude/Gemini) và gửi thư mục kết quả; sửa lỗi nếu có rồi chạy lại.
+- [x] T064 Chạy đủ cổng chất lượng (format, lint, boundaries, typecheck, test, test:int, test:e2e, build) + quickstart §1; push; CI xanh mọi job (`checks`, `infra`, `integration`, `e2e`, `Device`).
+- [ ] T065 🧑‍💻 Huynh chạy `scripts/phase3-dod.mjs` trên máy (thiết bị Android thật hoặc emulator + key của các provider trong `--brains`, ví dụ `--switch gemini,copilot`) và gửi thư mục kết quả; sửa lỗi nếu có rồi chạy lại.
 - [ ] T066 Đóng Phase 3:
   - tự kiểm từng mục DoD (quickstart checklist) theo báo cáo của T065;
   - đánh dấu `[x]` Phase 3 trong `docs/ROADMAP.md`;

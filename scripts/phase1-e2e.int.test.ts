@@ -8,6 +8,7 @@ import { promisify } from 'node:util'
 import { newId } from '@coral/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { LOGIN_YAML, startRunServer, type RunServer } from '../apps/server/src/testing/run-server'
+import { sampleDevice, sampleProject } from '../apps/server/src/testing/sample-project'
 import { TEST_PASSWORD, type TestUser } from '../apps/server/src/testing/test-server'
 import { FAKE_APP, startFakeDeviceAgent } from './fake-device-agent'
 
@@ -20,7 +21,11 @@ let dir = ''
 const stopAgents: (() => Promise<void>)[] = []
 
 beforeAll(async () => {
-  server = await startRunServer({ secrets: { TEST_USER: 'bob@example.com' } })
+  // The Explorer (fake brain) too, for the Phase 3 scans; its test cases are not validated.
+  server = await startRunServer({
+    secrets: { TEST_USER: 'bob@example.com' },
+    explorer: { validate: false },
+  })
   huynh = await server.newUser('Huynh')
   dir = await mkdtemp(join(tmpdir(), 'coral-phase1-'))
   await writeFile(join(dir, 'app.apk'), Buffer.from(`apk ${newId()}`))
@@ -201,6 +206,73 @@ describe('scripts/phase1-e2e.mjs', () => {
     expect(leaky).toMatchObject({ code: 1 })
     expect(leaky.stdout).toMatch(/: 1 hits\n {2}CORAL_SECRET_TEST_USER: 1/)
   })
+
+  it('scans an exploration: what the AI saw and answered, trace, app map, test cases (T062, SC-007)', async () => {
+    const get = async <T>(url: string) =>
+      (await server.call(huynh, { method: 'GET', url })).body as T
+    // The sample app on a device the server's test agent draws (the Explorer needs real pictures).
+    const { project, app, build } = await sampleProject(server, huynh)
+    const { sample, deviceId } = await sampleDevice(server, huynh, 'scan-explore')
+    stopAgents.push(() => Promise.resolve(sample.close()))
+    // A login skill: the Explorer types the username by name; the device shows its value.
+    const base = (await get<{ head_commit: string }>(`/projects/${project.id}/agents-md`))
+      .head_commit
+    const skill = await server.call(huynh, {
+      method: 'PUT',
+      url: `/projects/${project.id}/skills/login-demo-account`,
+      payload: {
+        skill_md:
+          '---\nname: login-demo-account\ndescription: Log in with the demo account on the Login screen\n---\nOpen the menu, then Log In.\n',
+        rules_yaml: "schema: coral/skill-rules@1\ntest_data:\n  username: '${secret:TEST_USER}'\n",
+        base_commit: base,
+      },
+    })
+    expect(skill.status).toBe(200)
+    const started = await server.explorations.start(
+      { tenantId: huynh.tenantId, userId: huynh.userId },
+      {
+        project_id: project.id,
+        app_id: app.id,
+        build_id: build.id,
+        device_id: deviceId,
+        budget: { max_steps: 20 },
+      },
+    )
+    const deadline = Date.now() + 90_000
+    for (;;) {
+      const { status } = await get<{ status: string }>(`/explorations/${started.id}`)
+      if (!['queued', 'running', 'writing', 'validating'].includes(status)) break
+      if (Date.now() > deadline) throw new Error(`exploration still ${status}`)
+      await new Promise((r) => setTimeout(r, 200))
+    }
+    const steps = await get<{ step: { action: string; value?: string } | null }[]>(
+      `/explorations/${started.id}/steps?limit=200`,
+    )
+    expect(steps.map((s) => s.step?.value)).toContain('${secret:TEST_USER}')
+
+    const scan = (extraEnv: Record<string, string> = {}) =>
+      run(
+        process.execPath,
+        [
+          SCRIPT,
+          ...['--server', server.url, '--email', huynh.email, '--password', TEST_PASSWORD],
+          ...['--scan-secrets', '--exploration', started.id],
+        ],
+        { cwd: dir, env: { ...env, ...extraEnv }, timeout: 60_000 },
+      )
+    const clean = await scan()
+    expect(clean.stdout).toMatch(/documents of exploration \S+ for 1 secrets: 0 hits/)
+    const documents = Number(/scanned (\d+) documents/.exec(clean.stdout)?.[1])
+    // The trace, every step's brain call, the app map with its trees, the test cases.
+    expect(documents).toBeGreaterThan(steps.length)
+    // A text the app shows, taken as a secret: the scan reads what the trace and the AI saw.
+    const probe = await scan({ CORAL_SECRET_PROBE: 'View menu' }).catch(
+      (e: { code: number; stdout: string }) => e,
+    )
+    expect(probe).toMatchObject({ code: 1 })
+    expect(probe.stdout).toMatch(/^ {2}CORAL_SECRET_PROBE: \d+$/m)
+    expect(probe.stdout).not.toMatch(/CORAL_SECRET_TEST_USER/)
+  }, 120_000)
 
   it('exits 2 on usage errors', async () => {
     const failed = await run(process.execPath, [SCRIPT, '--server', server.url], {

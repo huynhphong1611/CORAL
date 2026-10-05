@@ -1,16 +1,25 @@
-# Example brain routing — format defined in docs/SPEC.md §14.3.
-# Stored per tenant (DB, editable via GET/PUT /brains/config); this YAML is the import/export form.
-# Model names are configuration, never hard-coded in code. Replace the placeholders.
+# Example brain routing — format defined in docs/SPEC.md §14.3 (specs/004 contracts/brains-yaml.md).
+# Stored per tenant (DB, editable on the web: AI › Brain config, or GET/PUT /brains/config); this
+# YAML is the import/export form. Model names are configuration, never hard-coded in code: replace
+# the placeholders, and give each model a price here or in the platform table (ai-prices.yaml).
 schema: coral/brains@1
 
 roles:
   explorer: { provider: gemini, model: '<flash-class>' } # many calls: cheap + vision
-  writer: { provider: copilot }
-  healer: { provider: claude, model: '<reasoning-class>' }
-  popup: { provider: gemini, model: '<flash-class>' }
+  writer: { provider: claude, model: '<reasoning-class>' }
+  healer: { provider: claude, model: '<reasoning-class>' } # Phase 4
+  popup: { provider: gemini, model: '<flash-class>' } # Phase 4
 
 fallback: [claude, gemini]
+
+# GitHub Copilot is opt-in (D47): CORAL_COPILOT_ENABLED=true on the server, and enabled here. Then
+# name it in a role (e.g. explorer: { provider: copilot }) or in the fallback list.
+# providers:
+#   copilot: { enabled: true, model: '<copilot-model>', token_secret: COPILOT_TOKEN }
+# prices:
+#   '<copilot-model>': { input: 0, output: 0, per_request: 0.04 } # a premium request per call
 
 limits:
   max_cost_usd_per_day: 20
   max_cost_usd_per_exploration: 3
+  max_cost_usd_per_import: 10

@@ -42,6 +42,27 @@ describe('validateSkillSource', () => {
   })
 })
 
+describe('examples/skills/', () => {
+  const files = import.meta.glob<string>('../../../../examples/skills/*/*', {
+    eager: true,
+    query: '?raw',
+    import: 'default',
+  })
+  const file = (name: string) =>
+    Object.entries(files).find(([path]) => path.endsWith(name))?.[1] ?? ''
+
+  it('holds a valid skill and its rules', () => {
+    const md = validateSkillSource(file('login-demo-account/SKILL.md'), 'login-demo-account')
+    expect(md).toMatchObject({ valid: true, errors: [] })
+    const rules = validateSkillRulesSource(file('login-demo-account/rules.yaml'))
+    expect(rules).toMatchObject({ valid: true, errors: [] })
+    expect(rules.value?.test_data).toEqual({
+      username: '${secret:TEST_USER}',
+      password: '${secret:TEST_PASSWORD}',
+    })
+  })
+})
+
 describe('rules.yaml', () => {
   const rules = `schema: coral/skill-rules@1
 never_tap: ['Place Order']
